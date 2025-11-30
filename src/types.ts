@@ -32,6 +32,31 @@ export const MESSAGE_TYPES = {
 } as const;
 
 /**
+ * Message interface for content script communication
+ */
+export interface ContentScriptMessage {
+    type: typeof MESSAGE_TYPES.GET_LINK_CONTEXT;
+    data: LinkContext | null;
+}
+
+/**
+ * Content script context provided by Joplin
+ */
+export interface ContentScriptContext {
+    contentScriptId: string;
+    postMessage: (message: ContentScriptMessage) => void;
+}
+
+/**
+ * CodeMirror wrapper provided by Joplin content script environment
+ */
+export interface CodeMirrorWrapper {
+    cm6: boolean;
+    editor: unknown; // EditorView from @codemirror/view, but typed as unknown to avoid importing in main context
+    addExtension: (extension: unknown) => void;
+}
+
+/**
  * Command IDs - must be globally unique
  */
 export const COMMAND_IDS = {

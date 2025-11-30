@@ -1,6 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { LinkContext, LinkType, MESSAGE_TYPES } from '../types';
+import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
 
 /**
  * Detects link at cursor position using CodeMirror 6 syntax tree
@@ -74,9 +75,9 @@ function parseLink(linkText: string, nodeType: string): Omit<LinkContext, 'from'
 /**
  * Content script entry point
  */
-export default (context: any) => {
+export default (context: ContentScriptContext) => {
     return {
-        plugin: (codeMirrorWrapper: any) => {
+        plugin: (codeMirrorWrapper: CodeMirrorWrapper) => {
             // Store link context for current cursor position
             let currentLinkContext: LinkContext | null = null;
 
@@ -86,7 +87,7 @@ export default (context: any) => {
                 return;
             }
 
-            const view: EditorView = codeMirrorWrapper.editor;
+            const view: EditorView = codeMirrorWrapper.editor as EditorView;
 
             // Listen for cursor position changes
             // This is triggered when cursor moves or selection changes

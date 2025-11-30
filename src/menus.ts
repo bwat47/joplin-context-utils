@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { LinkContext, LinkType, COMMAND_IDS, MESSAGE_TYPES } from './types';
+import { LinkContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './utils/logger';
 
@@ -12,7 +12,7 @@ let currentLinkContext: LinkContext | null = null;
  * Sets up message listener for content script updates
  */
 export async function setupMessageListener(): Promise<void> {
-    await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: any) => {
+    await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
         if (message.type === MESSAGE_TYPES.GET_LINK_CONTEXT) {
             currentLinkContext = message.data;
             logger.debug('Link context updated:', currentLinkContext);
