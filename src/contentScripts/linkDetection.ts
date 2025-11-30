@@ -35,6 +35,20 @@ function detectLinkAtPosition(view: EditorView, pos: number): LinkContext | null
                     return false; // Stop iteration
                 }
             }
+            // Check for HTML tags (img elements)
+            else if (type.name === 'HTMLTag') {
+                const htmlText = view.state.doc.sliceString(from, to);
+                const parsedImage = parseImageTag(htmlText);
+
+                if (parsedImage) {
+                    linkContext = {
+                        ...parsedImage,
+                        from,
+                        to,
+                    };
+                    return false; // Stop iteration
+                }
+            }
         },
     });
 
@@ -60,6 +74,35 @@ function parseLink(linkText: string, nodeType: string): Omit<LinkContext, 'from'
         url = linkText.replace(/^<|>$/g, '');
     }
 
+    return classifyUrl(url);
+}
+
+/**
+ * Parses HTML img tag and extracts src attribute
+ * Handles img elements with various attributes
+ */
+function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to'> | null {
+    // Check if this is an img tag
+    if (!htmlText.match(/<img\s/i)) {
+        return null;
+    }
+
+    // Extract src attribute value
+    const srcMatch = htmlText.match(/\ssrc=["']([^"']+)["']/i);
+    if (!srcMatch) {
+        return null;
+    }
+
+    const url = srcMatch[1];
+    return classifyUrl(url);
+}
+
+/**
+ * Classifies a URL and determines its type
+ * @param url - The URL to classify
+ * @returns Link context with type, or null if not a supported URL type
+ */
+function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to'> | null {
     // Determine link type
     if (url.match(/^:\/[a-f0-9]{32}$/i)) {
         return { url, type: LinkType.JoplinResource };
