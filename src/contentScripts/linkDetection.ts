@@ -39,8 +39,7 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                     return false; // Stop iteration
                 }
             } else if (type.name === 'FencedCode' || type.name === 'CodeBlock') {
-                const codeText = view.state.doc.sliceString(from, to);
-                const parsedCode = parseCodeBlock(codeText);
+                const parsedCode = parseCodeBlock(node.node, view);
 
                 if (parsedCode) {
                     context = {
@@ -211,12 +210,28 @@ function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 'to' | 'c
 }
 
 /**
- * Parses code block and extracts content
+ * Parses code block and extracts content using syntax tree traversal
  * Handles fenced code blocks with or without language specifier
+ * Properly handles nested backticks by extracting only the CodeText node
+ * Falls back to regex if no CodeText child is found
  */
-function parseCodeBlock(codeText: string): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
-    // Remove fence markers and language from code block
-    // Match ``` or ~~~ with optional language, then code, then closing fence
+function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
+    const cursor = node.cursor();
+
+    // Try to find CodeText child node (syntax tree approach)
+    if (cursor.firstChild()) {
+        do {
+            if (cursor.name === 'CodeText') {
+                // Found CodeText child - extract it directly (excludes fence markers)
+                const code = view.state.doc.sliceString(cursor.from, cursor.to);
+                return { code };
+            }
+        } while (cursor.nextSibling());
+    }
+
+    // Fallback: If no CodeText child found, use regex to strip fence markers
+    // This handles cases where FencedCode is a flat node
+    const codeText = view.state.doc.sliceString(node.from, node.to);
     const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m) || codeText.match(/^~~~[^\n]*\n([\s\S]*?)~~~$/m);
 
     if (!match) {
