@@ -15,6 +15,23 @@ const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 let currentContext: EditorContext | null = null;
 
 /**
+ * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
+ * @param id - The 32-character hex ID
+ * @returns true if it's a note, false if it's a resource or doesn't exist
+ */
+async function isJoplinNote(id: string): Promise<boolean> {
+    try {
+        // Try to fetch it as a note. If this succeeds, it's a note.
+        await joplin.data.get(['notes', id], { fields: ['id'] });
+        return true;
+    } catch {
+        // If it throws (404), it's not a note.
+        // It's likely a resource (attachment) or a broken link.
+        return false;
+    }
+}
+
+/**
  * Sets up message listener for content script updates
  */
 export async function setupMessageListener(): Promise<void> {
@@ -52,28 +69,44 @@ export async function registerContextMenuFilter(): Promise<void> {
                 const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
                 const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
 
+                // For Joplin resources, check if it's a note or an actual resource
+                let isNote = false;
+                if (context.type === LinkType.JoplinResource) {
+                    const resourceId = context.url.substring(2); // Remove ":/" prefix
+                    isNote = await isJoplinNote(resourceId);
+                }
+
                 if (showOpenLink) {
                     contextMenuItems.push({
                         commandName: COMMAND_IDS.OPEN_LINK,
                         commandArgs: [context],
-                        label: getLabelForOpenLink(context),
+                        label: getLabelForOpenLink(context, isNote),
                     });
                 }
 
-                if (showCopyPath) {
+                // Only show resource-specific options for actual resources (not notes)
+                if (context.type === LinkType.JoplinResource && !isNote) {
+                    if (showCopyPath) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.COPY_PATH,
+                            commandArgs: [context],
+                            label: 'Copy Resource Path',
+                        });
+                    }
+
+                    if (showRevealFile) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.REVEAL_FILE,
+                            commandArgs: [context],
+                            label: 'Reveal File in Folder',
+                        });
+                    }
+                } else if (context.type === LinkType.ExternalUrl && showCopyPath) {
+                    // For external URLs, still show copy option
                     contextMenuItems.push({
                         commandName: COMMAND_IDS.COPY_PATH,
                         commandArgs: [context],
-                        label: getLabelForCopyPath(context),
-                    });
-                }
-
-                // Add "Reveal File" only for Joplin resources
-                if (showRevealFile && context.type === LinkType.JoplinResource) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.REVEAL_FILE,
-                        commandArgs: [context],
-                        label: 'Reveal File in Folder',
+                        label: 'Copy URL',
                     });
                 }
             } else if (context.contextType === 'code') {
@@ -111,29 +144,17 @@ export async function registerContextMenuFilter(): Promise<void> {
 
 /**
  * Generates context-aware label for "Open Link" command
+ * @param linkContext - The link context
+ * @param isNote - Whether the Joplin resource is a note (only applicable for JoplinResource type)
  */
-function getLabelForOpenLink(linkContext: LinkContext): string {
+function getLabelForOpenLink(linkContext: LinkContext, isNote: boolean = false): string {
     switch (linkContext.type) {
         case LinkType.ExternalUrl:
             return 'Open Link in Browser';
         case LinkType.JoplinResource:
-            return 'Open Resource';
+            return isNote ? 'Open Note' : 'Open Resource';
         default:
             return 'Open Link';
-    }
-}
-
-/**
- * Generates context-aware label for "Copy Path" command
- */
-function getLabelForCopyPath(linkContext: LinkContext): string {
-    switch (linkContext.type) {
-        case LinkType.ExternalUrl:
-            return 'Copy URL';
-        case LinkType.JoplinResource:
-            return 'Copy Resource Path';
-        default:
-            return 'Copy Path';
     }
 }
 
