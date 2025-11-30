@@ -65,6 +65,21 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                     return false; // Stop iteration
                 }
             }
+            // Check for markdown image syntax ![alt](url)
+            else if (type.name === 'Image') {
+                const imageText = view.state.doc.sliceString(from, to);
+                const parsedImage = parseMarkdownImage(imageText);
+
+                if (parsedImage) {
+                    context = {
+                        contextType: 'link',
+                        ...parsedImage,
+                        from,
+                        to,
+                    };
+                    return false; // Stop iteration
+                }
+            }
             // Check for HTML tags (img elements)
             else if (type.name === 'HTMLTag') {
                 const htmlText = view.state.doc.sliceString(from, to);
@@ -105,6 +120,19 @@ function parseLink(linkText: string, nodeType: string): Omit<LinkContext, 'from'
         url = linkText.replace(/^<|>$/g, '');
     }
 
+    return classifyUrl(url);
+}
+
+/**
+ * Parses markdown image syntax and extracts URL
+ * Handles ![alt](url) and ![alt](url "title") patterns
+ */
+function parseMarkdownImage(imageText: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+    // Match ![alt](url) or ![alt](url "title") pattern
+    const match = imageText.match(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/);
+    if (!match) return null;
+
+    const url = match[2];
     return classifyUrl(url);
 }
 
