@@ -1,0 +1,105 @@
+import joplin from 'api';
+import { COMMAND_IDS, LinkContext, LinkType } from './types';
+import { showToast, ToastType } from './utils/toastUtils';
+import { logger } from './utils/logger';
+
+/**
+ * Registers all context menu commands
+ */
+export async function registerCommands(): Promise<void> {
+    await joplin.commands.register({
+        name: COMMAND_IDS.OPEN_LINK,
+        label: 'Open Link',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleOpenLink(linkContext);
+            } catch (error) {
+                logger.error('Failed to open link:', error);
+                await showToast('Failed to open link', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.COPY_PATH,
+        label: 'Copy Path',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleCopyPath(linkContext);
+            } catch (error) {
+                logger.error('Failed to copy path:', error);
+                await showToast('Failed to copy path', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.REVEAL_FILE,
+        label: 'Reveal File in Folder',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleRevealFile(linkContext);
+            } catch (error) {
+                logger.error('Failed to reveal file:', error);
+                await showToast('Failed to reveal file', ToastType.Error);
+            }
+        },
+    });
+}
+
+/**
+ * Unified "Open Link" handler
+ * - External URLs: Open in browser
+ * - Joplin Resources: Open in default app
+ */
+async function handleOpenLink(linkContext: LinkContext): Promise<void> {
+    if (linkContext.type === LinkType.ExternalUrl) {
+        // Use Joplin's built-in command to open external URL
+        await joplin.commands.execute('openItem', linkContext.url);
+        logger.info('Opened external URL:', linkContext.url);
+    } else if (linkContext.type === LinkType.JoplinResource) {
+        // Joplin's openItem command can handle resource links directly
+        await joplin.commands.execute('openItem', linkContext.url);
+        logger.info('Opened resource:', linkContext.url);
+    } else {
+        throw new Error(`Unsupported link type: ${linkContext.type}`);
+    }
+}
+
+/**
+ * Unified "Copy Path" handler
+ * - External URLs: Copy URL to clipboard
+ * - Joplin Resources: Copy file path to clipboard
+ */
+async function handleCopyPath(linkContext: LinkContext): Promise<void> {
+    let textToCopy: string;
+
+    if (linkContext.type === LinkType.ExternalUrl) {
+        textToCopy = linkContext.url;
+        logger.info('Copying URL to clipboard:', textToCopy);
+    } else if (linkContext.type === LinkType.JoplinResource) {
+        const resourceId = linkContext.url.substring(2); // Remove ":/" prefix
+        textToCopy = await joplin.data.resourcePath(resourceId);
+        logger.info('Copying resource path to clipboard:', textToCopy);
+    } else {
+        throw new Error(`Unsupported link type: ${linkContext.type}`);
+    }
+
+    await joplin.clipboard.writeText(textToCopy);
+    await showToast('Copied to clipboard', ToastType.Info);
+}
+
+/**
+ * "Reveal File in Folder" handler (resources only)
+ */
+async function handleRevealFile(linkContext: LinkContext): Promise<void> {
+    if (linkContext.type !== LinkType.JoplinResource) {
+        throw new Error('Reveal file only works for Joplin resources');
+    }
+
+    const resourceId = linkContext.url.substring(2); // Remove ":/" prefix
+
+    // Use Joplin's built-in revealResourceFile command
+    await joplin.commands.execute('revealResourceFile', resourceId);
+    logger.info('Revealed resource file:', resourceId);
+}

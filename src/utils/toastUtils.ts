@@ -1,0 +1,27 @@
+import joplin from 'api';
+import { ToastType } from 'api/types';
+import { logger } from './logger';
+
+// Re-export ToastType for convenience
+export { ToastType } from 'api/types';
+
+const DEFAULT_TOAST_DURATION = 3000;
+
+/**
+ * Displays a toast notification
+ *
+ * @param message - The message to display
+ * @param type - Toast type (Info, Warning, Error). Defaults to Info.
+ * @param duration - Display duration in milliseconds. Defaults to 3000ms.
+ */
+export async function showToast(
+    message: string,
+    type: ToastType = ToastType.Info,
+    duration = DEFAULT_TOAST_DURATION
+): Promise<void> {
+    try {
+        await joplin.views.dialogs.showToast({ message, type, duration });
+    } catch (err) {
+        logger.warn(`Failed to show toast message "${message}":`, err);
+    }
+}

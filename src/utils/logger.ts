@@ -38,7 +38,10 @@ export enum LogLevel {
 export class Logger {
     private level: LogLevel;
 
-    constructor(private prefix: string, initialLevel: LogLevel) {
+    constructor(
+        private prefix: string,
+        initialLevel: LogLevel
+    ) {
         this.level = initialLevel;
     }
 
