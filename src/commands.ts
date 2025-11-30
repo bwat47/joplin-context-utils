@@ -99,7 +99,7 @@ async function handleCopyPath(linkContext: LinkContext): Promise<void> {
     }
 
     await joplin.clipboard.writeText(textToCopy);
-    await showToast('Copied to clipboard', ToastType.Info);
+    await showToast('Copied to clipboard', ToastType.Success);
 }
 
 /**
@@ -123,6 +123,6 @@ async function handleRevealFile(linkContext: LinkContext): Promise<void> {
  */
 async function handleCopyCode(codeContext: CodeContext): Promise<void> {
     await joplin.clipboard.writeText(codeContext.code);
-    await showToast('Code copied to clipboard', ToastType.Info);
+    await showToast('Code copied to clipboard', ToastType.Success);
     logger.info('Copied code to clipboard');
 }
