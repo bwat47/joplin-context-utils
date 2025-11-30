@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { LinkContext, EditorContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
+import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './logger';
 import {
@@ -10,11 +10,9 @@ import {
     SETTING_SHOW_COPY_OCR_TEXT,
 } from './settings';
 import { extractJoplinResourceId } from './utils/urlUtils';
+import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/linkDetection';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
-
-// Store the current context received from content script
-let currentContext: EditorContext | null = null;
 
 /**
  * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
@@ -50,30 +48,17 @@ async function hasOcrText(id: string): Promise<boolean> {
 }
 
 /**
- * Sets up message listener for content script updates
- */
-export async function setupMessageListener(): Promise<void> {
-    await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
-        if (message.type === MESSAGE_TYPES.GET_CONTEXT) {
-            currentContext = message.data;
-            logger.debug('Editor context updated:', currentContext);
-        }
-    });
-}
-
-/**
  * Registers context menu filter
  * This is called BEFORE the context menu opens
  */
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
-            // Add a small delay to allow content script message to arrive
-            // This mitigates race conditions where right-click moves cursor but message hasn't arrived yet
-            await new Promise((resolve) => setTimeout(resolve, 100));
-
-            // Use the stored context from content script
-            const context = currentContext;
+            // Get context directly from editor (pull architecture)
+            // This is guaranteed to match the current cursor position
+            const context = (await joplin.commands.execute('editor.execCommand', {
+                name: GET_CONTEXT_AT_CURSOR_COMMAND,
+            })) as EditorContext | null;
 
             if (!context) {
                 // No context at cursor, return menu unchanged

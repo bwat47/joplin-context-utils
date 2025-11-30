@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
-import { registerContextMenuFilter, setupMessageListener, CONTENT_SCRIPT_ID } from './menus';
+import { registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
 import { registerSettings } from './settings';
 import { logger } from './logger';
 
@@ -22,15 +22,11 @@ joplin.plugins.register({
             );
             logger.info('Link detection content script registered');
 
-            // 3. Set up message listener to receive updates from content script
-            await setupMessageListener();
-            logger.info('Content script message listener registered');
-
-            // 4. Register commands
+            // 3. Register commands
             await registerCommands();
             logger.info('Commands registered');
 
-            // 5. Register context menu filter
+            // 4. Register context menu filter
             await registerContextMenuFilter();
             logger.info('Context menu filter registered');
 

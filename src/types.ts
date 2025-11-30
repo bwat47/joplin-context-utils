@@ -43,31 +43,16 @@ export enum LinkType {
 }
 
 /**
- * Message types for postMessage communication
- */
-export const MESSAGE_TYPES = {
-    GET_CONTEXT: 'getContext',
-} as const;
-
-/**
  * Union type for all context types
  */
 export type EditorContext = LinkContext | CodeContext;
 
 /**
- * Message interface for content script communication
- */
-export interface ContentScriptMessage {
-    type: typeof MESSAGE_TYPES.GET_CONTEXT;
-    data: EditorContext | null;
-}
-
-/**
  * Content script context provided by Joplin
+ * (kept for type compatibility, but postMessage no longer used in pull architecture)
  */
 export interface ContentScriptContext {
     contentScriptId: string;
-    postMessage: (message: ContentScriptMessage) => void;
 }
 
 /**
@@ -77,6 +62,7 @@ export interface CodeMirrorWrapper {
     cm6: boolean;
     editor: unknown; // EditorView from @codemirror/view, but typed as unknown to avoid importing in main context
     addExtension: (extension: unknown) => void;
+    registerCommand: (name: string, callback: () => unknown) => void;
 }
 
 /**

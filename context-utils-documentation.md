@@ -24,7 +24,6 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 │   index.ts      │  Plugin entry point
 │                 │  - Registers settings
 │                 │  - Registers content script
-│                 │  - Sets up message listener
 │                 │  - Registers commands
 │                 │  - Registers context menu filter
 └────────┬────────┘
@@ -38,21 +37,26 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 └────────┘ └───────┘ └────────┘ └─────────┘ └──────────┘
 ```
 
-### Data Flow
+### Data Flow ("Pull" Architecture)
 
 1. **Content Script** (linkDetection.ts):
-    - Listens to cursor movements via CodeMirror 6 EditorView.updateListener
-    - Traverses syntax tree to detect context at cursor position
-    - Sends context updates to main plugin via `postMessage()`
+    - Registers command `contextUtils-getContextAtCursor` using `codeMirrorWrapper.registerCommand()`
+    - Command executes on-demand when called by main plugin
+    - Traverses syntax tree to detect context at current cursor position
 
 2. **Main Plugin** (menus.ts):
-    - Receives context via `onMessage()` listener
-    - Stores current context in module-level variable
-    - Builds context menu dynamically when user right-clicks
+    - When context menu opens, calls `joplin.commands.execute('editor.execCommand', { name: 'contextUtils-getContextAtCursor' })`
+    - Awaits context directly from editor (guaranteed to match cursor position)
+    - Builds context menu dynamically based on returned context
 
 3. **Commands** (commands.ts):
     - Execute actions when menu items are clicked
     - Use Joplin API for clipboard, file operations, URL opening
+
+**Key Benefits of Pull Architecture:**
+- ✅ Zero race conditions (context always matches cursor position)
+- ✅ Zero overhead (detection only runs on right-click, not every cursor movement)
+- ✅ Simpler code (no message passing, no global state)
 
 ## File Structure
 
@@ -62,14 +66,14 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Plugin registration and initialization
 - Coordinates all subsystems
-- Initialization order matters (settings → content script → listener → commands → menu)
+- Initialization order matters (settings → content script → commands → menu)
 
 **src/types.ts**
 
 - Type definitions with discriminated unions
 - `EditorContext = LinkContext | CodeContext`
-- `LinkType` enum (ExternalUrl, JoplinResource)
-- Command IDs and message type constants
+- `LinkType` enum (ExternalUrl, JoplinResource, Email)
+- Command IDs
 
 **src/settings.ts**
 
@@ -84,11 +88,11 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
+- Pulls context on-demand from content script via `editor.execCommand`
 - Distinguishes between note links and resource links using `isJoplinNote()` helper
 - Resource-specific options (Copy Path, Reveal File) only shown for actual resources
 - Checks settings before adding menu items
 - Only adds separator if ≥1 menu item will be shown
-- Stores current context from content script messages
 
 **src/commands.ts**
 
@@ -198,50 +202,30 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
     const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m);
     ````
 
-### 3. Efficient Context Comparison
+### 3. Content Script Communication (Pull Architecture)
 
-Uses shallow property comparison instead of `JSON.stringify()` for performance:
-
-```typescript
-function contextEquals(a: EditorContext | null, b: EditorContext | null): boolean {
-    if (!a && !b) return true;
-    if (!a || !b) return false;
-    if (a.contextType !== b.contextType || a.from !== b.from || a.to !== b.to) return false;
-
-    if (a.contextType === 'link' && b.contextType === 'link') {
-        return a.url === b.url && a.type === b.type;
-    } else if (a.contextType === 'code' && b.contextType === 'code') {
-        return a.code === b.code;
-    }
-
-    return false;
-}
-```
-
-Runs on every cursor movement → must be efficient.
-
-### 4. Content Script Communication
-
-**One-way messaging only** (Joplin API limitation):
+**Command registration pattern** - content script registers commands that main plugin calls on-demand:
 
 ```typescript
-// Content script → Main plugin
-context.postMessage({
-    type: MESSAGE_TYPES.GET_CONTEXT,
-    data: currentContext,
+// Content script - register command
+codeMirrorWrapper.registerCommand('contextUtils-getContextAtCursor', () => {
+    const pos = view.state.selection.main.head;
+    const context = detectContextAtPosition(view, pos);
+    return context;
 });
 
-// Main plugin receives
-await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message) => {
-    if (message.type === MESSAGE_TYPES.GET_CONTEXT) {
-        currentContext = message.data;
-    }
-});
+// Main plugin - call command when needed
+const context = await joplin.commands.execute('editor.execCommand', {
+    name: 'contextUtils-getContextAtCursor',
+}) as EditorContext | null;
 ```
 
-No request/response pattern - content script publishes, main plugin subscribes.
+**Benefits over push architecture:**
+- Direct request/response - no race conditions
+- Only executes when needed - zero overhead during typing
+- Guaranteed to return context for current cursor position
 
-### 5. Note vs Resource Distinction
+### 4. Note vs Resource Distinction
 
 Joplin uses the same `:/32-hex-id` syntax for both note links and resource (attachment) links. The content script cannot distinguish between them (it only sees text).
 

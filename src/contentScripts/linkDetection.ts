@@ -1,9 +1,14 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
-import { LinkContext, CodeContext, EditorContext, LinkType, MESSAGE_TYPES } from '../types';
+import { LinkContext, CodeContext, EditorContext, LinkType } from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
 import { logger } from '../logger';
+
+/**
+ * Command name for getting context at cursor
+ */
+export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
@@ -224,40 +229,12 @@ function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, '
 }
 
 /**
- * Compares two EditorContext objects for equality
- * More efficient than JSON.stringify comparison, especially for frequent cursor movements
- */
-function contextEquals(a: EditorContext | null, b: EditorContext | null): boolean {
-    // Both null/undefined
-    if (!a && !b) return true;
-
-    // One null, one not
-    if (!a || !b) return false;
-
-    // Different types or positions
-    if (a.contextType !== b.contextType || a.from !== b.from || a.to !== b.to) {
-        return false;
-    }
-
-    // Type-specific comparison
-    if (a.contextType === 'link' && b.contextType === 'link') {
-        return a.url === b.url && a.type === b.type;
-    } else if (a.contextType === 'code' && b.contextType === 'code') {
-        return a.code === b.code;
-    }
-
-    return false;
-}
-
-/**
  * Content script entry point
  */
-export default (context: ContentScriptContext) => {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export default (_context: ContentScriptContext) => {
     return {
         plugin: (codeMirrorWrapper: CodeMirrorWrapper) => {
-            // Store current context (link, code, etc.) for current cursor position
-            let currentContext: EditorContext | null = null;
-
             // Check CM6 availability
             if (!codeMirrorWrapper.cm6) {
                 logger.warn('CodeMirror 6 not available');
@@ -266,31 +243,13 @@ export default (context: ContentScriptContext) => {
 
             const view: EditorView = codeMirrorWrapper.editor as EditorView;
 
-            // Listen for cursor position changes
-            // This is triggered when cursor moves or selection changes
-            const updateListener = EditorView.updateListener.of((update) => {
-                if (update.selectionSet) {
-                    const pos = update.state.selection.main.head;
-                    const newContext = detectContextAtPosition(view, pos);
-
-                    // Only post message if context changed
-                    if (!contextEquals(newContext, currentContext)) {
-                        currentContext = newContext;
-                        // Send update to main plugin
-                        context.postMessage({
-                            type: MESSAGE_TYPES.GET_CONTEXT,
-                            data: currentContext,
-                        });
-                    }
-                }
-            });
-
-            codeMirrorWrapper.addExtension(updateListener);
-
-            // Send initial state
-            context.postMessage({
-                type: MESSAGE_TYPES.GET_CONTEXT,
-                data: currentContext,
+            // Register command to get context at cursor (pull architecture)
+            // This is called on-demand when the context menu opens
+            codeMirrorWrapper.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
+                const pos = view.state.selection.main.head;
+                const context = detectContextAtPosition(view, pos);
+                logger.debug('Context detected at cursor:', context);
+                return context;
             });
         },
     };
