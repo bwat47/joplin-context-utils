@@ -74,101 +74,104 @@ export async function registerContextMenuFilter(): Promise<void> {
             for (const context of contexts) {
                 // Handle different context types
                 if (context.contextType === 'link') {
-                // Check settings and build menu items for links
-                const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
-                const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
-                const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
-                const showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
+                    // Check settings and build menu items for links
+                    const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
+                    const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
+                    const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
+                    const showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
 
-                // For Joplin resources, check if it's a note or an actual resource
-                let isNote = false;
-                let hasOcr = false;
-                if (context.type === LinkType.JoplinResource) {
-                    const resourceId = extractJoplinResourceId(context.url);
-                    isNote = await isJoplinNote(resourceId);
-                    // Only check for OCR if it's not a note (i.e., it's a resource)
-                    if (!isNote && showCopyOcrText) {
-                        hasOcr = await hasOcrText(resourceId);
+                    // For Joplin resources, check if it's a note or an actual resource
+                    let isNote = false;
+                    let hasOcr = false;
+                    if (context.type === LinkType.JoplinResource) {
+                        const resourceId = extractJoplinResourceId(context.url);
+                        isNote = await isJoplinNote(resourceId);
+                        // Only check for OCR if it's not a note (i.e., it's a resource)
+                        if (!isNote && showCopyOcrText) {
+                            hasOcr = await hasOcrText(resourceId);
+                        }
                     }
-                }
 
-                if (showOpenLink) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.OPEN_LINK,
-                        commandArgs: [context],
-                        label: getLabelForOpenLink(context, isNote),
-                    });
-                }
+                    if (showOpenLink) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.OPEN_LINK,
+                            commandArgs: [context],
+                            label: getLabelForOpenLink(context, isNote),
+                        });
+                    }
 
-                // Only show resource-specific options for actual resources (not notes)
-                if (context.type === LinkType.JoplinResource && !isNote) {
-                    if (showCopyPath) {
+                    // Only show resource-specific options for actual resources (not notes)
+                    if (context.type === LinkType.JoplinResource && !isNote) {
+                        if (showCopyPath) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.COPY_PATH,
+                                commandArgs: [context],
+                                label: 'Copy Resource Path',
+                            });
+                        }
+
+                        if (showRevealFile) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.REVEAL_FILE,
+                                commandArgs: [context],
+                                label: 'Reveal File in Folder',
+                            });
+                        }
+
+                        if (hasOcr) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.COPY_OCR_TEXT,
+                                commandArgs: [context],
+                                label: 'Copy OCR Text',
+                            });
+                        }
+                    } else if (
+                        (context.type === LinkType.ExternalUrl || context.type === LinkType.Email) &&
+                        showCopyPath
+                    ) {
+                        // For external URLs and emails, still show copy option
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.COPY_PATH,
                             commandArgs: [context],
-                            label: 'Copy Resource Path',
+                            label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
                         });
                     }
+                } else if (context.contextType === 'code') {
+                    // Check setting and build menu items for code
+                    const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
 
-                    if (showRevealFile) {
+                    if (showCopyCode) {
                         contextMenuItems.push({
-                            commandName: COMMAND_IDS.REVEAL_FILE,
+                            commandName: COMMAND_IDS.COPY_CODE,
                             commandArgs: [context],
-                            label: 'Reveal File in Folder',
+                            label: 'Copy Code',
                         });
                     }
-
-                    if (hasOcr) {
+                } else if (context.contextType === 'checkbox') {
+                    // Add checkbox toggle menu item
+                    contextMenuItems.push({
+                        commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
+                        commandArgs: [context],
+                        label: context.checked ? 'Uncheck Task' : 'Check Task',
+                    });
+                } else if (context.contextType === 'taskSelection') {
+                    // Add bulk checkbox menu items for selection
+                    if (context.uncheckedCount > 0) {
                         contextMenuItems.push({
-                            commandName: COMMAND_IDS.COPY_OCR_TEXT,
+                            commandName: COMMAND_IDS.CHECK_ALL_TASKS,
                             commandArgs: [context],
-                            label: 'Copy OCR Text',
+                            label: `Check All Tasks (${context.uncheckedCount})`,
                         });
                     }
-                } else if ((context.type === LinkType.ExternalUrl || context.type === LinkType.Email) && showCopyPath) {
-                    // For external URLs and emails, still show copy option
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.COPY_PATH,
-                        commandArgs: [context],
-                        label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
-                    });
-                }
-            } else if (context.contextType === 'code') {
-                // Check setting and build menu items for code
-                const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
 
-                if (showCopyCode) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.COPY_CODE,
-                        commandArgs: [context],
-                        label: 'Copy Code',
-                    });
+                    if (context.checkedCount > 0) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
+                            commandArgs: [context],
+                            label: `Uncheck All Tasks (${context.checkedCount})`,
+                        });
+                    }
                 }
-            } else if (context.contextType === 'checkbox') {
-                // Add checkbox toggle menu item
-                contextMenuItems.push({
-                    commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
-                    commandArgs: [context],
-                    label: context.checked ? 'Uncheck Task' : 'Check Task',
-                });
-            } else if (context.contextType === 'taskSelection') {
-                // Add bulk checkbox menu items for selection
-                if (context.uncheckedCount > 0) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.CHECK_ALL_TASKS,
-                        commandArgs: [context],
-                        label: `Check All Tasks (${context.uncheckedCount})`,
-                    });
-                }
-
-                if (context.checkedCount > 0) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
-                        commandArgs: [context],
-                        label: `Uncheck All Tasks (${context.checkedCount})`,
-                    });
-                }
-            }
             }
 
             // Only add items if we have any menu items to show

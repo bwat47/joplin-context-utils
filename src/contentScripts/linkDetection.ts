@@ -181,12 +181,34 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
 /**
  * Detects checkbox context at the current line
  * This is separate from primary context detection to allow showing both
+ * Uses syntax tree to verify we're in a ListItem/Task node (not in a code block)
  *
  * @param view - CodeMirror EditorView
  * @param pos - Cursor position
  * @returns CheckboxContext if on a task list line, null otherwise
  */
 function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext | null {
+    const tree = syntaxTree(view.state);
+    let isInTaskList = false;
+
+    // Check if cursor is within a ListItem or Task node
+    // This prevents false positives inside code blocks
+    tree.iterate({
+        from: pos,
+        to: pos,
+        enter: (node) => {
+            if (node.type.name === 'ListItem' || node.type.name === 'Task') {
+                isInTaskList = true;
+                return false; // Stop iteration
+            }
+        },
+    });
+
+    // Only check for checkbox pattern if we're in a task list item
+    if (!isInTaskList) {
+        return null;
+    }
+
     const line = view.state.doc.lineAt(pos);
     const lineText = line.text;
 
@@ -313,6 +335,7 @@ function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, '
 /**
  * Detects task list checkboxes within a text selection
  * Scans all lines in the selection range for task list items
+ * Uses syntax tree to verify each line is in a ListItem/Task node (not in a code block)
  *
  * @param view - CodeMirror EditorView
  * @param from - Start of selection
@@ -323,6 +346,7 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
     const tasks: TaskInfo[] = [];
     let checkedCount = 0;
     let uncheckedCount = 0;
+    const tree = syntaxTree(view.state);
 
     // Get the starting and ending lines
     const startLine = view.state.doc.lineAt(from);
@@ -332,6 +356,25 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
     for (let lineNum = startLine.number; lineNum <= endLine.number; lineNum++) {
         const line = view.state.doc.line(lineNum);
         const lineText = line.text;
+
+        // Check if this line is within a ListItem or Task node
+        // This prevents false positives inside code blocks
+        let isInTaskList = false;
+        tree.iterate({
+            from: line.from,
+            to: line.from,
+            enter: (node) => {
+                if (node.type.name === 'ListItem' || node.type.name === 'Task') {
+                    isInTaskList = true;
+                    return false; // Stop iteration
+                }
+            },
+        });
+
+        // Only check for checkbox pattern if we're in a task list item
+        if (!isInTaskList) {
+            continue;
+        }
 
         // Check if this line contains a task list checkbox
         const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
