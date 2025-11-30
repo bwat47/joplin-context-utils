@@ -139,8 +139,6 @@ function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextTyp
         return { url, type: LinkType.JoplinResource };
     } else if (url.match(/^https?:\/\//)) {
         return { url, type: LinkType.ExternalUrl };
-    } else if (url.match(/^file:\/\//)) {
-        return { url, type: LinkType.LocalFile };
     }
 
     return null;

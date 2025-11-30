@@ -37,9 +37,6 @@ export enum LinkType {
 
     /** Joplin resource (:/resource-id format) */
     JoplinResource = 'joplin-resource',
-
-    /** Local file:// URL */
-    LocalFile = 'local-file',
 }
 
 /**
