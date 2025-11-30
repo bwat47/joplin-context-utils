@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, LinkType } from './types';
+import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, TaskSelectionContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
@@ -83,6 +83,32 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to toggle checkbox:', error);
                 await showToast('Failed to toggle checkbox', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.CHECK_ALL_TASKS,
+        label: 'Check All Tasks',
+        execute: async (taskSelectionContext: TaskSelectionContext) => {
+            try {
+                await handleCheckAllTasks(taskSelectionContext);
+            } catch (error) {
+                logger.error('Failed to check all tasks:', error);
+                await showToast('Failed to check all tasks', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.UNCHECK_ALL_TASKS,
+        label: 'Uncheck All Tasks',
+        execute: async (taskSelectionContext: TaskSelectionContext) => {
+            try {
+                await handleUncheckAllTasks(taskSelectionContext);
+            } catch (error) {
+                logger.error('Failed to uncheck all tasks:', error);
+                await showToast('Failed to uncheck all tasks', ToastType.Error);
             }
         },
     });
@@ -208,4 +234,82 @@ async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<v
     const action = checkboxContext.checked ? 'unchecked' : 'checked';
     await showToast(`Task ${action}`, ToastType.Success);
     logger.info(`Toggled checkbox: ${action}`);
+}
+
+/**
+ * "Check All Tasks" handler
+ * Checks all unchecked tasks in the selection
+ */
+async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process each task in the selection
+    for (const task of taskSelectionContext.tasks) {
+        // Skip already checked tasks
+        if (task.checked) {
+            continue;
+        }
+
+        // Replace [ ] with [x]
+        const newLineText = task.lineText.replace(/\[ \]/, '[x]');
+
+        const success = (await joplin.commands.execute('editor.execCommand', {
+            name: REPLACE_RANGE_COMMAND,
+            args: [newLineText, task.from, task.to],
+        })) as boolean;
+
+        if (success) {
+            successCount++;
+        } else {
+            failCount++;
+        }
+    }
+
+    if (failCount > 0) {
+        await showToast(`Checked ${successCount} tasks (${failCount} failed)`, ToastType.Error);
+        logger.warn(`Checked ${successCount} tasks, ${failCount} failed`);
+    } else {
+        await showToast(`Checked ${successCount} task${successCount !== 1 ? 's' : ''}`, ToastType.Success);
+        logger.info(`Checked ${successCount} tasks`);
+    }
+}
+
+/**
+ * "Uncheck All Tasks" handler
+ * Unchecks all checked tasks in the selection
+ */
+async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+    let successCount = 0;
+    let failCount = 0;
+
+    // Process each task in the selection
+    for (const task of taskSelectionContext.tasks) {
+        // Skip already unchecked tasks
+        if (!task.checked) {
+            continue;
+        }
+
+        // Replace [x] with [ ]
+        const newLineText = task.lineText.replace(/\[x\]/, '[ ]');
+
+        const success = (await joplin.commands.execute('editor.execCommand', {
+            name: REPLACE_RANGE_COMMAND,
+            args: [newLineText, task.from, task.to],
+        })) as boolean;
+
+        if (success) {
+            successCount++;
+        } else {
+            failCount++;
+        }
+    }
+
+    if (failCount > 0) {
+        await showToast(`Unchecked ${successCount} tasks (${failCount} failed)`, ToastType.Error);
+        logger.warn(`Unchecked ${successCount} tasks, ${failCount} failed`);
+    } else {
+        await showToast(`Unchecked ${successCount} task${successCount !== 1 ? 's' : ''}`, ToastType.Success);
+        logger.info(`Unchecked ${successCount} tasks`);
+    }
 }

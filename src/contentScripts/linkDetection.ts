@@ -1,7 +1,15 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
-import { LinkContext, CodeContext, CheckboxContext, EditorContext, LinkType } from '../types';
+import {
+    LinkContext,
+    CodeContext,
+    CheckboxContext,
+    TaskSelectionContext,
+    TaskInfo,
+    EditorContext,
+    LinkType,
+} from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
 import { logger } from '../logger';
 
@@ -17,13 +25,25 @@ export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
- * Can detect links, images, inline code, or code blocks
+ * Can detect links, images, inline code, code blocks, or task selections
  *
  * @param view - CodeMirror 6 EditorView instance
  * @param pos - Cursor position to check
- * @returns EditorContext (LinkContext or CodeContext) if found, null otherwise
+ * @returns EditorContext if found, null otherwise
  */
 function detectContextAtPosition(view: EditorView, pos: number): EditorContext | null {
+    const selection = view.state.selection.main;
+
+    // Check if there's a selection (not just cursor)
+    if (selection.from !== selection.to) {
+        // Check for tasks in selection
+        const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
+        if (taskSelection) {
+            return taskSelection;
+        }
+        // If selection doesn't contain tasks, fall through to normal detection
+    }
+
     const tree = syntaxTree(view.state);
     let context: EditorContext | null = null;
 
@@ -281,6 +301,65 @@ function parseCheckbox(
         lineText,
         from: line.from,
         to: line.to,
+    };
+}
+
+/**
+ * Detects task list checkboxes within a text selection
+ * Scans all lines in the selection range for task list items
+ *
+ * @param view - CodeMirror EditorView
+ * @param from - Start of selection
+ * @param to - End of selection
+ * @returns TaskSelectionContext if tasks found, null otherwise
+ */
+function detectTasksInSelection(view: EditorView, from: number, to: number): TaskSelectionContext | null {
+    const tasks: TaskInfo[] = [];
+    let checkedCount = 0;
+    let uncheckedCount = 0;
+
+    // Get the starting and ending lines
+    const startLine = view.state.doc.lineAt(from);
+    const endLine = view.state.doc.lineAt(to);
+
+    // Iterate through all lines in the selection
+    for (let lineNum = startLine.number; lineNum <= endLine.number; lineNum++) {
+        const line = view.state.doc.line(lineNum);
+        const lineText = line.text;
+
+        // Check if this line contains a task list checkbox
+        const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+
+        if (checkboxMatch) {
+            const checked = checkboxMatch[2] === 'x';
+
+            tasks.push({
+                lineText,
+                checked,
+                from: line.from,
+                to: line.to,
+            });
+
+            if (checked) {
+                checkedCount++;
+            } else {
+                uncheckedCount++;
+            }
+        }
+    }
+
+    // Only return context if we found at least one task
+    if (tasks.length === 0) {
+        return null;
+    }
+
+    return {
+        contextType: 'taskSelection',
+        tasks,
+        checkedCount,
+        uncheckedCount,
+        from,
+        to,
     };
 }
 

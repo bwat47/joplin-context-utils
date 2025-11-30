@@ -148,6 +148,23 @@ export async function registerContextMenuFilter(): Promise<void> {
                     commandArgs: [context],
                     label: context.checked ? 'Uncheck Task' : 'Check Task',
                 });
+            } else if (context.contextType === 'taskSelection') {
+                // Add bulk checkbox menu items for selection
+                if (context.uncheckedCount > 0) {
+                    contextMenuItems.push({
+                        commandName: COMMAND_IDS.CHECK_ALL_TASKS,
+                        commandArgs: [context],
+                        label: `Check All Tasks (${context.uncheckedCount})`,
+                    });
+                }
+
+                if (context.checkedCount > 0) {
+                    contextMenuItems.push({
+                        commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
+                        commandArgs: [context],
+                        label: `Uncheck All Tasks (${context.checkedCount})`,
+                    });
+                }
             }
 
             // Only add items if we have any menu items to show

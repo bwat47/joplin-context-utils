@@ -49,6 +49,42 @@ export interface CheckboxContext {
     to: number;
 }
 
+/**
+ * Represents information about a single task in a selection
+ */
+export interface TaskInfo {
+    /** Line text */
+    lineText: string;
+
+    /** Whether the task is checked */
+    checked: boolean;
+
+    /** Position of the line */
+    from: number;
+    to: number;
+}
+
+/**
+ * Represents multiple task list checkboxes in a selection
+ */
+export interface TaskSelectionContext {
+    /** Discriminator for union type */
+    contextType: 'taskSelection';
+
+    /** Array of tasks found in the selection */
+    tasks: TaskInfo[];
+
+    /** Number of checked tasks */
+    checkedCount: number;
+
+    /** Number of unchecked tasks */
+    uncheckedCount: number;
+
+    /** Position information for the entire selection */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -63,7 +99,7 @@ export enum LinkType {
 /**
  * Union type for all context types
  */
-export type EditorContext = LinkContext | CodeContext | CheckboxContext;
+export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext;
 
 /**
  * Content script context provided by Joplin
@@ -93,6 +129,8 @@ export const COMMAND_IDS = {
     COPY_CODE: 'contextUtils.copyCode',
     COPY_OCR_TEXT: 'contextUtils.copyOcrText',
     TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
+    CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
+    UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
 } as const;
 
 /**
