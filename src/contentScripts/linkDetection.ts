@@ -275,11 +275,7 @@ function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, '
  * @param pos - Cursor position
  * @returns Checkbox context if valid checkbox found, null otherwise
  */
-function parseCheckbox(
-    _node: SyntaxNode,
-    view: EditorView,
-    pos: number
-): Omit<CheckboxContext, 'contextType'> | null {
+function parseCheckbox(_node: SyntaxNode, view: EditorView, pos: number): Omit<CheckboxContext, 'contextType'> | null {
     // Get the line containing the cursor position
     const line = view.state.doc.lineAt(pos);
     const lineText = line.text;

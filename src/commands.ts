@@ -218,7 +218,7 @@ async function handleCopyOcrText(linkContext: LinkContext): Promise<void> {
 async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<void> {
     // Toggle the checkbox: [ ] ↔ [x]
     const newLineText = checkboxContext.checked
-        ? checkboxContext.lineText.replace(/\[x\]/, '[ ]')  // Uncheck
+        ? checkboxContext.lineText.replace(/\[x\]/, '[ ]') // Uncheck
         : checkboxContext.lineText.replace(/\[ \]/, '[x]'); // Check
 
     // Replace the line text using the replaceRange command
