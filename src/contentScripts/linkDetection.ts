@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
-import { LinkContext, CodeContext, EditorContext, LinkType } from '../types';
+import { LinkContext, CodeContext, CheckboxContext, EditorContext, LinkType } from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
 import { logger } from '../logger';
 
@@ -9,6 +9,11 @@ import { logger } from '../logger';
  * Command name for getting context at cursor
  */
 export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
+
+/**
+ * Command name for replacing a range of text in the editor
+ */
+export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
@@ -52,6 +57,18 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                         ...parsedCode,
                         from,
                         to,
+                    };
+                    return false; // Stop iteration
+                }
+            }
+            // Check for task list checkboxes (priority 2: after code, before links)
+            else if (type.name === 'ListItem' || type.name === 'Task') {
+                const parsedCheckbox = parseCheckbox(node.node, view, pos);
+
+                if (parsedCheckbox) {
+                    context = {
+                        contextType: 'checkbox',
+                        ...parsedCheckbox,
                     };
                     return false; // Stop iteration
                 }
@@ -229,6 +246,45 @@ function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, '
 }
 
 /**
+ * Parses task list checkbox and extracts checked state
+ * Handles nested/indented task lists
+ * Detection works when cursor is anywhere within the task item
+ *
+ * @param node - The ListItem or Task syntax node
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position
+ * @returns Checkbox context if valid checkbox found, null otherwise
+ */
+function parseCheckbox(
+    _node: SyntaxNode,
+    view: EditorView,
+    pos: number
+): Omit<CheckboxContext, 'contextType'> | null {
+    // Get the line containing the cursor position
+    const line = view.state.doc.lineAt(pos);
+    const lineText = line.text;
+
+    // Match task list checkbox: "  - [ ] Task" or "    * [x] Done"
+    // Supports: -, *, + as list markers
+    // Supports: lowercase x only (as per requirements)
+    const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+
+    if (!checkboxMatch) {
+        return null;
+    }
+
+    // Extract checked state (lowercase x means checked, space means unchecked)
+    const checked = checkboxMatch[2] === 'x';
+
+    return {
+        checked,
+        lineText,
+        from: line.from,
+        to: line.to,
+    };
+}
+
+/**
  * Content script entry point
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -250,6 +306,43 @@ export default (_context: ContentScriptContext) => {
                 const context = detectContextAtPosition(view, pos);
                 logger.debug('Context detected at cursor:', context);
                 return context;
+            });
+
+            // Register command to replace a range of text in the editor
+            // Used for checkbox toggling and other text replacement operations
+            codeMirrorWrapper.registerCommand(REPLACE_RANGE_COMMAND, (newText: string, from: number, to: number) => {
+                // Validate inputs
+                if (typeof newText !== 'string') {
+                    logger.error('replaceRange: newText must be a string');
+                    return false;
+                }
+
+                if (
+                    typeof from !== 'number' ||
+                    typeof to !== 'number' ||
+                    !Number.isFinite(from) ||
+                    !Number.isFinite(to)
+                ) {
+                    logger.error('replaceRange: from and to must be finite numbers');
+                    return false;
+                }
+
+                if (from > to) {
+                    logger.error('replaceRange: from must be <= to');
+                    return false;
+                }
+
+                try {
+                    // Perform the text replacement
+                    view.dispatch({
+                        changes: { from, to, insert: newText },
+                    });
+                    logger.debug(`Replaced text from ${from} to ${to} with:`, newText);
+                    return true;
+                } catch (error) {
+                    logger.error('replaceRange: failed to replace text:', error);
+                    return false;
+                }
             });
         },
     };

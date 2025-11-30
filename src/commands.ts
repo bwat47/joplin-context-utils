@@ -1,8 +1,9 @@
 import joplin from 'api';
-import { COMMAND_IDS, LinkContext, CodeContext, LinkType } from './types';
+import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
+import { REPLACE_RANGE_COMMAND } from './contentScripts/linkDetection';
 
 /**
  * Registers all context menu commands
@@ -69,6 +70,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to copy OCR text:', error);
                 await showToast('Failed to copy OCR text', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.TOGGLE_CHECKBOX,
+        label: 'Toggle Checkbox',
+        execute: async (checkboxContext: CheckboxContext) => {
+            try {
+                await handleToggleCheckbox(checkboxContext);
+            } catch (error) {
+                logger.error('Failed to toggle checkbox:', error);
+                await showToast('Failed to toggle checkbox', ToastType.Error);
             }
         },
     });
@@ -169,4 +183,29 @@ async function handleCopyOcrText(linkContext: LinkContext): Promise<void> {
     await joplin.clipboard.writeText(resource.ocr_text);
     await showToast('OCR text copied to clipboard', ToastType.Success);
     logger.info('Copied OCR text to clipboard for resource:', resourceId);
+}
+
+/**
+ * "Toggle Checkbox" handler
+ * Toggles task list checkbox between [ ] and [x]
+ */
+async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<void> {
+    // Toggle the checkbox: [ ] ↔ [x]
+    const newLineText = checkboxContext.checked
+        ? checkboxContext.lineText.replace(/\[x\]/, '[ ]')  // Uncheck
+        : checkboxContext.lineText.replace(/\[ \]/, '[x]'); // Check
+
+    // Replace the line text using the replaceRange command
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: REPLACE_RANGE_COMMAND,
+        args: [newLineText, checkboxContext.from, checkboxContext.to],
+    })) as boolean;
+
+    if (!success) {
+        throw new Error('Failed to replace checkbox text');
+    }
+
+    const action = checkboxContext.checked ? 'unchecked' : 'checked';
+    await showToast(`Task ${action}`, ToastType.Success);
+    logger.info(`Toggled checkbox: ${action}`);
 }

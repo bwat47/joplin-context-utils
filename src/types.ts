@@ -31,6 +31,24 @@ export interface CodeContext {
     to: number;
 }
 
+/**
+ * Represents a detected task list checkbox
+ */
+export interface CheckboxContext {
+    /** Discriminator for union type */
+    contextType: 'checkbox';
+
+    /** Whether the checkbox is currently checked */
+    checked: boolean;
+
+    /** The full line text containing the checkbox */
+    lineText: string;
+
+    /** Position information for the checkbox line */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -45,7 +63,7 @@ export enum LinkType {
 /**
  * Union type for all context types
  */
-export type EditorContext = LinkContext | CodeContext;
+export type EditorContext = LinkContext | CodeContext | CheckboxContext;
 
 /**
  * Content script context provided by Joplin
@@ -62,7 +80,7 @@ export interface CodeMirrorWrapper {
     cm6: boolean;
     editor: unknown; // EditorView from @codemirror/view, but typed as unknown to avoid importing in main context
     addExtension: (extension: unknown) => void;
-    registerCommand: (name: string, callback: () => unknown) => void;
+    registerCommand: (name: string, callback: (...args: unknown[]) => unknown) => void;
 }
 
 /**
@@ -74,4 +92,13 @@ export const COMMAND_IDS = {
     REVEAL_FILE: 'contextUtils.revealFile',
     COPY_CODE: 'contextUtils.copyCode',
     COPY_OCR_TEXT: 'contextUtils.copyOcrText',
+    TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
 } as const;
+
+/**
+ * Editor range for text replacement operations
+ */
+export interface EditorRange {
+    from: number;
+    to: number;
+}

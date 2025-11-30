@@ -141,6 +141,13 @@ export async function registerContextMenuFilter(): Promise<void> {
                         label: 'Copy Code',
                     });
                 }
+            } else if (context.contextType === 'checkbox') {
+                // Add checkbox toggle menu item
+                contextMenuItems.push({
+                    commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
+                    commandArgs: [context],
+                    label: context.checked ? 'Uncheck Task' : 'Check Task',
+                });
             }
 
             // Only add items if we have any menu items to show
