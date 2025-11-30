@@ -10,9 +10,9 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 ## Context Menu Options
 
-**Open Link/Open Resource** - Open external URLs in browser or Joplin resources in default app.
+**Open Link/Open Resource/Send Email** - Open external URLs in browser, open Joplin resources in default app, or open mailto: links in default mail client.
 
-**Copy URL/Copy Path** - Copy URL or resource file path to clipboard.
+**Copy URL/Copy Path/Copy Email** - Copy URL or resource file path to clipboard, or copy email address from mailto: link.
 
 **Reveal File** - Reveal Joplin resource file in file explorer.
 

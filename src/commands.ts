@@ -101,9 +101,12 @@ async function handleOpenLink(linkContext: LinkContext): Promise<void> {
 async function handleCopyPath(linkContext: LinkContext): Promise<void> {
     let textToCopy: string;
 
-    if (linkContext.type === LinkType.ExternalUrl || linkContext.type === LinkType.Email) {
+    if (linkContext.type === LinkType.ExternalUrl) {
         textToCopy = linkContext.url;
         logger.info('Copying URL to clipboard:', textToCopy);
+    } else if (linkContext.type === LinkType.Email) {
+        textToCopy = linkContext.url.replace(/^mailto:/i, '');
+        logger.info('Copying email to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.JoplinResource) {
         const resourceId = extractJoplinResourceId(linkContext.url);
         textToCopy = await joplin.data.resourcePath(resourceId);
