@@ -125,6 +125,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Registers commands:
     - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
     - `contextUtils-replaceRange` - text replacement for checkbox toggling
+    - `contextUtils-batchReplace` - atomic batch replacement for bulk operations
 
 **src/contentScripts/contextDetection.ts**
 
@@ -333,19 +334,22 @@ Supports:
 **Task Selection Detection:**
 When user has selected text:
 
-1. Scans all lines in selection range
-2. For each line, validates it's in a `ListItem`/`Task` node (syntax tree)
-3. Only if validated, checks for checkbox pattern on that line
+1. **Optimized Scan (O(N))**: Iterates the syntax tree ONCE for the entire selection range
+2. Validates `ListItem`/`Task` nodes directly during traversal
+3. Deduplicates tasks (handles multiple nodes per line)
 4. Counts checked vs unchecked tasks
 5. Returns `TaskSelectionContext` if tasks found
 
 **Text Replacement:**
-Uses `contextUtils-replaceRange` command:
+Uses two commands for atomic operations:
 
-- Validates inputs (positions must be finite numbers, from ≤ to)
-- Performs atomic text replacement via CodeMirror dispatch
-- Returns success/failure boolean
-- Used for both single and bulk checkbox toggling
+1. `contextUtils-replaceRange`: For single checkbox toggling
+    - Accepts `expectedText` for **optimistic concurrency control**
+    - Verifies content hasn't changed before replacing
+2. `contextUtils-batchReplace`: For bulk operations
+    - Accepts array of replacements with `expectedText`
+    - **Atomic Transaction**: Applies all changes in a single CodeMirror transaction (one undo step)
+    - Aborts entire batch if any line doesn't match expectation
 
 ### 5. Note vs Resource Distinction
 
