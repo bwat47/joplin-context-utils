@@ -20,6 +20,12 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Copy OCR Text** - Copy OCR text from image resources when available.
 
+**Check Task** - Toggle task on selected line.
+
+**Check All Tasks** - Check all tasks in selection.
+
+**Uncheck All Tasks** - Uncheck all tasks in selection.
+
 ## Settings
 
 - Each context menu option can be enabled or disabled in the Plugin settings.
