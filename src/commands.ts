@@ -2,6 +2,7 @@ import joplin from 'api';
 import { COMMAND_IDS, LinkContext, CodeContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
+import { extractJoplinResourceId } from './utils/urlUtils';
 
 /**
  * Registers all context menu commands
@@ -91,7 +92,7 @@ async function handleCopyPath(linkContext: LinkContext): Promise<void> {
         textToCopy = linkContext.url;
         logger.info('Copying URL to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.JoplinResource) {
-        const resourceId = linkContext.url.substring(2); // Remove ":/" prefix
+        const resourceId = extractJoplinResourceId(linkContext.url);
         textToCopy = await joplin.data.resourcePath(resourceId);
         logger.info('Copying resource path to clipboard:', textToCopy);
     } else {
@@ -110,7 +111,7 @@ async function handleRevealFile(linkContext: LinkContext): Promise<void> {
         throw new Error('Reveal file only works for Joplin resources');
     }
 
-    const resourceId = linkContext.url.substring(2); // Remove ":/" prefix
+    const resourceId = extractJoplinResourceId(linkContext.url);
 
     // Use Joplin's built-in revealResourceFile command
     await joplin.commands.execute('revealResourceFile', resourceId);

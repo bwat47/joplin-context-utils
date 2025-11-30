@@ -8,6 +8,7 @@ import {
     SETTING_SHOW_REVEAL_FILE,
     SETTING_SHOW_COPY_CODE,
 } from './settings';
+import { extractJoplinResourceId } from './utils/urlUtils';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
@@ -72,7 +73,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                 // For Joplin resources, check if it's a note or an actual resource
                 let isNote = false;
                 if (context.type === LinkType.JoplinResource) {
-                    const resourceId = context.url.substring(2); // Remove ":/" prefix
+                    const resourceId = extractJoplinResourceId(context.url);
                     isNote = await isJoplinNote(resourceId);
                 }
 
