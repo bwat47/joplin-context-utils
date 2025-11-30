@@ -2,6 +2,12 @@ import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './utils/logger';
+import {
+    SETTING_SHOW_OPEN_LINK,
+    SETTING_SHOW_COPY_PATH,
+    SETTING_SHOW_REVEAL_FILE,
+    SETTING_SHOW_COPY_CODE,
+} from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
@@ -37,28 +43,33 @@ export async function registerContextMenuFilter(): Promise<void> {
 
             logger.debug('Building context menu for context:', context);
 
-            // Add separator before our items
-            const separator: MenuItem = { type: 'separator' };
-            const contextMenuItems: MenuItem[] = [separator];
+            const contextMenuItems: MenuItem[] = [];
 
             // Handle different context types
             if (context.contextType === 'link') {
-                // Build menu items for links
-                contextMenuItems.push(
-                    {
+                // Check settings and build menu items for links
+                const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
+                const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
+                const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
+
+                if (showOpenLink) {
+                    contextMenuItems.push({
                         commandName: COMMAND_IDS.OPEN_LINK,
                         commandArgs: [context],
                         label: getLabelForOpenLink(context),
-                    },
-                    {
+                    });
+                }
+
+                if (showCopyPath) {
+                    contextMenuItems.push({
                         commandName: COMMAND_IDS.COPY_PATH,
                         commandArgs: [context],
                         label: getLabelForCopyPath(context),
-                    }
-                );
+                    });
+                }
 
                 // Add "Reveal File" only for Joplin resources
-                if (context.type === LinkType.JoplinResource) {
+                if (showRevealFile && context.type === LinkType.JoplinResource) {
                     contextMenuItems.push({
                         commandName: COMMAND_IDS.REVEAL_FILE,
                         commandArgs: [context],
@@ -66,17 +77,29 @@ export async function registerContextMenuFilter(): Promise<void> {
                     });
                 }
             } else if (context.contextType === 'code') {
-                // Build menu items for code
-                contextMenuItems.push({
-                    commandName: COMMAND_IDS.COPY_CODE,
-                    commandArgs: [context],
-                    label: 'Copy Code',
-                });
+                // Check setting and build menu items for code
+                const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
+
+                if (showCopyCode) {
+                    contextMenuItems.push({
+                        commandName: COMMAND_IDS.COPY_CODE,
+                        commandArgs: [context],
+                        label: 'Copy Code',
+                    });
+                }
             }
+
+            // Only add items if we have any menu items to show
+            if (contextMenuItems.length === 0) {
+                return menuItems;
+            }
+
+            // Add separator before our items
+            const separator: MenuItem = { type: 'separator' };
 
             // Return original items plus our additions
             return {
-                items: [...menuItems.items, ...contextMenuItems],
+                items: [...menuItems.items, separator, ...contextMenuItems],
             };
         } catch (error) {
             logger.error('Error in context menu filter:', error);

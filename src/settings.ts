@@ -11,6 +11,10 @@ import { SettingItemType } from 'api/types';
 const SECTION_ID = 'contextUtils';
 
 export const SETTING_SHOW_TOAST_MESSAGES = 'contextUtils.showToastMessages';
+export const SETTING_SHOW_OPEN_LINK = 'contextUtils.showOpenLink';
+export const SETTING_SHOW_COPY_PATH = 'contextUtils.showCopyPath';
+export const SETTING_SHOW_REVEAL_FILE = 'contextUtils.showRevealFile';
+export const SETTING_SHOW_COPY_CODE = 'contextUtils.showCopyCode';
 
 export async function registerSettings(): Promise<void> {
     await joplin.settings.registerSection(SECTION_ID, {
@@ -26,6 +30,38 @@ export async function registerSettings(): Promise<void> {
             public: true,
             label: 'Show toast notifications',
             description: 'Display brief notification messages for plugin actions (e.g., "Copied to clipboard")',
+        },
+        [SETTING_SHOW_OPEN_LINK]: {
+            value: true,
+            type: SettingItemType.Bool,
+            section: SECTION_ID,
+            public: true,
+            label: 'Show "Open Link" in context menu',
+            description: 'Display option to open external URLs in browser or Joplin resources in default app',
+        },
+        [SETTING_SHOW_COPY_PATH]: {
+            value: true,
+            type: SettingItemType.Bool,
+            section: SECTION_ID,
+            public: true,
+            label: 'Show "Copy Path" in context menu',
+            description: 'Display option to copy URL or resource file path to clipboard',
+        },
+        [SETTING_SHOW_REVEAL_FILE]: {
+            value: true,
+            type: SettingItemType.Bool,
+            section: SECTION_ID,
+            public: true,
+            label: 'Show "Reveal File" in context menu',
+            description: 'Display option to reveal Joplin resource files in file explorer',
+        },
+        [SETTING_SHOW_COPY_CODE]: {
+            value: true,
+            type: SettingItemType.Bool,
+            section: SECTION_ID,
+            public: true,
+            label: 'Show "Copy Code" in context menu',
+            description: 'Display option to copy code from inline code or code blocks to clipboard',
         },
     });
 }
