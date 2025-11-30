@@ -2,6 +2,7 @@ import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerContextMenuFilter, setupMessageListener, CONTENT_SCRIPT_ID } from './menus';
+import { registerSettings } from './settings';
 import { logger } from './utils/logger';
 
 joplin.plugins.register({
@@ -9,7 +10,11 @@ joplin.plugins.register({
         logger.info('Context Utils plugin starting...');
 
         try {
-            // 1. Register content script for link detection
+            // 1. Register settings
+            await registerSettings();
+            logger.info('Settings registered');
+
+            // 2. Register content script for link detection
             await joplin.contentScripts.register(
                 ContentScriptType.CodeMirrorPlugin,
                 CONTENT_SCRIPT_ID,
@@ -17,15 +22,15 @@ joplin.plugins.register({
             );
             logger.info('Link detection content script registered');
 
-            // 2. Set up message listener to receive updates from content script
+            // 3. Set up message listener to receive updates from content script
             await setupMessageListener();
             logger.info('Content script message listener registered');
 
-            // 3. Register commands
+            // 4. Register commands
             await registerCommands();
             logger.info('Commands registered');
 
-            // 4. Register context menu filter
+            // 5. Register context menu filter
             await registerContextMenuFilter();
             logger.info('Context menu filter registered');
 
