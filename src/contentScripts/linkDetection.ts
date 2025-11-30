@@ -1,5 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
+import { SyntaxNode } from '@lezer/common';
 import { LinkContext, CodeContext, EditorContext, LinkType, MESSAGE_TYPES } from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
 
@@ -50,15 +51,15 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                     return false; // Stop iteration
                 }
             }
-            // Check for different link node types from @lezer/markdown
-            else if (type.name === 'Link' || type.name === 'URL' || type.name === 'Autolink') {
-                const linkText = view.state.doc.sliceString(from, to);
-                const parsedLink = parseLink(linkText, type.name);
+            // Check for markdown link syntax [text](url)
+            else if (type.name === 'Link') {
+                const url = extractUrlFromLinkNode(node.node, view);
+                const classified = url ? classifyUrl(url) : null;
 
-                if (parsedLink) {
+                if (classified) {
                     context = {
                         contextType: 'link',
-                        ...parsedLink,
+                        ...classified,
                         from,
                         to,
                     };
@@ -67,13 +68,30 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
             }
             // Check for markdown image syntax ![alt](url)
             else if (type.name === 'Image') {
-                const imageText = view.state.doc.sliceString(from, to);
-                const parsedImage = parseMarkdownImage(imageText);
+                const url = extractUrlFromImageNode(node.node, view);
+                const classified = url ? classifyUrl(url) : null;
 
-                if (parsedImage) {
+                if (classified) {
                     context = {
                         contextType: 'link',
-                        ...parsedImage,
+                        ...classified,
+                        from,
+                        to,
+                    };
+                    return false; // Stop iteration
+                }
+            }
+            // Check for bare URLs and autolinks
+            else if (type.name === 'URL' || type.name === 'Autolink') {
+                const urlText = view.state.doc.sliceString(from, to);
+                // Remove angle brackets if present (<url>)
+                const url = urlText.replace(/^<|>$/g, '');
+                const classified = classifyUrl(url);
+
+                if (classified) {
+                    context = {
+                        contextType: 'link',
+                        ...classified,
                         from,
                         to,
                     };
@@ -102,38 +120,43 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
 }
 
 /**
- * Parses link text and determines link type
- * Handles both markdown syntax [text](url) and bare URLs
+ * Extracts URL from a Link node by traversing its children
+ * Properly handles nested parentheses and special characters
  */
-function parseLink(linkText: string, nodeType: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
-    let url: string;
+function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | null {
+    const cursor = node.cursor();
 
-    // Extract URL from markdown link syntax
-    if (nodeType === 'Link') {
-        // Match [text](url) pattern
-        const match = linkText.match(/\[([^\]]+)\]\(([^)]+)\)/);
-        if (!match) return null;
-        url = match[2];
-    } else {
-        // For Autolink and bare URL, the text IS the URL
-        // Remove angle brackets if present (<url>)
-        url = linkText.replace(/^<|>$/g, '');
-    }
+    // Enter the Link node
+    if (!cursor.firstChild()) return null;
 
-    return classifyUrl(url);
+    // Traverse children to find the URL node
+    do {
+        if (cursor.name === 'URL') {
+            return view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return null;
 }
 
 /**
- * Parses markdown image syntax and extracts URL
- * Handles ![alt](url) and ![alt](url "title") patterns
+ * Extracts URL from an Image node by traversing its children
+ * Properly handles nested parentheses and special characters
  */
-function parseMarkdownImage(imageText: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
-    // Match ![alt](url) or ![alt](url "title") pattern
-    const match = imageText.match(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/);
-    if (!match) return null;
+function extractUrlFromImageNode(node: SyntaxNode, view: EditorView): string | null {
+    const cursor = node.cursor();
 
-    const url = match[2];
-    return classifyUrl(url);
+    // Enter the Image node
+    if (!cursor.firstChild()) return null;
+
+    // Traverse children to find the URL node
+    do {
+        if (cursor.name === 'URL') {
+            return view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return null;
 }
 
 /**
