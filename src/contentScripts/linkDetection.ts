@@ -3,7 +3,7 @@ import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
 import { LinkContext, CodeContext, EditorContext, LinkType, MESSAGE_TYPES } from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
-import { logger } from '../utils/logger';
+import { logger } from '../logger';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree

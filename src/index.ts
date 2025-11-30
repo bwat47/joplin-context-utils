@@ -3,7 +3,7 @@ import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerContextMenuFilter, setupMessageListener, CONTENT_SCRIPT_ID } from './menus';
 import { registerSettings } from './settings';
-import { logger } from './utils/logger';
+import { logger } from './logger';
 
 joplin.plugins.register({
     onStart: async function () {

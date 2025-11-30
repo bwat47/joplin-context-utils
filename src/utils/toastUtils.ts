@@ -1,6 +1,6 @@
 import joplin from 'api';
 import { ToastType } from 'api/types';
-import { logger } from './logger';
+import { logger } from '../logger';
 import { SETTING_SHOW_TOAST_MESSAGES } from '../settings';
 
 // Re-export ToastType for convenience

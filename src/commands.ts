@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { COMMAND_IDS, LinkContext, CodeContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
-import { logger } from './utils/logger';
+import { logger } from './logger';
 
 /**
  * Registers all context menu commands

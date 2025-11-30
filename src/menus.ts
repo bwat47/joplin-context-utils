@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
 import { MenuItem } from 'api/types';
-import { logger } from './utils/logger';
+import { logger } from './logger';
 import {
     SETTING_SHOW_OPEN_LINK,
     SETTING_SHOW_COPY_PATH,
