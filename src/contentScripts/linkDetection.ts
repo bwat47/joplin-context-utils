@@ -3,6 +3,7 @@ import { EditorView } from '@codemirror/view';
 import { SyntaxNode } from '@lezer/common';
 import { LinkContext, CodeContext, EditorContext, LinkType, MESSAGE_TYPES } from '../types';
 import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
+import { logger } from '../utils/logger';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
@@ -236,7 +237,7 @@ export default (context: ContentScriptContext) => {
 
             // Check CM6 availability
             if (!codeMirrorWrapper.cm6) {
-                console.warn('[Context Utils] CodeMirror 6 not available');
+                logger.warn('CodeMirror 6 not available');
                 return;
             }
 
