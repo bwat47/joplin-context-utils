@@ -53,7 +53,7 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
             }
             // Check for markdown link syntax [text](url)
             else if (type.name === 'Link') {
-                const url = extractUrlFromLinkNode(node.node, view);
+                const url = extractUrl(node.node, view);
                 const classified = url ? classifyUrl(url) : null;
 
                 if (classified) {
@@ -68,7 +68,7 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
             }
             // Check for markdown image syntax ![alt](url)
             else if (type.name === 'Image') {
-                const url = extractUrlFromImageNode(node.node, view);
+                const url = extractUrl(node.node, view);
                 const classified = url ? classifyUrl(url) : null;
 
                 if (classified) {
@@ -120,33 +120,13 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
 }
 
 /**
- * Extracts URL from a Link node by traversing its children
+ * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
  */
-function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | null {
+function extractUrl(node: SyntaxNode, view: EditorView): string | null {
     const cursor = node.cursor();
 
-    // Enter the Link node
-    if (!cursor.firstChild()) return null;
-
-    // Traverse children to find the URL node
-    do {
-        if (cursor.name === 'URL') {
-            return view.state.doc.sliceString(cursor.from, cursor.to);
-        }
-    } while (cursor.nextSibling());
-
-    return null;
-}
-
-/**
- * Extracts URL from an Image node by traversing its children
- * Properly handles nested parentheses and special characters
- */
-function extractUrlFromImageNode(node: SyntaxNode, view: EditorView): string | null {
-    const cursor = node.cursor();
-
-    // Enter the Image node
+    // Enter the node
     if (!cursor.firstChild()) return null;
 
     // Traverse children to find the URL node
