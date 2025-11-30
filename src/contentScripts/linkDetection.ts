@@ -227,6 +227,32 @@ function parseCodeBlock(codeText: string): Omit<CodeContext, 'from' | 'to' | 'co
 }
 
 /**
+ * Compares two EditorContext objects for equality
+ * More efficient than JSON.stringify comparison, especially for frequent cursor movements
+ */
+function contextEquals(a: EditorContext | null, b: EditorContext | null): boolean {
+    // Both null/undefined
+    if (!a && !b) return true;
+
+    // One null, one not
+    if (!a || !b) return false;
+
+    // Different types or positions
+    if (a.contextType !== b.contextType || a.from !== b.from || a.to !== b.to) {
+        return false;
+    }
+
+    // Type-specific comparison
+    if (a.contextType === 'link' && b.contextType === 'link') {
+        return a.url === b.url && a.type === b.type;
+    } else if (a.contextType === 'code' && b.contextType === 'code') {
+        return a.code === b.code;
+    }
+
+    return false;
+}
+
+/**
  * Content script entry point
  */
 export default (context: ContentScriptContext) => {
@@ -251,7 +277,7 @@ export default (context: ContentScriptContext) => {
                     const newContext = detectContextAtPosition(view, pos);
 
                     // Only post message if context changed
-                    if (JSON.stringify(newContext) !== JSON.stringify(currentContext)) {
+                    if (!contextEquals(newContext, currentContext)) {
                         currentContext = newContext;
                         // Send update to main plugin
                         context.postMessage({
