@@ -55,6 +55,10 @@ async function hasOcrText(id: string): Promise<boolean> {
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
+            // Small delay to work around timing issue on Linux where cursor position
+            // may not have updated yet when context menu filter is called
+            await new Promise((resolve) => setTimeout(resolve, 10));
+
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
             // May return multiple contexts (e.g., code + checkbox)

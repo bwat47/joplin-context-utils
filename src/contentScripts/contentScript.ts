@@ -32,6 +32,12 @@ export default (_context: ContentScriptContext) => {
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens
             codeMirrorWrapper.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
+                // Force view to sync/measure before reading cursor position
+                // This works around a timing issue on Linux where the view might not
+                // have synced with the cursor position update from the right-click event
+                // See: https://codemirror.net/docs/ref/#view.EditorView.requestMeasure
+                view.requestMeasure();
+
                 const pos = view.state.selection.main.head;
                 const context = detectContextAtPosition(view, pos);
                 logger.debug('Context detected at cursor:', context);
