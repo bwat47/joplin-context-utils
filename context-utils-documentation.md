@@ -10,10 +10,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - External URLs (`https://...`)
 - Joplin resources (`:/32-hex-id`)
+- Email addresses (`mailto:...`)
 - Markdown images (`![alt](url)`)
 - HTML images (`<img src="...">`)
 - Inline code (`` `code` ``)
 - Code blocks (` ` ```)
+- **Task list checkboxes** (`- [ ]` / `- [x]`)
+- **Task selections** (multiple selected checkboxes)
 
 ## Architecture
 
@@ -71,9 +74,11 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/types.ts**
 
 - Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext`
+- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext`
 - `LinkType` enum (ExternalUrl, JoplinResource, Email)
-- Command IDs
+- `TaskInfo` interface for individual tasks in selections
+- Command IDs (including checkbox commands)
+- `EditorRange` for text replacement operations
 
 **src/settings.ts**
 
@@ -101,6 +106,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Copy Path (URLs → clipboard, resources → file path)
     - Reveal File (resources only → file explorer)
     - Copy Code (code blocks → clipboard)
+    - Copy OCR Text (image resources → clipboard)
+    - **Toggle Checkbox** (single checkbox `[ ]` ↔ `[x]`)
+    - **Check All Tasks** (bulk check unchecked tasks in selection)
+    - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/linkDetection.ts**
@@ -110,8 +119,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Inline code: Regex (InlineCode nodes are flat/leaf nodes)
     - Fenced code blocks: Syntax tree traversal with regex fallback
     - Links/Images: Syntax tree traversal (robust for nested parentheses)
-- Priority: Code > Links > Images > HTML
-- Exports detection logic and context comparison
+    - **Checkboxes**: Regex on line text (detects `- [ ]` / `- [x]` patterns)
+    - **Task selections**: Line-by-line scanning of selection range
+- **Priority: Code > Checkboxes > Links > Images > HTML**
+- Registers commands:
+    - `contextUtils-getContextAtCursor` - pull architecture for context detection
+    - `contextUtils-replaceRange` - text replacement for checkbox toggling
+- Detects selections and provides bulk operations when applicable
 
 ### Utilities
 
@@ -132,7 +146,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 ### 1. Discriminated Unions
 
 ```typescript
-type EditorContext = LinkContext | CodeContext;
+type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext;
 
 interface LinkContext {
     contextType: 'link'; // Discriminator
@@ -145,6 +159,23 @@ interface LinkContext {
 interface CodeContext {
     contextType: 'code'; // Discriminator
     code: string;
+    from: number;
+    to: number;
+}
+
+interface CheckboxContext {
+    contextType: 'checkbox'; // Discriminator
+    checked: boolean;
+    lineText: string;
+    from: number;
+    to: number;
+}
+
+interface TaskSelectionContext {
+    contextType: 'taskSelection'; // Discriminator
+    tasks: TaskInfo[];
+    checkedCount: number;
+    uncheckedCount: number;
     from: number;
     to: number;
 }
@@ -225,7 +256,42 @@ const context = await joplin.commands.execute('editor.execCommand', {
 - Only executes when needed - zero overhead during typing
 - Guaranteed to return context for current cursor position
 
-### 4. Note vs Resource Distinction
+### 4. Checkbox Detection and Toggling
+
+**Detection Priority:**
+1. **Selection check** - If there's a text selection, check for tasks first
+2. **Code blocks/inline code** - Highest priority for single context
+3. **Checkboxes** - Task list items with `- [ ]` or `- [x]`
+4. **Links** - Markdown and bare URLs
+5. **Images** - Markdown and HTML images
+
+**Checkbox Pattern Matching:**
+```typescript
+// Matches: "  - [ ] Task" or "    * [x] Done"
+const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+```
+
+Supports:
+- List markers: `-`, `*`, `+`
+- Indentation (nested task lists)
+- Checkbox states: lowercase `x` (checked) or space (unchecked)
+- Detection anywhere on the task line (not just on the checkbox)
+
+**Task Selection Detection:**
+When user has selected text:
+1. Scans all lines in selection range
+2. Identifies lines with task list checkboxes
+3. Counts checked vs unchecked tasks
+4. Returns `TaskSelectionContext` if tasks found
+
+**Text Replacement:**
+Uses `contextUtils-replaceRange` command:
+- Validates inputs (positions must be finite numbers, from ≤ to)
+- Performs atomic text replacement via CodeMirror dispatch
+- Returns success/failure boolean
+- Used for both single and bulk checkbox toggling
+
+### 5. Note vs Resource Distinction
 
 Joplin uses the same `:/32-hex-id` syntax for both note links and resource (attachment) links. The content script cannot distinguish between them (it only sees text).
 
@@ -262,6 +328,8 @@ This prevents errors when trying to get file paths for notes (which don't have p
 - `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
 - `FencedCode` - ` ` ```(may have`CodeText` child excluding fence markers)
     - `CodeText` - Content of fenced code block (when present)
+- `ListItem` - List items (may contain task checkboxes)
+- `Task` - Task list items (GFM extension)
 
 **HTML in Markdown:**
 
@@ -308,5 +376,18 @@ Content scripts must be declared here for webpack bundling.
 - Test with both Joplin resources (attachments) and note links
     - Note links: Should only show "Open Note"
     - Resource links: Should show all resource options
-- Test with external URLs
+- Test with external URLs and email addresses
 - Test inline code and fenced code blocks (including nested backticks in fenced blocks)
+- **Test checkbox toggling:**
+    - Single checkbox: Cursor on `- [ ] Task` → shows "Check Task"
+    - Single checkbox: Cursor on `- [x] Done` → shows "Uncheck Task"
+    - Nested lists: `  - [ ] Nested` → detects correctly
+    - Cursor position: Anywhere on task line → detects checkbox
+    - Priority: `- [ ] [link](url)` → checkbox menu (not link menu)
+- **Test bulk checkbox operations:**
+    - Select multiple task lines → shows "Check All Tasks (N)" and/or "Uncheck All Tasks (N)"
+    - Mixed selection with non-task lines → only processes tasks
+    - All checked selection → only shows "Uncheck All"
+    - All unchecked selection → only shows "Check All"
+    - Mixed checked/unchecked → shows both options with counts
+    - Toast feedback shows count of tasks processed
