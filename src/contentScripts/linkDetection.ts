@@ -26,12 +26,14 @@ export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
  * Can detect links, images, inline code, code blocks, or task selections
+ * Returns an array of contexts to support multiple contexts at the same position
+ * (e.g., inline code within a task list item)
  *
  * @param view - CodeMirror 6 EditorView instance
  * @param pos - Cursor position to check
- * @returns EditorContext if found, null otherwise
+ * @returns Array of EditorContext (may be empty)
  */
-function detectContextAtPosition(view: EditorView, pos: number): EditorContext | null {
+function detectContextAtPosition(view: EditorView, pos: number): EditorContext[] {
     const selection = view.state.selection.main;
 
     // Check if there's a selection (not just cursor)
@@ -39,13 +41,40 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
         // Check for tasks in selection
         const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
         if (taskSelection) {
-            return taskSelection;
+            return [taskSelection];
         }
         // If selection doesn't contain tasks, fall through to normal detection
     }
 
+    const contexts: EditorContext[] = [];
+
+    // First, detect primary context (code, links, images) via syntax tree
+    const primaryContext = detectPrimaryContext(view, pos);
+    if (primaryContext) {
+        contexts.push(primaryContext);
+    }
+
+    // Then, always check if we're on a checkbox line
+    // This allows showing both checkbox AND primary context menu items
+    const checkboxContext = detectCheckboxContext(view, pos);
+    if (checkboxContext) {
+        contexts.push(checkboxContext);
+    }
+
+    return contexts;
+}
+
+/**
+ * Detects primary context (code, links, images) via syntax tree traversal
+ * Does NOT include checkbox detection (that's handled separately)
+ *
+ * @param view - CodeMirror 6 EditorView instance
+ * @param pos - Cursor position to check
+ * @returns Primary context if found, null otherwise
+ */
+function detectPrimaryContext(view: EditorView, pos: number): LinkContext | CodeContext | null {
     const tree = syntaxTree(view.state);
-    let context: EditorContext | null = null;
+    let context: LinkContext | CodeContext | null = null;
 
     // Traverse syntax tree to find nodes at position
     tree.iterate({
@@ -54,7 +83,7 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
         enter: (node) => {
             const { type, from, to } = node;
 
-            // Check for code blocks and inline code (higher priority)
+            // Check for code blocks and inline code (highest priority)
             if (type.name === 'InlineCode' || type.name === 'CodeText') {
                 const codeText = view.state.doc.sliceString(from, to);
                 const parsedCode = parseInlineCode(codeText);
@@ -77,18 +106,6 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                         ...parsedCode,
                         from,
                         to,
-                    };
-                    return false; // Stop iteration
-                }
-            }
-            // Check for task list checkboxes (priority 2: after code, before links)
-            else if (type.name === 'ListItem' || type.name === 'Task') {
-                const parsedCheckbox = parseCheckbox(node.node, view, pos);
-
-                if (parsedCheckbox) {
-                    context = {
-                        contextType: 'checkbox',
-                        ...parsedCheckbox,
                     };
                     return false; // Stop iteration
                 }
@@ -159,6 +176,34 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
     });
 
     return context;
+}
+
+/**
+ * Detects checkbox context at the current line
+ * This is separate from primary context detection to allow showing both
+ *
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position
+ * @returns CheckboxContext if on a task list line, null otherwise
+ */
+function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext | null {
+    const line = view.state.doc.lineAt(pos);
+    const lineText = line.text;
+
+    // Match task list checkbox: "  - [ ] Task" or "    * [x] Done"
+    const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+    if (!checkboxMatch) {
+        return null;
+    }
+
+    const checked = checkboxMatch[2] === 'x';
+    return {
+        contextType: 'checkbox',
+        checked,
+        lineText,
+        from: line.from,
+        to: line.to,
+    };
 }
 
 /**
@@ -263,41 +308,6 @@ function parseCodeBlock(node: SyntaxNode, view: EditorView): Omit<CodeContext, '
     }
 
     return { code: match[1] };
-}
-
-/**
- * Parses task list checkbox and extracts checked state
- * Handles nested/indented task lists
- * Detection works when cursor is anywhere within the task item
- *
- * @param node - The ListItem or Task syntax node
- * @param view - CodeMirror EditorView
- * @param pos - Cursor position
- * @returns Checkbox context if valid checkbox found, null otherwise
- */
-function parseCheckbox(_node: SyntaxNode, view: EditorView, pos: number): Omit<CheckboxContext, 'contextType'> | null {
-    // Get the line containing the cursor position
-    const line = view.state.doc.lineAt(pos);
-    const lineText = line.text;
-
-    // Match task list checkbox: "  - [ ] Task" or "    * [x] Done"
-    // Supports: -, *, + as list markers
-    // Supports: lowercase x only (as per requirements)
-    const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
-
-    if (!checkboxMatch) {
-        return null;
-    }
-
-    // Extract checked state (lowercase x means checked, space means unchecked)
-    const checked = checkboxMatch[2] === 'x';
-
-    return {
-        checked,
-        lineText,
-        from: line.from,
-        to: line.to,
-    };
 }
 
 /**

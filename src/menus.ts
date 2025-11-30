@@ -54,23 +54,26 @@ async function hasOcrText(id: string): Promise<boolean> {
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
-            // Get context directly from editor (pull architecture)
+            // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
-            const context = (await joplin.commands.execute('editor.execCommand', {
+            // May return multiple contexts (e.g., code + checkbox)
+            const contexts = (await joplin.commands.execute('editor.execCommand', {
                 name: GET_CONTEXT_AT_CURSOR_COMMAND,
-            })) as EditorContext | null;
+            })) as EditorContext[];
 
-            if (!context) {
+            if (!contexts || contexts.length === 0) {
                 // No context at cursor, return menu unchanged
                 return menuItems;
             }
 
-            logger.debug('Building context menu for context:', context);
+            logger.debug('Building context menu for contexts:', contexts);
 
             const contextMenuItems: MenuItem[] = [];
 
-            // Handle different context types
-            if (context.contextType === 'link') {
+            // Process each context and build menu items
+            for (const context of contexts) {
+                // Handle different context types
+                if (context.contextType === 'link') {
                 // Check settings and build menu items for links
                 const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
                 const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
@@ -165,6 +168,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         label: `Uncheck All Tasks (${context.checkedCount})`,
                     });
                 }
+            }
             }
 
             // Only add items if we have any menu items to show
