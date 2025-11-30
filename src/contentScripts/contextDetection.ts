@@ -237,7 +237,7 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
                 // Deduplicate: If multiple nodes appear on the same line, skip subsequent ones
                 // This handles cases where Task is a child of ListItem on the same line
                 const lastTask = tasks[tasks.length - 1];
-                if (lastTask && lastTask.from === line.from) return;
+                if (lastTask && doc.lineAt(lastTask.from).number === line.number) return;
 
                 const lineText = line.text;
                 // Strict Regex: Matches "- [ ] " or "* [x] "
