@@ -37,6 +37,9 @@ export enum LinkType {
 
     /** Joplin resource (:/resource-id format) */
     JoplinResource = 'joplin-resource',
+
+    /** Email mailto: URL */
+    Email = 'email',
 }
 
 /**

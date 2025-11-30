@@ -168,6 +168,8 @@ function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextTyp
     // Determine link type
     if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
         return { url, type: LinkType.JoplinResource };
+    } else if (url.match(/^mailto:/i)) {
+        return { url, type: LinkType.Email };
     } else if (url.match(/^https?:\/\//)) {
         return { url, type: LinkType.ExternalUrl };
     }

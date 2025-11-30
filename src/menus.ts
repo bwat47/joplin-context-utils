@@ -137,12 +137,12 @@ export async function registerContextMenuFilter(): Promise<void> {
                             label: 'Copy OCR Text',
                         });
                     }
-                } else if (context.type === LinkType.ExternalUrl && showCopyPath) {
-                    // For external URLs, still show copy option
+                } else if ((context.type === LinkType.ExternalUrl || context.type === LinkType.Email) && showCopyPath) {
+                    // For external URLs and emails, still show copy option
                     contextMenuItems.push({
                         commandName: COMMAND_IDS.COPY_PATH,
                         commandArgs: [context],
-                        label: 'Copy URL',
+                        label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
                     });
                 }
             } else if (context.contextType === 'code') {
@@ -187,6 +187,8 @@ function getLabelForOpenLink(linkContext: LinkContext, isNote: boolean = false):
     switch (linkContext.type) {
         case LinkType.ExternalUrl:
             return 'Open Link in Browser';
+        case LinkType.Email:
+            return 'Send Email';
         case LinkType.JoplinResource:
             return isNote ? 'Open Note' : 'Open Resource';
         default:

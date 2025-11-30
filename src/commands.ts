@@ -80,7 +80,7 @@ export async function registerCommands(): Promise<void> {
  * - Joplin Resources: Open in default app
  */
 async function handleOpenLink(linkContext: LinkContext): Promise<void> {
-    if (linkContext.type === LinkType.ExternalUrl) {
+    if (linkContext.type === LinkType.ExternalUrl || linkContext.type === LinkType.Email) {
         // Use Joplin's built-in command to open external URL
         await joplin.commands.execute('openItem', linkContext.url);
         logger.info('Opened external URL:', linkContext.url);
@@ -101,7 +101,7 @@ async function handleOpenLink(linkContext: LinkContext): Promise<void> {
 async function handleCopyPath(linkContext: LinkContext): Promise<void> {
     let textToCopy: string;
 
-    if (linkContext.type === LinkType.ExternalUrl) {
+    if (linkContext.type === LinkType.ExternalUrl || linkContext.type === LinkType.Email) {
         textToCopy = linkContext.url;
         logger.info('Copying URL to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.JoplinResource) {
