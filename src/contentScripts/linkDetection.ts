@@ -99,7 +99,7 @@ function detectContextAtPosition(view: EditorView, pos: number): EditorContext |
                 }
             }
             // Check for HTML tags (img elements)
-            else if (type.name === 'HTMLTag') {
+            else if (type.name === 'HTMLTag' || type.name === 'HTMLBlock') {
                 const htmlText = view.state.doc.sliceString(from, to);
                 const parsedImage = parseImageTag(htmlText);
 
