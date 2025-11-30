@@ -6,7 +6,7 @@
 
 # Context Utils
 
-Context Utils is a Joplin plugin that adds context menu options in the markdown editor related to links, images, and code.
+Context Utils is a Joplin plugin that adds context menu options in the markdown editor related to links, images, and code. The context menu options will only appear when applicable (e.g. Copy Code only appears when right clicking inside a Code Block or Inline Code).
 
 ## Context Menu Options
 
@@ -17,6 +17,8 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 - Copy Resource URL: Copies the resource URL to the clipboard (for external http(s) links).
 
 - Copy Resource Path: Copies the resource path to the clipboard (for local files).
+
+- Copy OCR Text: Copies an image resource's OCR text to clipboard if available.
 
 - Reveal File in Folder: Reveals the file in the file explorer (for local files).
 

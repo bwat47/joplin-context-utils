@@ -84,4 +84,5 @@ export const COMMAND_IDS = {
     COPY_PATH: 'contextUtils.copyPath',
     REVEAL_FILE: 'contextUtils.revealFile',
     COPY_CODE: 'contextUtils.copyCode',
+    COPY_OCR_TEXT: 'contextUtils.copyOcrText',
 } as const;
