@@ -224,7 +224,7 @@ async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<v
     // Replace the line text using the replaceRange command
     const success = (await joplin.commands.execute('editor.execCommand', {
         name: REPLACE_RANGE_COMMAND,
-        args: [newLineText, checkboxContext.from, checkboxContext.to],
+        args: [newLineText, checkboxContext.from, checkboxContext.to, checkboxContext.lineText],
     })) as boolean;
 
     if (!success) {
@@ -256,7 +256,7 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
 
         const success = (await joplin.commands.execute('editor.execCommand', {
             name: REPLACE_RANGE_COMMAND,
-            args: [newLineText, task.from, task.to],
+            args: [newLineText, task.from, task.to, task.lineText],
         })) as boolean;
 
         if (success) {
@@ -295,7 +295,7 @@ async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext)
 
         const success = (await joplin.commands.execute('editor.execCommand', {
             name: REPLACE_RANGE_COMMAND,
-            args: [newLineText, task.from, task.to],
+            args: [newLineText, task.from, task.to, task.lineText],
         })) as boolean;
 
         if (success) {

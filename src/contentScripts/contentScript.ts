@@ -39,40 +39,58 @@ export default (_context: ContentScriptContext) => {
 
             // Register command to replace a range of text in the editor
             // Used for checkbox toggling and other text replacement operations
-            codeMirrorWrapper.registerCommand(REPLACE_RANGE_COMMAND, (newText: string, from: number, to: number) => {
-                // Validate inputs
-                if (typeof newText !== 'string') {
-                    logger.error('replaceRange: newText must be a string');
-                    return false;
-                }
+            codeMirrorWrapper.registerCommand(
+                REPLACE_RANGE_COMMAND,
+                (newText: string, from: number, to: number, expectedText?: string) => {
+                    // Validate inputs
+                    if (typeof newText !== 'string') {
+                        logger.error('replaceRange: newText must be a string');
+                        return false;
+                    }
 
-                if (
-                    typeof from !== 'number' ||
-                    typeof to !== 'number' ||
-                    !Number.isFinite(from) ||
-                    !Number.isFinite(to)
-                ) {
-                    logger.error('replaceRange: from and to must be finite numbers');
-                    return false;
-                }
+                    if (
+                        typeof from !== 'number' ||
+                        typeof to !== 'number' ||
+                        !Number.isFinite(from) ||
+                        !Number.isFinite(to)
+                    ) {
+                        logger.error('replaceRange: from and to must be finite numbers');
+                        return false;
+                    }
 
-                if (from > to) {
-                    logger.error('replaceRange: from must be <= to');
-                    return false;
-                }
+                    if (from > to) {
+                        logger.error('replaceRange: from must be <= to');
+                        return false;
+                    }
 
-                try {
-                    // Perform the text replacement
-                    view.dispatch({
-                        changes: { from, to, insert: newText },
-                    });
-                    logger.debug(`Replaced text from ${from} to ${to} with:`, newText);
-                    return true;
-                } catch (error) {
-                    logger.error('replaceRange: failed to replace text:', error);
-                    return false;
+                    try {
+                        // Optimistic concurrency control: Verify text hasn't changed
+                        if (expectedText !== undefined) {
+                            const currentText = view.state.doc.sliceString(from, to);
+                            if (currentText !== expectedText) {
+                                logger.warn(
+                                    'replaceRange: Content changed since detection; aborting replacement.',
+                                    '\nExpected:',
+                                    expectedText,
+                                    '\nFound:',
+                                    currentText
+                                );
+                                return false;
+                            }
+                        }
+
+                        // Perform the text replacement
+                        view.dispatch({
+                            changes: { from, to, insert: newText },
+                        });
+                        logger.debug(`Replaced text from ${from} to ${to} with:`, newText);
+                        return true;
+                    } catch (error) {
+                        logger.error('replaceRange: failed to replace text:', error);
+                        return false;
+                    }
                 }
-            });
+            );
         },
     };
 };
