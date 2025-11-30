@@ -68,6 +68,10 @@ export async function setupMessageListener(): Promise<void> {
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
+            // Add a small delay to allow content script message to arrive
+            // This mitigates race conditions where right-click moves cursor but message hasn't arrived yet
+            await new Promise((resolve) => setTimeout(resolve, 100));
+
             // Use the stored context from content script
             const context = currentContext;
 
