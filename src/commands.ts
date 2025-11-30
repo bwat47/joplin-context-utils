@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { COMMAND_IDS, LinkContext, LinkType } from './types';
+import { COMMAND_IDS, LinkContext, CodeContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './utils/logger';
 
@@ -42,6 +42,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to reveal file:', error);
                 await showToast('Failed to reveal file', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.COPY_CODE,
+        label: 'Copy Code',
+        execute: async (codeContext: CodeContext) => {
+            try {
+                await handleCopyCode(codeContext);
+            } catch (error) {
+                logger.error('Failed to copy code:', error);
+                await showToast('Failed to copy code', ToastType.Error);
             }
         },
     });
@@ -102,4 +115,14 @@ async function handleRevealFile(linkContext: LinkContext): Promise<void> {
     // Use Joplin's built-in revealResourceFile command
     await joplin.commands.execute('revealResourceFile', resourceId);
     logger.info('Revealed resource file:', resourceId);
+}
+
+/**
+ * "Copy Code" handler
+ * Copies code content to clipboard
+ */
+async function handleCopyCode(codeContext: CodeContext): Promise<void> {
+    await joplin.clipboard.writeText(codeContext.code);
+    await showToast('Code copied to clipboard', ToastType.Info);
+    logger.info('Copied code to clipboard');
 }

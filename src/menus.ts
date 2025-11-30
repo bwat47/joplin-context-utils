@@ -1,21 +1,21 @@
 import joplin from 'api';
-import { LinkContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
+import { LinkContext, EditorContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './utils/logger';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
-// Store the current link context received from content script
-let currentLinkContext: LinkContext | null = null;
+// Store the current context received from content script
+let currentContext: EditorContext | null = null;
 
 /**
  * Sets up message listener for content script updates
  */
 export async function setupMessageListener(): Promise<void> {
     await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
-        if (message.type === MESSAGE_TYPES.GET_LINK_CONTEXT) {
-            currentLinkContext = message.data;
-            logger.debug('Link context updated:', currentLinkContext);
+        if (message.type === MESSAGE_TYPES.GET_CONTEXT) {
+            currentContext = message.data;
+            logger.debug('Editor context updated:', currentContext);
         }
     });
 }
@@ -27,40 +27,50 @@ export async function setupMessageListener(): Promise<void> {
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
-            // Use the stored link context from content script
-            const linkContext = currentLinkContext;
+            // Use the stored context from content script
+            const context = currentContext;
 
-            if (!linkContext) {
-                // No link at cursor, return menu unchanged
+            if (!context) {
+                // No context at cursor, return menu unchanged
                 return menuItems;
             }
 
-            logger.debug('Building context menu for link:', linkContext);
+            logger.debug('Building context menu for context:', context);
 
             // Add separator before our items
             const separator: MenuItem = { type: 'separator' };
+            const contextMenuItems: MenuItem[] = [separator];
 
-            // Build menu items based on link type
-            const contextMenuItems: MenuItem[] = [
-                separator,
-                {
-                    commandName: COMMAND_IDS.OPEN_LINK,
-                    commandArgs: [linkContext],
-                    label: getLabelForOpenLink(linkContext),
-                },
-                {
-                    commandName: COMMAND_IDS.COPY_PATH,
-                    commandArgs: [linkContext],
-                    label: getLabelForCopyPath(linkContext),
-                },
-            ];
+            // Handle different context types
+            if (context.contextType === 'link') {
+                // Build menu items for links
+                contextMenuItems.push(
+                    {
+                        commandName: COMMAND_IDS.OPEN_LINK,
+                        commandArgs: [context],
+                        label: getLabelForOpenLink(context),
+                    },
+                    {
+                        commandName: COMMAND_IDS.COPY_PATH,
+                        commandArgs: [context],
+                        label: getLabelForCopyPath(context),
+                    }
+                );
 
-            // Add "Reveal File" only for Joplin resources
-            if (linkContext.type === LinkType.JoplinResource) {
+                // Add "Reveal File" only for Joplin resources
+                if (context.type === LinkType.JoplinResource) {
+                    contextMenuItems.push({
+                        commandName: COMMAND_IDS.REVEAL_FILE,
+                        commandArgs: [context],
+                        label: 'Reveal File in Folder',
+                    });
+                }
+            } else if (context.contextType === 'code') {
+                // Build menu items for code
                 contextMenuItems.push({
-                    commandName: COMMAND_IDS.REVEAL_FILE,
-                    commandArgs: [linkContext],
-                    label: 'Reveal File in Folder',
+                    commandName: COMMAND_IDS.COPY_CODE,
+                    commandArgs: [context],
+                    label: 'Copy Code',
                 });
             }
 
