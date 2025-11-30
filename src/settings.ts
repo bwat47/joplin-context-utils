@@ -16,6 +16,7 @@ export const SETTING_SHOW_COPY_PATH = 'contextUtils.showCopyPath';
 export const SETTING_SHOW_REVEAL_FILE = 'contextUtils.showRevealFile';
 export const SETTING_SHOW_COPY_CODE = 'contextUtils.showCopyCode';
 export const SETTING_SHOW_COPY_OCR_TEXT = 'contextUtils.showCopyOcrText';
+export const SETTING_SHOW_TOGGLE_TASK = 'contextUtils.showToggleTask';
 
 export async function registerSettings(): Promise<void> {
     await joplin.settings.registerSection(SECTION_ID, {
@@ -71,6 +72,14 @@ export async function registerSettings(): Promise<void> {
             public: true,
             label: 'Show "Copy OCR Text" in context menu',
             description: 'Display option to copy OCR text from image resources when available',
+        },
+        [SETTING_SHOW_TOGGLE_TASK]: {
+            value: true,
+            type: SettingItemType.Bool,
+            section: SECTION_ID,
+            public: true,
+            label: 'Show task toggle options in context menu',
+            description: 'Display options to check/uncheck task list checkboxes ([ ] ↔ [x])',
         },
     });
 }

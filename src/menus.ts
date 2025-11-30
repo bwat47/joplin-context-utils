@@ -8,6 +8,7 @@ import {
     SETTING_SHOW_REVEAL_FILE,
     SETTING_SHOW_COPY_CODE,
     SETTING_SHOW_COPY_OCR_TEXT,
+    SETTING_SHOW_TOGGLE_TASK,
 } from './settings';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/linkDetection';
@@ -148,28 +149,36 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
                 } else if (context.contextType === 'checkbox') {
-                    // Add checkbox toggle menu item
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
-                        commandArgs: [context],
-                        label: context.checked ? 'Uncheck Task' : 'Check Task',
-                    });
-                } else if (context.contextType === 'taskSelection') {
-                    // Add bulk checkbox menu items for selection
-                    if (context.uncheckedCount > 0) {
+                    // Check setting and build menu items for task checkboxes
+                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
+
+                    if (showToggleTask) {
                         contextMenuItems.push({
-                            commandName: COMMAND_IDS.CHECK_ALL_TASKS,
+                            commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
-                            label: `Check All Tasks (${context.uncheckedCount})`,
+                            label: context.checked ? 'Uncheck Task' : 'Check Task',
                         });
                     }
+                } else if (context.contextType === 'taskSelection') {
+                    // Check setting and build menu items for task selection
+                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
 
-                    if (context.checkedCount > 0) {
-                        contextMenuItems.push({
-                            commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
-                            commandArgs: [context],
-                            label: `Uncheck All Tasks (${context.checkedCount})`,
-                        });
+                    if (showToggleTask) {
+                        if (context.uncheckedCount > 0) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.CHECK_ALL_TASKS,
+                                commandArgs: [context],
+                                label: `Check All Tasks (${context.uncheckedCount})`,
+                            });
+                        }
+
+                        if (context.checkedCount > 0) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
+                                commandArgs: [context],
+                                label: `Uncheck All Tasks (${context.checkedCount})`,
+                            });
+                        }
                     }
                 }
             }
