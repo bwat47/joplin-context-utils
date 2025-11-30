@@ -4,6 +4,7 @@ import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { REPLACE_RANGE_COMMAND, BATCH_REPLACE_COMMAND } from './contentScripts/contentScript';
+import { toggleCheckboxInLine } from './utils/checkboxUtils';
 
 /**
  * Registers all context menu commands
@@ -217,9 +218,7 @@ async function handleCopyOcrText(linkContext: LinkContext): Promise<void> {
  */
 async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<void> {
     // Toggle the checkbox: [ ] ↔ [x]
-    const newLineText = checkboxContext.checked
-        ? checkboxContext.lineText.replace(/\[x\]/, '[ ]') // Uncheck
-        : checkboxContext.lineText.replace(/\[ \]/, '[x]'); // Check
+    const newLineText = toggleCheckboxInLine(checkboxContext.lineText, !checkboxContext.checked);
 
     // Replace the line text using the replaceRange command
     const success = (await joplin.commands.execute('editor.execCommand', {
@@ -250,7 +249,7 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
     const replacements = tasksToUpdate.map((task) => ({
         from: task.from,
         to: task.to,
-        text: task.lineText.replace(/\[ \]/, '[x]'),
+        text: toggleCheckboxInLine(task.lineText, true),
         expectedText: task.lineText, // Include for optimistic concurrency check
     }));
 
@@ -286,7 +285,7 @@ async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext)
     const replacements = tasksToUpdate.map((task) => ({
         from: task.from,
         to: task.to,
-        text: task.lineText.replace(/\[x\]/, '[ ]'),
+        text: toggleCheckboxInLine(task.lineText, false),
         expectedText: task.lineText, // Include for optimistic concurrency check
     }));
 
