@@ -186,7 +186,7 @@ function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to' | 'con
  */
 function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
     // Determine link type
-    if (url.match(/^:\/[a-f0-9]{32}$/i)) {
+    if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
         return { url, type: LinkType.JoplinResource };
     } else if (url.match(/^https?:\/\//)) {
         return { url, type: LinkType.ExternalUrl };

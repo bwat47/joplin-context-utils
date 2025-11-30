@@ -7,5 +7,6 @@
  * // Returns: 'c188011f98504be1b60bb72ccd7c2ce5'
  */
 export function extractJoplinResourceId(url: string): string {
-    return url.substring(2); // Remove ":/" prefix
+    // Remove ":/" prefix and any hash fragment
+    return url.substring(2).split('#')[0];
 }
