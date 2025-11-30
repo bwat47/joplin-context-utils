@@ -45,21 +45,25 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 1. **Content Script** (linkDetection.ts):
     - Registers command `contextUtils-getContextAtCursor` using `codeMirrorWrapper.registerCommand()`
     - Command executes on-demand when called by main plugin
-    - Traverses syntax tree to detect context at current cursor position
+    - Traverses syntax tree to detect contexts at current cursor position
+    - Returns **array of contexts** (supports multiple simultaneous contexts)
 
 2. **Main Plugin** (menus.ts):
     - When context menu opens, calls `joplin.commands.execute('editor.execCommand', { name: 'contextUtils-getContextAtCursor' })`
-    - Awaits context directly from editor (guaranteed to match cursor position)
-    - Builds context menu dynamically based on returned context
+    - Awaits contexts directly from editor (guaranteed to match cursor position)
+    - Iterates through returned contexts array
+    - Builds context menu dynamically with items for all detected contexts
 
 3. **Commands** (commands.ts):
     - Execute actions when menu items are clicked
     - Use Joplin API for clipboard, file operations, URL opening
 
 **Key Benefits of Pull Architecture:**
+
 - ✅ Zero race conditions (context always matches cursor position)
 - ✅ Zero overhead (detection only runs on right-click, not every cursor movement)
 - ✅ Simpler code (no message passing, no global state)
+- ✅ Multi-context support (can show multiple relevant options simultaneously)
 
 ## File Structure
 
@@ -83,17 +87,20 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
-- 5 boolean settings (all default `true`):
+- 7 boolean settings (all default `true`):
     - `SETTING_SHOW_TOAST_MESSAGES`
     - `SETTING_SHOW_OPEN_LINK`
     - `SETTING_SHOW_COPY_PATH`
     - `SETTING_SHOW_REVEAL_FILE`
     - `SETTING_SHOW_COPY_CODE`
+    - `SETTING_SHOW_COPY_OCR_TEXT`
+    - `SETTING_SHOW_TOGGLE_TASK`
 
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
-- Pulls context on-demand from content script via `editor.execCommand`
+- Pulls contexts on-demand from content script via `editor.execCommand` (returns array)
+- Supports multiple contexts at same position (e.g., code + checkbox)
 - Distinguishes between note links and resource links using `isJoplinNote()` helper
 - Resource-specific options (Copy Path, Reveal File) only shown for actual resources
 - Checks settings before adding menu items
@@ -115,17 +122,19 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/contentScripts/linkDetection.ts**
 
 - CodeMirror 6 content script (type: CodeMirrorPlugin)
+- **Multi-context detection**: Returns array of contexts to support simultaneous detection (e.g., code + checkbox)
 - Hybrid detection approach:
     - Inline code: Regex (InlineCode nodes are flat/leaf nodes)
     - Fenced code blocks: Syntax tree traversal with regex fallback
     - Links/Images: Syntax tree traversal (robust for nested parentheses)
-    - **Checkboxes**: Regex on line text (detects `- [ ]` / `- [x]` patterns)
-    - **Task selections**: Line-by-line scanning of selection range
-- **Priority: Code > Checkboxes > Links > Images > HTML**
+    - **Checkboxes**: Syntax tree validation (ListItem/Task nodes) + regex on line text
+    - **Task selections**: Line-by-line scanning with syntax tree validation per line
+- **Priority: Code > Checkboxes > Links > Images > HTML** (can show multiple simultaneously)
 - Registers commands:
-    - `contextUtils-getContextAtCursor` - pull architecture for context detection
+    - `contextUtils-getContextAtCursor` - pull architecture for context detection (returns array)
     - `contextUtils-replaceRange` - text replacement for checkbox toggling
 - Detects selections and provides bulk operations when applicable
+- Uses syntax tree to prevent false positives in code blocks
 
 ### Utilities
 
@@ -241,51 +250,92 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
 // Content script - register command
 codeMirrorWrapper.registerCommand('contextUtils-getContextAtCursor', () => {
     const pos = view.state.selection.main.head;
-    const context = detectContextAtPosition(view, pos);
-    return context;
+    const contexts = detectContextAtPosition(view, pos); // Returns array
+    return contexts;
 });
 
 // Main plugin - call command when needed
-const context = await joplin.commands.execute('editor.execCommand', {
+const contexts = (await joplin.commands.execute('editor.execCommand', {
     name: 'contextUtils-getContextAtCursor',
-}) as EditorContext | null;
+})) as EditorContext[];
+
+// Process each context to build menu items
+for (const context of contexts) {
+    // Add menu items for this context
+}
 ```
 
 **Benefits over push architecture:**
+
 - Direct request/response - no race conditions
 - Only executes when needed - zero overhead during typing
-- Guaranteed to return context for current cursor position
+- Guaranteed to return contexts for current cursor position
+- Supports multiple contexts at same position (e.g., code inside task list)
 
 ### 4. Checkbox Detection and Toggling
 
-**Detection Priority:**
-1. **Selection check** - If there's a text selection, check for tasks first
-2. **Code blocks/inline code** - Highest priority for single context
-3. **Checkboxes** - Task list items with `- [ ]` or `- [x]`
-4. **Links** - Markdown and bare URLs
-5. **Images** - Markdown and HTML images
+**Multi-Context Support:**
+The plugin can return multiple contexts simultaneously. For example, when cursor is inside inline code within a task list item:
 
-**Checkbox Pattern Matching:**
+- Returns `[CodeContext, CheckboxContext]`
+- Menu shows both "Copy Code" AND "Check Task" / "Uncheck Task"
+
+**Detection Strategy:**
+
+1. **Selection check** - If there's a text selection, check for tasks first (returns single `TaskSelectionContext`)
+2. **Primary context** - Detect code/links/images via syntax tree
+3. **Secondary context** - Always check if on a checkbox line (if primary context exists)
+
+**Detection Priority (for primary context):**
+
+1. Code blocks/inline code (highest)
+2. Links - Markdown and bare URLs
+3. Images - Markdown and HTML images
+
+**Checkbox Detection (secondary, runs alongside primary):**
+Uses two-step validation to prevent false positives:
+
+1. **Syntax tree check** - Verify cursor is inside `ListItem` or `Task` node (prevents detection in code blocks)
+2. **Pattern matching** - If in list item, check line text for checkbox pattern
+
 ```typescript
+// Step 1: Verify we're in a ListItem/Task node via syntax tree
+tree.iterate({
+    from: pos,
+    to: pos,
+    enter: (node) => {
+        if (node.type.name === 'ListItem' || node.type.name === 'Task') {
+            isInTaskList = true;
+            return false;
+        }
+    },
+});
+
+// Step 2: Only if in task list, match checkbox pattern
 // Matches: "  - [ ] Task" or "    * [x] Done"
 const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
 ```
 
 Supports:
+
 - List markers: `-`, `*`, `+`
 - Indentation (nested task lists)
 - Checkbox states: lowercase `x` (checked) or space (unchecked)
 - Detection anywhere on the task line (not just on the checkbox)
+- **Prevents false positives** in code blocks via syntax tree validation
 
 **Task Selection Detection:**
 When user has selected text:
+
 1. Scans all lines in selection range
-2. Identifies lines with task list checkboxes
-3. Counts checked vs unchecked tasks
-4. Returns `TaskSelectionContext` if tasks found
+2. For each line, validates it's in a `ListItem`/`Task` node (syntax tree)
+3. Only if validated, checks for checkbox pattern on that line
+4. Counts checked vs unchecked tasks
+5. Returns `TaskSelectionContext` if tasks found
 
 **Text Replacement:**
 Uses `contextUtils-replaceRange` command:
+
 - Validates inputs (positions must be finite numbers, from ≤ to)
 - Performs atomic text replacement via CodeMirror dispatch
 - Returns success/failure boolean
@@ -383,7 +433,6 @@ Content scripts must be declared here for webpack bundling.
     - Single checkbox: Cursor on `- [x] Done` → shows "Uncheck Task"
     - Nested lists: `  - [ ] Nested` → detects correctly
     - Cursor position: Anywhere on task line → detects checkbox
-    - Priority: `- [ ] [link](url)` → checkbox menu (not link menu)
 - **Test bulk checkbox operations:**
     - Select multiple task lines → shows "Check All Tasks (N)" and/or "Uncheck All Tasks (N)"
     - Mixed selection with non-task lines → only processes tasks
@@ -391,3 +440,10 @@ Content scripts must be declared here for webpack bundling.
     - All unchecked selection → only shows "Check All"
     - Mixed checked/unchecked → shows both options with counts
     - Toast feedback shows count of tasks processed
+- **Test multi-context support:**
+    - `- [ ] \`code\`` with cursor in code → shows both "Copy Code" AND "Check Task"
+    - `- [ ] [link](url)` with cursor in link → shows both link options AND "Check Task"
+    - Code block outside task list → shows only "Copy Code" (no checkbox)
+- **Test false positive prevention:**
+    - Code block containing `- [ ] Task` text → NO checkbox menu (only "Copy Code")
+    - Selection including code block with task-like text → doesn't count as tasks
