@@ -84,6 +84,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
+- Distinguishes between note links and resource links using `isJoplinNote()` helper
+- Resource-specific options (Copy Path, Reveal File) only shown for actual resources
 - Checks settings before adding menu items
 - Only adds separator if ≥1 menu item will be shown
 - Stores current context from content script messages
@@ -100,13 +102,16 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/contentScripts/linkDetection.ts**
 
 - CodeMirror 6 content script (type: CodeMirrorPlugin)
-- Uses syntax tree traversal (NOT regex) for detection
+- Hybrid detection approach:
+    - Inline code: Regex (InlineCode nodes are flat/leaf nodes)
+    - Fenced code blocks: Syntax tree traversal with regex fallback
+    - Links/Images: Syntax tree traversal (robust for nested parentheses)
 - Priority: Code > Links > Images > HTML
 - Exports detection logic and context comparison
 
 ### Utilities
 
-**src/utils/logger.ts**
+**src/logger.ts**
 
 - Centralized logging with log levels (DEBUG, INFO, WARN, ERROR)
 - Exposes runtime controls via `console.contextUtils.setLogLevel()`
@@ -143,16 +148,20 @@ interface CodeContext {
 
 TypeScript uses `contextType` to narrow types safely.
 
-### 2. Syntax Tree Traversal (NOT Regex)
+### 2. Hybrid Detection Approach
 
-**Bad (fragile):**
+The plugin uses **syntax tree traversal for links** (robust) and a **hybrid approach for code** (practical).
+
+**For Links - Syntax Tree (Robust):**
+
+Bad (regex, fragile):
 
 ```typescript
 const match = linkText.match(/\[([^\]]+)\]\(([^)]+)\)/);
 // Breaks on nested parentheses: [text](https://example.com/foo(bar))
 ```
 
-**Good (robust):**
+Good (syntax tree, robust):
 
 ```typescript
 function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | null {
@@ -168,6 +177,26 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
     return null;
 }
 ```
+
+**For Code - Hybrid Approach:**
+
+- **Inline code**: Regex (because `InlineCode` nodes are flat/leaf nodes with backticks included)
+
+    ```typescript
+    // InlineCode node contains: `code`
+    const match = codeText.match(/^`(.+)`$/s);
+    return match ? { code: match[1] } : null;
+    ```
+
+- **Fenced code blocks**: Syntax tree with regex fallback
+    ````typescript
+    // Try to find CodeText child (excludes fence markers)
+    if (cursor.name === 'CodeText') {
+        return { code: view.state.doc.sliceString(cursor.from, cursor.to) };
+    }
+    // Fallback to regex if no CodeText child
+    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m);
+    ````
 
 ### 3. Efficient Context Comparison
 
@@ -212,23 +241,54 @@ await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message) => {
 
 No request/response pattern - content script publishes, main plugin subscribes.
 
+### 5. Note vs Resource Distinction
+
+Joplin uses the same `:/32-hex-id` syntax for both note links and resource (attachment) links. The content script cannot distinguish between them (it only sees text).
+
+The main plugin (menus.ts) uses the `isJoplinNote()` helper to check if an ID is a note:
+
+```typescript
+async function isJoplinNote(id: string): Promise<boolean> {
+    try {
+        await joplin.data.get(['notes', id], { fields: ['id'] });
+        return true; // It's a note
+    } catch {
+        return false; // It's a resource or invalid ID
+    }
+}
+```
+
+**Menu Behavior:**
+
+- **Note links**: Show "Open Note" only (no Copy Path or Reveal File)
+- **Resource links**: Show "Open Resource", "Copy Resource Path", "Reveal File in Folder"
+
+This prevents errors when trying to get file paths for notes (which don't have physical files in the resources directory).
+
 ## Important Notes
 
 ### CodeMirror 6 Syntax Nodes
 
 **Markdown:**
 
-- `Link` - `[text](url)` (entire structure)
-- `Image` - `![alt](url)` (entire structure)
+- `Link` - `[text](url)` (entire structure with `URL` child nodes)
+- `Image` - `![alt](url)` (entire structure with `URL` child nodes)
 - `URL` - Bare URLs or child nodes of Link/Image
 - `Autolink` - `<url>`
-- `InlineCode` / `CodeText` - `` `code` ``
-- `FencedCode` / `CodeBlock` - ` ` ```
+- `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
+- `FencedCode` - ` ` ```(may have`CodeText` child excluding fence markers)
+    - `CodeText` - Content of fenced code block (when present)
 
 **HTML in Markdown:**
 
 - `HTMLTag` - Entire tag (no internal structure)
 - Must use regex for `<img src="...">` parsing (acceptable here)
+
+**Important Note on Code Nodes:**
+
+- In Joplin's markdown parser, `InlineCode` is a **leaf node** containing the full text including backticks (`` `code` ``)
+- `FencedCode` may have `CodeText` children, but structure varies by parser implementation
+- This is why the hybrid approach (regex for inline, tree traversal for fenced) is used
 
 ### Settings Best Practices
 
@@ -261,4 +321,8 @@ Content scripts must be declared here for webpack bundling.
 - Test with URLs containing special characters (nested parentheses, spaces, etc.)
 - Verify settings changes apply without restart
 - Check context detection at various cursor positions
-- Test with both Joplin resources and external URLs
+- Test with both Joplin resources (attachments) and note links
+    - Note links: Should only show "Open Note"
+    - Resource links: Should show all resource options
+- Test with external URLs
+- Test inline code and fenced code blocks (including nested backticks in fenced blocks)
