@@ -31,6 +31,60 @@ export interface CodeContext {
     to: number;
 }
 
+/**
+ * Represents a detected task list checkbox
+ */
+export interface CheckboxContext {
+    /** Discriminator for union type */
+    contextType: 'checkbox';
+
+    /** Whether the checkbox is currently checked */
+    checked: boolean;
+
+    /** The full line text containing the checkbox */
+    lineText: string;
+
+    /** Position information for the checkbox line */
+    from: number;
+    to: number;
+}
+
+/**
+ * Represents information about a single task in a selection
+ */
+export interface TaskInfo {
+    /** Line text */
+    lineText: string;
+
+    /** Whether the task is checked */
+    checked: boolean;
+
+    /** Position of the line */
+    from: number;
+    to: number;
+}
+
+/**
+ * Represents multiple task list checkboxes in a selection
+ */
+export interface TaskSelectionContext {
+    /** Discriminator for union type */
+    contextType: 'taskSelection';
+
+    /** Array of tasks found in the selection */
+    tasks: TaskInfo[];
+
+    /** Number of checked tasks */
+    checkedCount: number;
+
+    /** Number of unchecked tasks */
+    uncheckedCount: number;
+
+    /** Position information for the entire selection */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -43,31 +97,16 @@ export enum LinkType {
 }
 
 /**
- * Message types for postMessage communication
- */
-export const MESSAGE_TYPES = {
-    GET_CONTEXT: 'getContext',
-} as const;
-
-/**
  * Union type for all context types
  */
-export type EditorContext = LinkContext | CodeContext;
-
-/**
- * Message interface for content script communication
- */
-export interface ContentScriptMessage {
-    type: typeof MESSAGE_TYPES.GET_CONTEXT;
-    data: EditorContext | null;
-}
+export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext;
 
 /**
  * Content script context provided by Joplin
+ * (kept for type compatibility, but postMessage no longer used in pull architecture)
  */
 export interface ContentScriptContext {
     contentScriptId: string;
-    postMessage: (message: ContentScriptMessage) => void;
 }
 
 /**
@@ -77,6 +116,7 @@ export interface CodeMirrorWrapper {
     cm6: boolean;
     editor: unknown; // EditorView from @codemirror/view, but typed as unknown to avoid importing in main context
     addExtension: (extension: unknown) => void;
+    registerCommand: (name: string, callback: (...args: unknown[]) => unknown) => void;
 }
 
 /**
@@ -88,4 +128,15 @@ export const COMMAND_IDS = {
     REVEAL_FILE: 'contextUtils.revealFile',
     COPY_CODE: 'contextUtils.copyCode',
     COPY_OCR_TEXT: 'contextUtils.copyOcrText',
+    TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
+    CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
+    UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
 } as const;
+
+/**
+ * Editor range for text replacement operations
+ */
+export interface EditorRange {
+    from: number;
+    to: number;
+}

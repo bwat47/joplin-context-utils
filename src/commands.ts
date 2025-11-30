@@ -1,8 +1,10 @@
 import joplin from 'api';
-import { COMMAND_IDS, LinkContext, CodeContext, LinkType } from './types';
+import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, TaskSelectionContext, LinkType } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
+import { REPLACE_RANGE_COMMAND, BATCH_REPLACE_COMMAND } from './contentScripts/contentScript';
+import { toggleCheckboxInLine } from './utils/checkboxUtils';
 
 /**
  * Registers all context menu commands
@@ -69,6 +71,45 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to copy OCR text:', error);
                 await showToast('Failed to copy OCR text', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.TOGGLE_CHECKBOX,
+        label: 'Toggle Checkbox',
+        execute: async (checkboxContext: CheckboxContext) => {
+            try {
+                await handleToggleCheckbox(checkboxContext);
+            } catch (error) {
+                logger.error('Failed to toggle checkbox:', error);
+                await showToast('Failed to toggle checkbox', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.CHECK_ALL_TASKS,
+        label: 'Check All Tasks',
+        execute: async (taskSelectionContext: TaskSelectionContext) => {
+            try {
+                await handleCheckAllTasks(taskSelectionContext);
+            } catch (error) {
+                logger.error('Failed to check all tasks:', error);
+                await showToast('Failed to check all tasks', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.UNCHECK_ALL_TASKS,
+        label: 'Uncheck All Tasks',
+        execute: async (taskSelectionContext: TaskSelectionContext) => {
+            try {
+                await handleUncheckAllTasks(taskSelectionContext);
+            } catch (error) {
+                logger.error('Failed to uncheck all tasks:', error);
+                await showToast('Failed to uncheck all tasks', ToastType.Error);
             }
         },
     });
@@ -169,4 +210,99 @@ async function handleCopyOcrText(linkContext: LinkContext): Promise<void> {
     await joplin.clipboard.writeText(resource.ocr_text);
     await showToast('OCR text copied to clipboard', ToastType.Success);
     logger.info('Copied OCR text to clipboard for resource:', resourceId);
+}
+
+/**
+ * "Toggle Checkbox" handler
+ * Toggles task list checkbox between [ ] and [x]
+ */
+async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<void> {
+    // Toggle the checkbox: [ ] ↔ [x]
+    const newLineText = toggleCheckboxInLine(checkboxContext.lineText, !checkboxContext.checked);
+
+    // Replace the line text using the replaceRange command
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: REPLACE_RANGE_COMMAND,
+        args: [newLineText, checkboxContext.from, checkboxContext.to, checkboxContext.lineText],
+    })) as boolean;
+
+    if (!success) {
+        throw new Error('Failed to replace checkbox text');
+    }
+
+    const action = checkboxContext.checked ? 'unchecked' : 'checked';
+    await showToast(`Task ${action}`, ToastType.Success);
+    logger.info(`Toggled checkbox: ${action}`);
+}
+
+/**
+ * "Check All Tasks" handler
+ * Checks all unchecked tasks in the selection
+ */
+async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+    // Filter to only the tasks that need changing
+    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => !task.checked);
+
+    if (tasksToUpdate.length === 0) return;
+
+    // Map to the replacement format
+    const replacements = tasksToUpdate.map((task) => ({
+        from: task.from,
+        to: task.to,
+        text: toggleCheckboxInLine(task.lineText, true),
+        expectedText: task.lineText, // Include for optimistic concurrency check
+    }));
+
+    // Send ONE IPC message
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: BATCH_REPLACE_COMMAND,
+        args: [replacements],
+    })) as boolean;
+
+    if (success) {
+        await showToast(
+            `Checked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
+            ToastType.Success
+        );
+        logger.info(`Checked ${replacements.length} tasks`);
+    } else {
+        await showToast('Content changed; update aborted', ToastType.Error);
+        logger.warn('Batch update aborted due to content mismatch');
+    }
+}
+
+/**
+ * "Uncheck All Tasks" handler
+ * Unchecks all checked tasks in the selection
+ */
+async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+    // Filter to only the tasks that need changing
+    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => task.checked);
+
+    if (tasksToUpdate.length === 0) return;
+
+    // Map to the replacement format
+    const replacements = tasksToUpdate.map((task) => ({
+        from: task.from,
+        to: task.to,
+        text: toggleCheckboxInLine(task.lineText, false),
+        expectedText: task.lineText, // Include for optimistic concurrency check
+    }));
+
+    // Send ONE IPC message
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: BATCH_REPLACE_COMMAND,
+        args: [replacements],
+    })) as boolean;
+
+    if (success) {
+        await showToast(
+            `Unchecked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
+            ToastType.Success
+        );
+        logger.info(`Unchecked ${replacements.length} tasks`);
+    } else {
+        await showToast('Content changed; update aborted', ToastType.Error);
+        logger.warn('Batch update aborted due to content mismatch');
+    }
 }

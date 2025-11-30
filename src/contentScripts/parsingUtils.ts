@@ -1,0 +1,110 @@
+import { SyntaxNode } from '@lezer/common';
+import { EditorView } from '@codemirror/view';
+import { LinkContext, CodeContext, LinkType } from '../types';
+
+/**
+ * Extracts URL from a Link or Image node by traversing its children
+ * Properly handles nested parentheses and special characters
+ */
+export function extractUrl(node: SyntaxNode, view: EditorView): string | null {
+    const cursor = node.cursor();
+
+    // Enter the node
+    if (!cursor.firstChild()) return null;
+
+    // Traverse children to find the URL node
+    do {
+        if (cursor.name === 'URL') {
+            return view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return null;
+}
+
+/**
+ * Parses HTML img tag and extracts src attribute
+ * Handles img elements with various attributes
+ */
+export function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+    // Check if this is an img tag
+    if (!htmlText.match(/<img\s/i)) {
+        return null;
+    }
+
+    // Extract src attribute value
+    const srcMatch = htmlText.match(/\ssrc=["']([^"']+)["']/i);
+    if (!srcMatch) {
+        return null;
+    }
+
+    const url = srcMatch[1];
+    return classifyUrl(url);
+}
+
+/**
+ * Classifies a URL and determines its type
+ * @param url - The URL to classify
+ * @returns Link context with type, or null if not a supported URL type
+ */
+export function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+    // Determine link type
+    if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
+        return { url, type: LinkType.JoplinResource };
+    } else if (url.match(/^mailto:/i)) {
+        return { url, type: LinkType.Email };
+    } else if (url.match(/^https?:\/\//)) {
+        return { url, type: LinkType.ExternalUrl };
+    }
+
+    return null;
+}
+
+/**
+ * Parses inline code and extracts content
+ * Handles backtick-wrapped inline code
+ */
+export function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
+    // Remove backticks from inline code
+    const match = codeText.match(/^`(.+)`$/s);
+    if (!match) {
+        return null;
+    }
+
+    return { code: match[1] };
+}
+
+/**
+ * Parses code block and extracts content using syntax tree traversal
+ * Handles fenced code blocks with or without language specifier
+ * Properly handles nested backticks by extracting only the CodeText node
+ * Falls back to regex if no CodeText child is found
+ */
+export function parseCodeBlock(
+    node: SyntaxNode,
+    view: EditorView
+): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
+    const cursor = node.cursor();
+
+    // Try to find CodeText child node (syntax tree approach)
+    if (cursor.firstChild()) {
+        do {
+            if (cursor.name === 'CodeText') {
+                // Found CodeText child - extract it directly (excludes fence markers)
+                const code = view.state.doc.sliceString(cursor.from, cursor.to);
+                return { code };
+            }
+        } while (cursor.nextSibling());
+    }
+
+    // Fallback: If no CodeText child found, use regex to strip fence markers
+    // This handles cases where FencedCode is a flat node
+    const codeText = view.state.doc.sliceString(node.from, node.to);
+    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m) || codeText.match(/^~~~[^\n]*\n([\s\S]*?)~~~$/m);
+
+    if (!match) {
+        return null;
+    }
+
+    return { code: match[1] };
+}

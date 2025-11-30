@@ -1,5 +1,5 @@
 import joplin from 'api';
-import { LinkContext, EditorContext, LinkType, COMMAND_IDS, MESSAGE_TYPES, ContentScriptMessage } from './types';
+import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './logger';
 import {
@@ -8,13 +8,12 @@ import {
     SETTING_SHOW_REVEAL_FILE,
     SETTING_SHOW_COPY_CODE,
     SETTING_SHOW_COPY_OCR_TEXT,
+    SETTING_SHOW_TOGGLE_TASK,
 } from './settings';
 import { extractJoplinResourceId } from './utils/urlUtils';
+import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
-
-// Store the current context received from content script
-let currentContext: EditorContext | null = null;
 
 /**
  * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
@@ -50,111 +49,141 @@ async function hasOcrText(id: string): Promise<boolean> {
 }
 
 /**
- * Sets up message listener for content script updates
- */
-export async function setupMessageListener(): Promise<void> {
-    await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
-        if (message.type === MESSAGE_TYPES.GET_CONTEXT) {
-            currentContext = message.data;
-            logger.debug('Editor context updated:', currentContext);
-        }
-    });
-}
-
-/**
  * Registers context menu filter
  * This is called BEFORE the context menu opens
  */
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
-            // Add a small delay to allow content script message to arrive
-            // This mitigates race conditions where right-click moves cursor but message hasn't arrived yet
-            await new Promise((resolve) => setTimeout(resolve, 100));
+            // Small delay to work around timing issue on Linux where cursor position
+            // may not have updated yet when context menu filter is called
+            await new Promise((resolve) => setTimeout(resolve, 10));
 
-            // Use the stored context from content script
-            const context = currentContext;
+            // Get contexts directly from editor (pull architecture)
+            // This is guaranteed to match the current cursor position
+            // May return multiple contexts (e.g., code + checkbox)
+            const contexts = (await joplin.commands.execute('editor.execCommand', {
+                name: GET_CONTEXT_AT_CURSOR_COMMAND,
+            })) as EditorContext[];
 
-            if (!context) {
+            if (!contexts || contexts.length === 0) {
                 // No context at cursor, return menu unchanged
                 return menuItems;
             }
 
-            logger.debug('Building context menu for context:', context);
+            logger.debug('Building context menu for contexts:', contexts);
 
             const contextMenuItems: MenuItem[] = [];
 
-            // Handle different context types
-            if (context.contextType === 'link') {
-                // Check settings and build menu items for links
-                const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
-                const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
-                const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
-                const showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
+            // Process each context and build menu items
+            for (const context of contexts) {
+                // Handle different context types
+                if (context.contextType === 'link') {
+                    // Check settings and build menu items for links
+                    const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
+                    const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
+                    const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
+                    const showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
 
-                // For Joplin resources, check if it's a note or an actual resource
-                let isNote = false;
-                let hasOcr = false;
-                if (context.type === LinkType.JoplinResource) {
-                    const resourceId = extractJoplinResourceId(context.url);
-                    isNote = await isJoplinNote(resourceId);
-                    // Only check for OCR if it's not a note (i.e., it's a resource)
-                    if (!isNote && showCopyOcrText) {
-                        hasOcr = await hasOcrText(resourceId);
+                    // For Joplin resources, check if it's a note or an actual resource
+                    let isNote = false;
+                    let hasOcr = false;
+                    if (context.type === LinkType.JoplinResource) {
+                        const resourceId = extractJoplinResourceId(context.url);
+                        isNote = await isJoplinNote(resourceId);
+                        // Only check for OCR if it's not a note (i.e., it's a resource)
+                        if (!isNote && showCopyOcrText) {
+                            hasOcr = await hasOcrText(resourceId);
+                        }
                     }
-                }
 
-                if (showOpenLink) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.OPEN_LINK,
-                        commandArgs: [context],
-                        label: getLabelForOpenLink(context, isNote),
-                    });
-                }
+                    if (showOpenLink) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.OPEN_LINK,
+                            commandArgs: [context],
+                            label: getLabelForOpenLink(context, isNote),
+                        });
+                    }
 
-                // Only show resource-specific options for actual resources (not notes)
-                if (context.type === LinkType.JoplinResource && !isNote) {
-                    if (showCopyPath) {
+                    // Only show resource-specific options for actual resources (not notes)
+                    if (context.type === LinkType.JoplinResource && !isNote) {
+                        if (showCopyPath) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.COPY_PATH,
+                                commandArgs: [context],
+                                label: 'Copy Resource Path',
+                            });
+                        }
+
+                        if (showRevealFile) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.REVEAL_FILE,
+                                commandArgs: [context],
+                                label: 'Reveal File in Folder',
+                            });
+                        }
+
+                        if (hasOcr) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.COPY_OCR_TEXT,
+                                commandArgs: [context],
+                                label: 'Copy OCR Text',
+                            });
+                        }
+                    } else if (
+                        (context.type === LinkType.ExternalUrl || context.type === LinkType.Email) &&
+                        showCopyPath
+                    ) {
+                        // For external URLs and emails, still show copy option
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.COPY_PATH,
                             commandArgs: [context],
-                            label: 'Copy Resource Path',
+                            label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
                         });
                     }
+                } else if (context.contextType === 'code') {
+                    // Check setting and build menu items for code
+                    const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
 
-                    if (showRevealFile) {
+                    if (showCopyCode) {
                         contextMenuItems.push({
-                            commandName: COMMAND_IDS.REVEAL_FILE,
+                            commandName: COMMAND_IDS.COPY_CODE,
                             commandArgs: [context],
-                            label: 'Reveal File in Folder',
+                            label: 'Copy Code',
                         });
                     }
+                } else if (context.contextType === 'checkbox') {
+                    // Check setting and build menu items for task checkboxes
+                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
 
-                    if (hasOcr) {
+                    if (showToggleTask) {
                         contextMenuItems.push({
-                            commandName: COMMAND_IDS.COPY_OCR_TEXT,
+                            commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
-                            label: 'Copy OCR Text',
+                            label: context.checked ? 'Uncheck Task' : 'Check Task',
                         });
                     }
-                } else if ((context.type === LinkType.ExternalUrl || context.type === LinkType.Email) && showCopyPath) {
-                    // For external URLs and emails, still show copy option
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.COPY_PATH,
-                        commandArgs: [context],
-                        label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
-                    });
-                }
-            } else if (context.contextType === 'code') {
-                // Check setting and build menu items for code
-                const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
+                } else if (context.contextType === 'taskSelection') {
+                    // Check setting and build menu items for task selection
+                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
 
-                if (showCopyCode) {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.COPY_CODE,
-                        commandArgs: [context],
-                        label: 'Copy Code',
-                    });
+                    if (showToggleTask) {
+                        if (context.uncheckedCount > 0) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.CHECK_ALL_TASKS,
+                                commandArgs: [context],
+                                label: `Check All Tasks (${context.uncheckedCount})`,
+                            });
+                        }
+
+                        if (context.checkedCount > 0) {
+                            contextMenuItems.push({
+                                commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
+                                commandArgs: [context],
+                                label: `Uncheck All Tasks (${context.checkedCount})`,
+                            });
+                        }
+                    }
                 }
             }
 
