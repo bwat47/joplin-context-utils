@@ -3,7 +3,7 @@ import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, TaskSelectionCo
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import { REPLACE_RANGE_COMMAND } from './contentScripts/linkDetection';
+import { REPLACE_RANGE_COMMAND } from './contentScripts/contentScript';
 
 /**
  * Registers all context menu commands

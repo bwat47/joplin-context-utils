@@ -11,7 +11,7 @@ import {
     SETTING_SHOW_TOGGLE_TASK,
 } from './settings';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/linkDetection';
+import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 

@@ -18,7 +18,7 @@ joplin.plugins.register({
             await joplin.contentScripts.register(
                 ContentScriptType.CodeMirrorPlugin,
                 CONTENT_SCRIPT_ID,
-                './contentScripts/linkDetection.js' // .js extension (webpack output)
+                './contentScripts/contentScript.js' // .js extension (webpack output)
             );
             logger.info('Link detection content script registered');
 

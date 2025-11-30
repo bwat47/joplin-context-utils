@@ -42,10 +42,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 ### Data Flow ("Pull" Architecture)
 
-1. **Content Script** (linkDetection.ts):
+1. **Content Script** (contentScript.ts):
     - Registers command `contextUtils-getContextAtCursor` using `codeMirrorWrapper.registerCommand()`
     - Command executes on-demand when called by main plugin
-    - Traverses syntax tree to detect contexts at current cursor position
+    - Delegates detection to `contextDetection.ts`
     - Returns **array of contexts** (supports multiple simultaneous contexts)
 
 2. **Main Plugin** (menus.ts):
@@ -119,22 +119,28 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
 - All commands show toast notifications (if enabled)
 
-**src/contentScripts/linkDetection.ts**
+**src/contentScripts/contentScript.ts**
 
-- CodeMirror 6 content script (type: CodeMirrorPlugin)
-- **Multi-context detection**: Returns array of contexts to support simultaneous detection (e.g., code + checkbox)
-- Hybrid detection approach:
-    - Inline code: Regex (InlineCode nodes are flat/leaf nodes)
-    - Fenced code blocks: Syntax tree traversal with regex fallback
-    - Links/Images: Syntax tree traversal (robust for nested parentheses)
-    - **Checkboxes**: Syntax tree validation (ListItem/Task nodes) + regex on line text
-    - **Task selections**: Line-by-line scanning with syntax tree validation per line
-- **Priority: Code > Checkboxes > Links > Images > HTML** (can show multiple simultaneously)
+- CodeMirror 6 content script entry point (type: CodeMirrorPlugin)
 - Registers commands:
-    - `contextUtils-getContextAtCursor` - pull architecture for context detection (returns array)
+    - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
     - `contextUtils-replaceRange` - text replacement for checkbox toggling
-- Detects selections and provides bulk operations when applicable
-- Uses syntax tree to prevent false positives in code blocks
+
+**src/contentScripts/contextDetection.ts**
+
+- **Multi-context detection logic**
+- Returns array of contexts to support simultaneous detection
+- Hybrid detection approach (delegates to `parsingUtils.ts`)
+- **Priority: Code > Checkboxes > Links > Images > HTML**
+
+**src/contentScripts/parsingUtils.ts**
+
+- Pure utility functions for parsing:
+    - `extractUrl` (syntax tree traversal)
+    - `parseImageTag` (regex)
+    - `classifyUrl` (regex)
+    - `parseInlineCode` (regex)
+    - `parseCodeBlock` (syntax tree + regex fallback)
 
 ### Utilities
 
@@ -377,7 +383,7 @@ This prevents errors when trying to get file paths for notes (which don't have p
 - `Autolink` - `<url>`
 - `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
 - `FencedCode` - ` ` ```(may have`CodeText` child excluding fence markers)
-    - `CodeText` - Content of fenced code block (when present)
+- `CodeText` - Content of fenced code block (when present)
 - `ListItem` - List items (may contain task checkboxes)
 - `Task` - Task list items (GFM extension)
 
@@ -411,7 +417,7 @@ This prevents errors when trying to get file paths for notes (which don't have p
 
 ```json
 {
-    "extraScripts": ["contentScripts/linkDetection.ts"]
+    "extraScripts": ["contentScripts/contentScript.ts"]
 }
 ```
 

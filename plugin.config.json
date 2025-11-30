@@ -1,5 +1,5 @@
 {
     "extraScripts": [
-        "contentScripts/linkDetection.ts"
+        "contentScripts/contentScript.ts"
     ]
 }
