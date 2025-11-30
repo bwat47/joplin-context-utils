@@ -3,7 +3,7 @@ import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, TaskSelectionCo
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import { REPLACE_RANGE_COMMAND } from './contentScripts/contentScript';
+import { REPLACE_RANGE_COMMAND, BATCH_REPLACE_COMMAND } from './contentScripts/contentScript';
 
 /**
  * Registers all context menu commands
@@ -241,37 +241,34 @@ async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<v
  * Checks all unchecked tasks in the selection
  */
 async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
-    let successCount = 0;
-    let failCount = 0;
+    // Filter to only the tasks that need changing
+    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => !task.checked);
 
-    // Process each task in the selection
-    for (const task of taskSelectionContext.tasks) {
-        // Skip already checked tasks
-        if (task.checked) {
-            continue;
-        }
+    if (tasksToUpdate.length === 0) return;
 
-        // Replace [ ] with [x]
-        const newLineText = task.lineText.replace(/\[ \]/, '[x]');
+    // Map to the replacement format
+    const replacements = tasksToUpdate.map((task) => ({
+        from: task.from,
+        to: task.to,
+        text: task.lineText.replace(/\[ \]/, '[x]'),
+        expectedText: task.lineText, // Include for optimistic concurrency check
+    }));
 
-        const success = (await joplin.commands.execute('editor.execCommand', {
-            name: REPLACE_RANGE_COMMAND,
-            args: [newLineText, task.from, task.to, task.lineText],
-        })) as boolean;
+    // Send ONE IPC message
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: BATCH_REPLACE_COMMAND,
+        args: [replacements],
+    })) as boolean;
 
-        if (success) {
-            successCount++;
-        } else {
-            failCount++;
-        }
-    }
-
-    if (failCount > 0) {
-        await showToast(`Checked ${successCount} tasks (${failCount} failed)`, ToastType.Error);
-        logger.warn(`Checked ${successCount} tasks, ${failCount} failed`);
+    if (success) {
+        await showToast(
+            `Checked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
+            ToastType.Success
+        );
+        logger.info(`Checked ${replacements.length} tasks`);
     } else {
-        await showToast(`Checked ${successCount} task${successCount !== 1 ? 's' : ''}`, ToastType.Success);
-        logger.info(`Checked ${successCount} tasks`);
+        await showToast('Content changed; update aborted', ToastType.Error);
+        logger.warn('Batch update aborted due to content mismatch');
     }
 }
 
@@ -280,36 +277,33 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
  * Unchecks all checked tasks in the selection
  */
 async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
-    let successCount = 0;
-    let failCount = 0;
+    // Filter to only the tasks that need changing
+    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => task.checked);
 
-    // Process each task in the selection
-    for (const task of taskSelectionContext.tasks) {
-        // Skip already unchecked tasks
-        if (!task.checked) {
-            continue;
-        }
+    if (tasksToUpdate.length === 0) return;
 
-        // Replace [x] with [ ]
-        const newLineText = task.lineText.replace(/\[x\]/, '[ ]');
+    // Map to the replacement format
+    const replacements = tasksToUpdate.map((task) => ({
+        from: task.from,
+        to: task.to,
+        text: task.lineText.replace(/\[x\]/, '[ ]'),
+        expectedText: task.lineText, // Include for optimistic concurrency check
+    }));
 
-        const success = (await joplin.commands.execute('editor.execCommand', {
-            name: REPLACE_RANGE_COMMAND,
-            args: [newLineText, task.from, task.to, task.lineText],
-        })) as boolean;
+    // Send ONE IPC message
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: BATCH_REPLACE_COMMAND,
+        args: [replacements],
+    })) as boolean;
 
-        if (success) {
-            successCount++;
-        } else {
-            failCount++;
-        }
-    }
-
-    if (failCount > 0) {
-        await showToast(`Unchecked ${successCount} tasks (${failCount} failed)`, ToastType.Error);
-        logger.warn(`Unchecked ${successCount} tasks, ${failCount} failed`);
+    if (success) {
+        await showToast(
+            `Unchecked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
+            ToastType.Success
+        );
+        logger.info(`Unchecked ${replacements.length} tasks`);
     } else {
-        await showToast(`Unchecked ${successCount} task${successCount !== 1 ? 's' : ''}`, ToastType.Success);
-        logger.info(`Unchecked ${successCount} tasks`);
+        await showToast('Content changed; update aborted', ToastType.Error);
+        logger.warn('Batch update aborted due to content mismatch');
     }
 }

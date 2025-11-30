@@ -12,6 +12,7 @@ export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
  * Command name for replacing a range of text in the editor
  */
 export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
+export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
 
 /**
  * Content script entry point
@@ -87,6 +88,47 @@ export default (_context: ContentScriptContext) => {
                         return true;
                     } catch (error) {
                         logger.error('replaceRange: failed to replace text:', error);
+                        return false;
+                    }
+                }
+            );
+
+            // Register command to batch replace multiple ranges
+            // Used for bulk checkbox toggling
+            codeMirrorWrapper.registerCommand(
+                BATCH_REPLACE_COMMAND,
+                (replacements: Array<{ from: number; to: number; text: string; expectedText?: string }>) => {
+                    // Safety Check: Verify all texts match expectation before applying ANY changes
+                    for (const r of replacements) {
+                        if (r.expectedText !== undefined) {
+                            const currentText = view.state.doc.sliceString(r.from, r.to);
+                            if (currentText !== r.expectedText) {
+                                logger.warn(
+                                    `Batch replace aborted: mismatch at ${r.from}`,
+                                    '\nExpected:',
+                                    r.expectedText,
+                                    '\nFound:',
+                                    currentText
+                                );
+                                return false; // Abort entire transaction if document changed
+                            }
+                        }
+                    }
+
+                    const changes = replacements.map((r) => ({
+                        from: r.from,
+                        to: r.to,
+                        insert: r.text,
+                    }));
+
+                    try {
+                        // ATOMICITY: All changes applied in one transaction
+                        // CodeMirror automatically handles the offset shifting
+                        view.dispatch({ changes });
+                        logger.debug(`Batch replaced ${changes.length} ranges`);
+                        return true;
+                    } catch (error) {
+                        logger.error('batchReplace: failed to replace text:', error);
                         return false;
                     }
                 }

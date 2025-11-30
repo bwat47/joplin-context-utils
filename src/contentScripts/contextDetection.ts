@@ -222,61 +222,45 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
     const tasks: TaskInfo[] = [];
     let checkedCount = 0;
     let uncheckedCount = 0;
+    const doc = view.state.doc;
     const tree = syntaxTree(view.state);
 
-    // Get the starting and ending lines
-    const startLine = view.state.doc.lineAt(from);
-    const endLine = view.state.doc.lineAt(to);
+    // OPTIMIZATION: Iterate the tree ONCE for the entire selection range
+    tree.iterate({
+        from: from,
+        to: to,
+        enter: (node) => {
+            // Check for list items (GFM structure)
+            if (node.name === 'ListItem' || node.name === 'Task') {
+                const line = doc.lineAt(node.from);
 
-    // Iterate through all lines in the selection
-    for (let lineNum = startLine.number; lineNum <= endLine.number; lineNum++) {
-        const line = view.state.doc.line(lineNum);
-        const lineText = line.text;
+                // Deduplicate: If multiple nodes appear on the same line, skip subsequent ones
+                // This handles cases where Task is a child of ListItem on the same line
+                const lastTask = tasks[tasks.length - 1];
+                if (lastTask && lastTask.from === line.from) return;
 
-        // Check if this line is within a ListItem or Task node
-        // This prevents false positives inside code blocks
-        let isInTaskList = false;
-        tree.iterate({
-            from: line.from,
-            to: line.from,
-            enter: (node) => {
-                if (node.type.name === 'ListItem' || node.type.name === 'Task') {
-                    isInTaskList = true;
-                    return false; // Stop iteration
+                const lineText = line.text;
+                // Strict Regex: Matches "- [ ] " or "* [x] "
+                const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+
+                if (checkboxMatch) {
+                    const checked = checkboxMatch[2] === 'x';
+                    tasks.push({
+                        lineText,
+                        checked,
+                        from: line.from,
+                        to: line.to,
+                    });
+
+                    if (checked) checkedCount++;
+                    else uncheckedCount++;
                 }
-            },
-        });
-
-        // Only check for checkbox pattern if we're in a task list item
-        if (!isInTaskList) {
-            continue;
-        }
-
-        // Check if this line contains a task list checkbox
-        const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
-
-        if (checkboxMatch) {
-            const checked = checkboxMatch[2] === 'x';
-
-            tasks.push({
-                lineText,
-                checked,
-                from: line.from,
-                to: line.to,
-            });
-
-            if (checked) {
-                checkedCount++;
-            } else {
-                uncheckedCount++;
+                // Do NOT return false here, so we continue to traverse children (nested lists)
             }
-        }
-    }
+        },
+    });
 
-    // Only return context if we found at least one task
-    if (tasks.length === 0) {
-        return null;
-    }
+    if (tasks.length === 0) return null;
 
     return {
         contextType: 'taskSelection',
