@@ -1,4 +1,5 @@
 import { SyntaxNode } from '@lezer/common';
+import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
@@ -113,4 +114,53 @@ export function parseCodeBlock(
     }
 
     return { code: match[1] };
+}
+
+/**
+ * Extracts reference label from a Link node (e.g. "2" from [Google][2])
+ */
+export function extractReferenceLabel(node: SyntaxNode, view: EditorView): string | null {
+    const cursor = node.cursor();
+    if (!cursor.firstChild()) return null;
+
+    do {
+        if (cursor.name === 'LinkLabel') {
+            return view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return null;
+}
+
+/**
+ * Finds the URL defined for a reference label
+ * Scans the entire document for LinkDefinition nodes matching the label
+ */
+export function findReferenceDefinition(view: EditorView, label: string): string | null {
+    const tree = syntaxTree(view.state);
+    let url: string | null = null;
+
+    tree.iterate({
+        enter: (node) => {
+            if (node.name === 'LinkReference') {
+                const cursor = node.node.cursor();
+                if (cursor.firstChild()) {
+                    let foundLabel = false;
+                    do {
+                        if (cursor.name === 'LinkLabel') {
+                            const defLabel = view.state.doc.sliceString(cursor.from, cursor.to);
+                            if (defLabel === label) {
+                                foundLabel = true;
+                            }
+                        } else if (cursor.name === 'URL' && foundLabel) {
+                            url = view.state.doc.sliceString(cursor.from, cursor.to);
+                            return false; // Stop iteration
+                        }
+                    } while (cursor.nextSibling());
+                }
+            }
+        },
+    });
+
+    return url;
 }

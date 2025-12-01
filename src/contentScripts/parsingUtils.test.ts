@@ -1,5 +1,15 @@
-import { classifyUrl, parseImageTag, parseInlineCode } from './parsingUtils';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import {
+    classifyUrl,
+    parseImageTag,
+    parseInlineCode,
+    extractReferenceLabel,
+    findReferenceDefinition,
+} from './parsingUtils';
 import { LinkType } from '../types';
+import { EditorState } from '@codemirror/state';
+import { markdown } from '@codemirror/lang-markdown';
+import { syntaxTree } from '@codemirror/language';
 
 describe('parsingUtils', () => {
     describe('classifyUrl', () => {
@@ -94,6 +104,76 @@ describe('parsingUtils', () => {
         it('should return null for malformed backticks', () => {
             // The regex expects start and end backticks for the whole string
             expect(parseInlineCode('`unclosed')).toBeNull();
+        });
+    });
+
+    describe('Reference Links', () => {
+        const createView = (doc: string) => {
+            const state = EditorState.create({
+                doc,
+                extensions: [markdown()],
+            });
+            // Mock EditorView since we only need state
+            return { state } as any;
+        };
+
+        describe('extractReferenceLabel', () => {
+            it('should extract label from reference link', () => {
+                const text = '[Google][2]';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let label = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            label = extractReferenceLabel(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(label).toBe('[2]');
+            });
+
+            it('should return null for normal links', () => {
+                const text = '[Google](https://google.com)';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let label = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            label = extractReferenceLabel(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(label).toBeNull();
+            });
+        });
+
+        describe('findReferenceDefinition', () => {
+            it('should find definition for label', () => {
+                const text = '[Google][2]\n\n[2]: https://google.com';
+                const { state } = createView(text);
+                const url = findReferenceDefinition({ state } as any, '[2]');
+                expect(url).toBe('https://google.com');
+            });
+
+            it('should return null if definition not found', () => {
+                const text = '[Google][2]';
+                const { state } = createView(text);
+                const url = findReferenceDefinition({ state } as any, '[2]');
+                expect(url).toBeNull();
+            });
+
+            it('should handle title in definition', () => {
+                const text = '[2]: https://google.com "Title"';
+                const { state } = createView(text);
+                const url = findReferenceDefinition({ state } as any, '[2]');
+                expect(url).toBe('https://google.com');
+            });
         });
     });
 });
