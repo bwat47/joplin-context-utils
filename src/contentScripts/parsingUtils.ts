@@ -163,7 +163,8 @@ export function findReferenceDefinition(view: EditorView, label: string): string
             }
 
             // If this is the match, return immediately (early exit)
-            if (defLabel === label && defUrl !== null) {
+            // Note: Reference labels are case-insensitive per CommonMark spec
+            if (defLabel !== null && defUrl !== null && defLabel.toLowerCase() === label.toLowerCase()) {
                 return defUrl;
             }
         }

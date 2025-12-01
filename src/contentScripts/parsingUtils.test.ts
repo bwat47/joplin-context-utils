@@ -185,6 +185,25 @@ describe('parsingUtils', () => {
                 const url = findReferenceDefinition({ state } as any, '[1]');
                 expect(url).toBe('https://first.com');
             });
+
+            it('should match labels case-insensitively', () => {
+                const text = '[upper]: https://example.com/case-insensitive';
+                const { state } = createView(text);
+
+                // All of these should match the [upper] definition
+                expect(findReferenceDefinition({ state } as any, '[upper]')).toBe(
+                    'https://example.com/case-insensitive'
+                );
+                expect(findReferenceDefinition({ state } as any, '[UPPER]')).toBe(
+                    'https://example.com/case-insensitive'
+                );
+                expect(findReferenceDefinition({ state } as any, '[UpPeR]')).toBe(
+                    'https://example.com/case-insensitive'
+                );
+                expect(findReferenceDefinition({ state } as any, '[Upper]')).toBe(
+                    'https://example.com/case-insensitive'
+                );
+            });
         });
     });
 });
