@@ -135,6 +135,7 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
 /**
  * Finds the URL defined for a reference label
  * Scans the entire document for LinkDefinition nodes matching the label
+ * Uses the first occurrence if multiple definitions exist with the same label
  */
 export function findReferenceDefinition(view: EditorView, label: string): string | null {
     const tree = syntaxTree(view.state);
@@ -142,6 +143,11 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 
     tree.iterate({
         enter: (node) => {
+            // Skip all nodes if we've already found the URL (first occurrence wins)
+            if (url !== null) {
+                return false;
+            }
+
             if (node.name === 'LinkReference') {
                 const cursor = node.node.cursor();
                 if (cursor.firstChild()) {
@@ -154,7 +160,7 @@ export function findReferenceDefinition(view: EditorView, label: string): string
                             }
                         } else if (cursor.name === 'URL' && foundLabel) {
                             url = view.state.doc.sliceString(cursor.from, cursor.to);
-                            return false; // Stop iteration
+                            return false;
                         }
                     } while (cursor.nextSibling());
                 }

@@ -174,6 +174,17 @@ describe('parsingUtils', () => {
                 const url = findReferenceDefinition({ state } as any, '[2]');
                 expect(url).toBe('https://google.com');
             });
+
+            it('should use first occurrence when multiple definitions exist with same label', () => {
+                const text =
+                    '[Example][1]\n\n' +
+                    '[1]: https://first.com\n' +
+                    '[1]: https://second.com\n' +
+                    '[1]: https://third.com';
+                const { state } = createView(text);
+                const url = findReferenceDefinition({ state } as any, '[1]');
+                expect(url).toBe('https://first.com');
+            });
         });
     });
 });
