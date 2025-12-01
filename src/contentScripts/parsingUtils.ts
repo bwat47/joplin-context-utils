@@ -151,18 +151,22 @@ export function findReferenceDefinition(view: EditorView, label: string): string
             if (node.name === 'LinkReference') {
                 const cursor = node.node.cursor();
                 if (cursor.firstChild()) {
-                    let foundLabel = false;
+                    let defLabel: string | null = null;
+                    let defUrl: string | null = null;
+
+                    // Collect label and URL from this reference definition
                     do {
                         if (cursor.name === 'LinkLabel') {
-                            const defLabel = view.state.doc.sliceString(cursor.from, cursor.to);
-                            if (defLabel === label) {
-                                foundLabel = true;
-                            }
-                        } else if (cursor.name === 'URL' && foundLabel) {
-                            url = view.state.doc.sliceString(cursor.from, cursor.to);
-                            return false;
+                            defLabel = view.state.doc.sliceString(cursor.from, cursor.to);
+                        } else if (cursor.name === 'URL') {
+                            defUrl = view.state.doc.sliceString(cursor.from, cursor.to);
                         }
                     } while (cursor.nextSibling());
+
+                    // Check if this definition matches the label we're looking for
+                    if (defLabel === label && defUrl !== null) {
+                        url = defUrl;
+                    }
                 }
             }
         },
