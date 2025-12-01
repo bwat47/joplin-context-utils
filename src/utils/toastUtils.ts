@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { ToastType } from 'api/types';
 import { logger } from '../logger';
-import { settingsCache } from './settingsCache';
+import { settingsCache } from '../settings';
 
 // Re-export ToastType for convenience
 export { ToastType } from 'api/types';

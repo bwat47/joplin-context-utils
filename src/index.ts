@@ -2,9 +2,8 @@ import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
-import { registerSettings } from './settings';
+import { registerSettings, initializeSettingsCache } from './settings';
 import { logger } from './logger';
-import { initializeSettingsCache } from './utils/settingsCache';
 
 joplin.plugins.register({
     onStart: async function () {

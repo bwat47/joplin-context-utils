@@ -4,7 +4,7 @@ import { MenuItem } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
-import { settingsCache } from './utils/settingsCache';
+import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
