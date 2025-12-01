@@ -16,6 +16,31 @@ import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
 /**
+ * Module-level settings cache to avoid async reads on every context menu open
+ */
+const settingsCache = {
+    showOpenLink: true,
+    showCopyPath: true,
+    showRevealFile: true,
+    showCopyCode: true,
+    showCopyOcrText: true,
+    showToggleTask: true,
+};
+
+/**
+ * Updates the settings cache by reading all values from Joplin settings
+ */
+async function updateSettingsCache(): Promise<void> {
+    settingsCache.showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
+    settingsCache.showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
+    settingsCache.showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
+    settingsCache.showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
+    settingsCache.showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
+    settingsCache.showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
+    logger.debug('Settings cache updated:', settingsCache);
+}
+
+/**
  * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
  * @param id - The 32-character hex ID
  * @returns true if it's a note, false if it's a resource or doesn't exist
@@ -53,6 +78,26 @@ async function hasOcrText(id: string): Promise<boolean> {
  * This is called BEFORE the context menu opens
  */
 export async function registerContextMenuFilter(): Promise<void> {
+    // Initialize settings cache
+    await updateSettingsCache();
+
+    // Listen for settings changes and update cache
+    joplin.settings.onChange(async (event) => {
+        // Check if any of our settings changed
+        const ourSettings = [
+            SETTING_SHOW_OPEN_LINK,
+            SETTING_SHOW_COPY_PATH,
+            SETTING_SHOW_REVEAL_FILE,
+            SETTING_SHOW_COPY_CODE,
+            SETTING_SHOW_COPY_OCR_TEXT,
+            SETTING_SHOW_TOGGLE_TASK,
+        ];
+
+        if (event.keys.some((key) => ourSettings.includes(key))) {
+            await updateSettingsCache();
+        }
+    });
+
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
             // Small delay to work around timing issue on Linux where cursor position
@@ -79,12 +124,6 @@ export async function registerContextMenuFilter(): Promise<void> {
             for (const context of contexts) {
                 // Handle different context types
                 if (context.contextType === 'link') {
-                    // Check settings and build menu items for links
-                    const showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
-                    const showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
-                    const showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
-                    const showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
-
                     // For Joplin resources, check if it's a note or an actual resource
                     let isNote = false;
                     let hasOcr = false;
@@ -92,12 +131,12 @@ export async function registerContextMenuFilter(): Promise<void> {
                         const resourceId = extractJoplinResourceId(context.url);
                         isNote = await isJoplinNote(resourceId);
                         // Only check for OCR if it's not a note (i.e., it's a resource)
-                        if (!isNote && showCopyOcrText) {
+                        if (!isNote && settingsCache.showCopyOcrText) {
                             hasOcr = await hasOcrText(resourceId);
                         }
                     }
 
-                    if (showOpenLink) {
+                    if (settingsCache.showOpenLink) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.OPEN_LINK,
                             commandArgs: [context],
@@ -107,7 +146,7 @@ export async function registerContextMenuFilter(): Promise<void> {
 
                     // Only show resource-specific options for actual resources (not notes)
                     if (context.type === LinkType.JoplinResource && !isNote) {
-                        if (showCopyPath) {
+                        if (settingsCache.showCopyPath) {
                             contextMenuItems.push({
                                 commandName: COMMAND_IDS.COPY_PATH,
                                 commandArgs: [context],
@@ -115,7 +154,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                             });
                         }
 
-                        if (showRevealFile) {
+                        if (settingsCache.showRevealFile) {
                             contextMenuItems.push({
                                 commandName: COMMAND_IDS.REVEAL_FILE,
                                 commandArgs: [context],
@@ -132,7 +171,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         }
                     } else if (
                         (context.type === LinkType.ExternalUrl || context.type === LinkType.Email) &&
-                        showCopyPath
+                        settingsCache.showCopyPath
                     ) {
                         // For external URLs and emails, still show copy option
                         contextMenuItems.push({
@@ -143,9 +182,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     }
                 } else if (context.contextType === 'code') {
                     // Check setting and build menu items for code
-                    const showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
-
-                    if (showCopyCode) {
+                    if (settingsCache.showCopyCode) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.COPY_CODE,
                             commandArgs: [context],
@@ -154,9 +191,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     }
                 } else if (context.contextType === 'checkbox') {
                     // Check setting and build menu items for task checkboxes
-                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
-
-                    if (showToggleTask) {
+                    if (settingsCache.showToggleTask) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
@@ -165,9 +200,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     }
                 } else if (context.contextType === 'taskSelection') {
                     // Check setting and build menu items for task selection
-                    const showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
-
-                    if (showToggleTask) {
+                    if (settingsCache.showToggleTask) {
                         if (context.uncheckedCount > 0) {
                             contextMenuItems.push({
                                 commandName: COMMAND_IDS.CHECK_ALL_TASKS,
