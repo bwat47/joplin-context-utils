@@ -4,6 +4,7 @@ import { registerCommands } from './commands';
 import { registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
 import { registerSettings } from './settings';
 import { logger } from './logger';
+import { initializeSettingsCache } from './utils/settingsCache';
 
 joplin.plugins.register({
     onStart: async function () {
@@ -14,7 +15,11 @@ joplin.plugins.register({
             await registerSettings();
             logger.info('Settings registered');
 
-            // 2. Register content script for link detection
+            // 2. Initialize settings cache
+            await initializeSettingsCache();
+            logger.info('Settings cache initialized');
+
+            // 3. Register content script for link detection
             await joplin.contentScripts.register(
                 ContentScriptType.CodeMirrorPlugin,
                 CONTENT_SCRIPT_ID,
@@ -22,11 +27,11 @@ joplin.plugins.register({
             );
             logger.info('Link detection content script registered');
 
-            // 3. Register commands
+            // 4. Register commands
             await registerCommands();
             logger.info('Commands registered');
 
-            // 4. Register context menu filter
+            // 5. Register context menu filter
             await registerContextMenuFilter();
             logger.info('Context menu filter registered');
 

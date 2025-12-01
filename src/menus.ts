@@ -2,43 +2,11 @@ import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './logger';
-import {
-    SETTING_SHOW_OPEN_LINK,
-    SETTING_SHOW_COPY_PATH,
-    SETTING_SHOW_REVEAL_FILE,
-    SETTING_SHOW_COPY_CODE,
-    SETTING_SHOW_COPY_OCR_TEXT,
-    SETTING_SHOW_TOGGLE_TASK,
-} from './settings';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
+import { settingsCache } from './utils/settingsCache';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
-
-/**
- * Module-level settings cache to avoid async reads on every context menu open
- */
-const settingsCache = {
-    showOpenLink: true,
-    showCopyPath: true,
-    showRevealFile: true,
-    showCopyCode: true,
-    showCopyOcrText: true,
-    showToggleTask: true,
-};
-
-/**
- * Updates the settings cache by reading all values from Joplin settings
- */
-async function updateSettingsCache(): Promise<void> {
-    settingsCache.showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
-    settingsCache.showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
-    settingsCache.showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
-    settingsCache.showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
-    settingsCache.showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
-    settingsCache.showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
-    logger.debug('Settings cache updated:', settingsCache);
-}
 
 /**
  * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
@@ -78,26 +46,6 @@ async function hasOcrText(id: string): Promise<boolean> {
  * This is called BEFORE the context menu opens
  */
 export async function registerContextMenuFilter(): Promise<void> {
-    // Initialize settings cache
-    await updateSettingsCache();
-
-    // Listen for settings changes and update cache
-    joplin.settings.onChange(async (event) => {
-        // Check if any of our settings changed
-        const ourSettings = [
-            SETTING_SHOW_OPEN_LINK,
-            SETTING_SHOW_COPY_PATH,
-            SETTING_SHOW_REVEAL_FILE,
-            SETTING_SHOW_COPY_CODE,
-            SETTING_SHOW_COPY_OCR_TEXT,
-            SETTING_SHOW_TOGGLE_TASK,
-        ];
-
-        if (event.keys.some((key) => ourSettings.includes(key))) {
-            await updateSettingsCache();
-        }
-    });
-
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         try {
             // Small delay to work around timing issue on Linux where cursor position
