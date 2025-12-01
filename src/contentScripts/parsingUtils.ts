@@ -134,7 +134,7 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
 
 /**
  * Finds the URL defined for a reference label
- * Scans the entire document for LinkDefinition nodes matching the label
+ * Scans the entire document for LinkReference nodes matching the label
  * Uses the first occurrence if multiple definitions exist with the same label
  */
 export function findReferenceDefinition(view: EditorView, label: string): string | null {
