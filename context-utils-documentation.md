@@ -429,7 +429,6 @@ Content scripts must be declared here for webpack bundling.
 
 ## Testing Considerations
 
-- Enable debug logging: `console.contextUtils.setLogLevel(0)`
 - Test with URLs containing special characters (nested parentheses, spaces, etc.)
 - Verify settings changes apply without restart
 - Check context detection at various cursor positions

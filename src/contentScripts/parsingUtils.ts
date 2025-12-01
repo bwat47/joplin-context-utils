@@ -76,8 +76,8 @@ export function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 't
 
 /**
  * Parses code block and extracts content using syntax tree traversal
- * Handles fenced code blocks with or without language specifier
- * Properly handles nested backticks by extracting only the CodeText node
+ * Handles both fenced code blocks (with ``` or ~~~) and indented code blocks (4 spaces/tab)
+ * Properly handles nested backticks by extracting only the CodeText nodes
  * Falls back to regex if no CodeText child is found
  */
 export function parseCodeBlock(
@@ -86,15 +86,21 @@ export function parseCodeBlock(
 ): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
     const cursor = node.cursor();
 
-    // Try to find CodeText child node (syntax tree approach)
+    // Collect ALL CodeText child nodes (for indented blocks with multiple lines)
+    const codeTextNodes: string[] = [];
     if (cursor.firstChild()) {
         do {
             if (cursor.name === 'CodeText') {
-                // Found CodeText child - extract it directly (excludes fence markers)
                 const code = view.state.doc.sliceString(cursor.from, cursor.to);
-                return { code };
+                codeTextNodes.push(code);
             }
         } while (cursor.nextSibling());
+    }
+
+    // If we found CodeText nodes, join them
+    // Note: CodeText nodes already include trailing newlines, so join with empty string
+    if (codeTextNodes.length > 0) {
+        return { code: codeTextNodes.join('') };
     }
 
     // Fallback: If no CodeText child found, use regex to strip fence markers
