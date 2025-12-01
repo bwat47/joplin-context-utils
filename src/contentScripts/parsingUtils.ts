@@ -134,43 +134,40 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
 
 /**
  * Finds the URL defined for a reference label
- * Scans the entire document for LinkReference nodes matching the label
+ * Scans the document using a cursor to allow early exit
  * Uses the first occurrence if multiple definitions exist with the same label
  */
 export function findReferenceDefinition(view: EditorView, label: string): string | null {
     const tree = syntaxTree(view.state);
-    let url: string | null = null;
+    const cursor = tree.cursor();
 
-    tree.iterate({
-        enter: (node) => {
-            // Skip all nodes if we've already found the URL (first occurrence wins)
-            if (url !== null) {
-                return false;
-            }
+    // Loop through the entire tree in document order
+    do {
+        if (cursor.name === 'LinkReference') {
+            // We found a reference definition. Inspect it using a separate cursor
+            // to avoid disrupting our main loop position.
+            const refCursor = cursor.node.cursor();
 
-            if (node.name === 'LinkReference') {
-                const cursor = node.node.cursor();
-                if (cursor.firstChild()) {
-                    let defLabel: string | null = null;
-                    let defUrl: string | null = null;
+            let defLabel: string | null = null;
+            let defUrl: string | null = null;
 
-                    // Collect label and URL from this reference definition
-                    do {
-                        if (cursor.name === 'LinkLabel') {
-                            defLabel = view.state.doc.sliceString(cursor.from, cursor.to);
-                        } else if (cursor.name === 'URL') {
-                            defUrl = view.state.doc.sliceString(cursor.from, cursor.to);
-                        }
-                    } while (cursor.nextSibling());
-
-                    // Check if this definition matches the label we're looking for
-                    if (defLabel === label && defUrl !== null) {
-                        url = defUrl;
+            // Traverse the children of the LinkReference
+            if (refCursor.firstChild()) {
+                do {
+                    if (refCursor.name === 'LinkLabel') {
+                        defLabel = view.state.doc.sliceString(refCursor.from, refCursor.to);
+                    } else if (refCursor.name === 'URL') {
+                        defUrl = view.state.doc.sliceString(refCursor.from, refCursor.to);
                     }
-                }
+                } while (refCursor.nextSibling());
             }
-        },
-    });
 
-    return url;
+            // If this is the match, return immediately (early exit)
+            if (defLabel === label && defUrl !== null) {
+                return defUrl;
+            }
+        }
+    } while (cursor.next());
+
+    return null;
 }
