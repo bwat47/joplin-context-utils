@@ -386,8 +386,9 @@ This prevents errors when trying to get file paths for notes (which don't have p
 - `URL` - Bare URLs or child nodes of Link/Image
 - `Autolink` - `<url>`
 - `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
-- `FencedCode` - ` ` ```(may have`CodeText` child excluding fence markers)
-- `CodeText` - Content of fenced code block (when present)
+- `FencedCode` - ` ` ```code blocks (may have`CodeText` child excluding fence markers)
+- `CodeBlock` - Indented code blocks (4 spaces/tab, has multiple `CodeText` children, one per line)
+- `CodeText` - Content of code blocks (single child for fenced, multiple children for indented)
 - `ListItem` - List items (may contain task checkboxes)
 - `Task` - Task list items (GFM extension)
 
@@ -399,8 +400,9 @@ This prevents errors when trying to get file paths for notes (which don't have p
 **Important Note on Code Nodes:**
 
 - In Joplin's markdown parser, `InlineCode` is a **leaf node** containing the full text including backticks (`` `code` ``)
-- `FencedCode` may have `CodeText` children, but structure varies by parser implementation
-- This is why the hybrid approach (regex for inline, tree traversal for fenced) is used
+- `FencedCode` typically has a single `CodeText` child containing all code (excluding fence markers)
+- `CodeBlock` (indented) has multiple `CodeText` children, one per line (each includes trailing newline)
+- Code extraction collects all `CodeText` children and joins them (empty string for indented, since newlines included)
 
 ### Settings Best Practices
 
