@@ -1,4 +1,5 @@
 import { SyntaxNode } from '@lezer/common';
+import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
@@ -113,4 +114,61 @@ export function parseCodeBlock(
     }
 
     return { code: match[1] };
+}
+
+/**
+ * Extracts reference label from a Link node (e.g. "2" from [Google][2])
+ */
+export function extractReferenceLabel(node: SyntaxNode, view: EditorView): string | null {
+    const cursor = node.cursor();
+    if (!cursor.firstChild()) return null;
+
+    do {
+        if (cursor.name === 'LinkLabel') {
+            return view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return null;
+}
+
+/**
+ * Finds the URL defined for a reference label
+ * Scans the document using a cursor to allow early exit
+ * Uses the first occurrence if multiple definitions exist with the same label
+ */
+export function findReferenceDefinition(view: EditorView, label: string): string | null {
+    const tree = syntaxTree(view.state);
+    const cursor = tree.cursor();
+
+    // Loop through the entire tree in document order
+    do {
+        if (cursor.name === 'LinkReference') {
+            // We found a reference definition. Inspect it using a separate cursor
+            // to avoid disrupting our main loop position.
+            const refCursor = cursor.node.cursor();
+
+            let defLabel: string | null = null;
+            let defUrl: string | null = null;
+
+            // Traverse the children of the LinkReference
+            if (refCursor.firstChild()) {
+                do {
+                    if (refCursor.name === 'LinkLabel') {
+                        defLabel = view.state.doc.sliceString(refCursor.from, refCursor.to);
+                    } else if (refCursor.name === 'URL') {
+                        defUrl = view.state.doc.sliceString(refCursor.from, refCursor.to);
+                    }
+                } while (refCursor.nextSibling());
+            }
+
+            // If this is the match, return immediately (early exit)
+            // Note: Reference labels are case-insensitive per CommonMark spec
+            if (defLabel !== null && defUrl !== null && defLabel.toLowerCase() === label.toLowerCase()) {
+                return defUrl;
+            }
+        }
+    } while (cursor.next());
+
+    return null;
 }

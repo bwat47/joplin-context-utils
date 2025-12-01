@@ -1,7 +1,15 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, CheckboxContext, TaskSelectionContext, TaskInfo, EditorContext } from '../types';
-import { parseInlineCode, parseCodeBlock, extractUrl, classifyUrl, parseImageTag } from './parsingUtils';
+import {
+    parseInlineCode,
+    parseCodeBlock,
+    extractUrl,
+    classifyUrl,
+    parseImageTag,
+    extractReferenceLabel,
+    findReferenceDefinition,
+} from './parsingUtils';
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
@@ -92,7 +100,16 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             }
             // Check for markdown link syntax [text](url)
             else if (type.name === 'Link') {
-                const url = extractUrl(node.node, view);
+                let url = extractUrl(node.node, view);
+
+                // If no URL found, check if it's a reference link [text][ref]
+                if (!url) {
+                    const label = extractReferenceLabel(node.node, view);
+                    if (label) {
+                        url = findReferenceDefinition(view, label);
+                    }
+                }
+
                 const classified = url ? classifyUrl(url) : null;
 
                 if (classified) {
