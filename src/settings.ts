@@ -8,56 +8,73 @@
  */
 
 import joplin from 'api';
-import { SettingItemType } from 'api/types';
+import { SettingItem, SettingItemType } from 'api/types';
 import { logger } from './logger';
 
 const SECTION_ID = 'contextUtils';
+const SETTINGS_CONFIG = {
+    showToastMessages: {
+        key: `${SECTION_ID}.showToastMessages`,
+        defaultValue: true,
+        label: 'Show toast notifications',
+        description: 'Display brief notification messages for plugin actions (e.g., "Copied to clipboard")',
+    },
+    showOpenLink: {
+        key: `${SECTION_ID}.showOpenLink`,
+        defaultValue: true,
+        label: 'Show "Open Link" in context menu',
+        description: 'Display option to open external URLs in browser or Joplin resources in default app',
+    },
+    showCopyPath: {
+        key: `${SECTION_ID}.showCopyPath`,
+        defaultValue: true,
+        label: 'Show "Copy Path" in context menu',
+        description: 'Display option to copy URL or resource file path to clipboard',
+    },
+    showRevealFile: {
+        key: `${SECTION_ID}.showRevealFile`,
+        defaultValue: true,
+        label: 'Show "Reveal File" in context menu',
+        description: 'Display option to reveal Joplin resource files in file explorer',
+    },
+    showCopyCode: {
+        key: `${SECTION_ID}.showCopyCode`,
+        defaultValue: true,
+        label: 'Show "Copy Code" in context menu',
+        description: 'Display option to copy code from inline code or code blocks to clipboard',
+    },
+    showCopyOcrText: {
+        key: `${SECTION_ID}.showCopyOcrText`,
+        defaultValue: true,
+        label: 'Show "Copy OCR Text" in context menu',
+        description: 'Display option to copy OCR text from image resources when available',
+    },
+    showToggleTask: {
+        key: `${SECTION_ID}.showToggleTask`,
+        defaultValue: true,
+        label: 'Show task toggle options in context menu',
+        description: 'Display options to check/uncheck task list checkboxes ([ ] ↔ [x])',
+    },
+} as const;
 
-export const SETTING_SHOW_TOAST_MESSAGES = 'contextUtils.showToastMessages';
-export const SETTING_SHOW_OPEN_LINK = 'contextUtils.showOpenLink';
-export const SETTING_SHOW_COPY_PATH = 'contextUtils.showCopyPath';
-export const SETTING_SHOW_REVEAL_FILE = 'contextUtils.showRevealFile';
-export const SETTING_SHOW_COPY_CODE = 'contextUtils.showCopyCode';
-export const SETTING_SHOW_COPY_OCR_TEXT = 'contextUtils.showCopyOcrText';
-export const SETTING_SHOW_TOGGLE_TASK = 'contextUtils.showToggleTask';
-
-/**
- * All setting keys used by the plugin
- */
-const ALL_SETTINGS = [
-    SETTING_SHOW_TOAST_MESSAGES,
-    SETTING_SHOW_OPEN_LINK,
-    SETTING_SHOW_COPY_PATH,
-    SETTING_SHOW_REVEAL_FILE,
-    SETTING_SHOW_COPY_CODE,
-    SETTING_SHOW_COPY_OCR_TEXT,
-    SETTING_SHOW_TOGGLE_TASK,
-];
+export type SettingsCache = {
+    -readonly [K in keyof typeof SETTINGS_CONFIG]: boolean;
+};
 
 /**
  * Module-level settings cache for synchronous access
  */
-export const settingsCache = {
-    showToastMessages: true,
-    showOpenLink: true,
-    showCopyPath: true,
-    showRevealFile: true,
-    showCopyCode: true,
-    showCopyOcrText: true,
-    showToggleTask: true,
-};
+export const settingsCache = Object.fromEntries(
+    Object.entries(SETTINGS_CONFIG).map(([key, config]) => [key, config.defaultValue])
+) as SettingsCache;
 
 /**
  * Updates the settings cache by reading all values from Joplin settings
  */
 async function updateSettingsCache(): Promise<void> {
-    settingsCache.showToastMessages = await joplin.settings.value(SETTING_SHOW_TOAST_MESSAGES);
-    settingsCache.showOpenLink = await joplin.settings.value(SETTING_SHOW_OPEN_LINK);
-    settingsCache.showCopyPath = await joplin.settings.value(SETTING_SHOW_COPY_PATH);
-    settingsCache.showRevealFile = await joplin.settings.value(SETTING_SHOW_REVEAL_FILE);
-    settingsCache.showCopyCode = await joplin.settings.value(SETTING_SHOW_COPY_CODE);
-    settingsCache.showCopyOcrText = await joplin.settings.value(SETTING_SHOW_COPY_OCR_TEXT);
-    settingsCache.showToggleTask = await joplin.settings.value(SETTING_SHOW_TOGGLE_TASK);
+    for (const [key, config] of Object.entries(SETTINGS_CONFIG)) {
+        settingsCache[key as keyof SettingsCache] = await joplin.settings.value(config.key);
+    }
     logger.debug('Settings cache updated:', settingsCache);
 }
 
@@ -71,7 +88,8 @@ export async function initializeSettingsCache(): Promise<void> {
 
     // Listen for settings changes and update cache
     joplin.settings.onChange(async (event) => {
-        if (event.keys.some((key) => ALL_SETTINGS.includes(key))) {
+        const settingKeys = Object.values(SETTINGS_CONFIG).map((c) => c.key);
+        if (event.keys.some((key) => (settingKeys as string[]).includes(key))) {
             await updateSettingsCache();
         }
     });
@@ -85,62 +103,17 @@ export async function registerSettings(): Promise<void> {
         iconName: 'fas fa-mouse-pointer',
     });
 
-    await joplin.settings.registerSettings({
-        [SETTING_SHOW_TOAST_MESSAGES]: {
-            value: true,
+    const settingsSpec: Record<string, SettingItem> = {};
+    for (const config of Object.values(SETTINGS_CONFIG)) {
+        settingsSpec[config.key] = {
+            value: config.defaultValue,
             type: SettingItemType.Bool,
             section: SECTION_ID,
             public: true,
-            label: 'Show toast notifications',
-            description: 'Display brief notification messages for plugin actions (e.g., "Copied to clipboard")',
-        },
-        [SETTING_SHOW_OPEN_LINK]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show "Open Link" in context menu',
-            description: 'Display option to open external URLs in browser or Joplin resources in default app',
-        },
-        [SETTING_SHOW_COPY_PATH]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show "Copy Path" in context menu',
-            description: 'Display option to copy URL or resource file path to clipboard',
-        },
-        [SETTING_SHOW_REVEAL_FILE]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show "Reveal File" in context menu',
-            description: 'Display option to reveal Joplin resource files in file explorer',
-        },
-        [SETTING_SHOW_COPY_CODE]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show "Copy Code" in context menu',
-            description: 'Display option to copy code from inline code or code blocks to clipboard',
-        },
-        [SETTING_SHOW_COPY_OCR_TEXT]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show "Copy OCR Text" in context menu',
-            description: 'Display option to copy OCR text from image resources when available',
-        },
-        [SETTING_SHOW_TOGGLE_TASK]: {
-            value: true,
-            type: SettingItemType.Bool,
-            section: SECTION_ID,
-            public: true,
-            label: 'Show task toggle options in context menu',
-            description: 'Display options to check/uncheck task list checkboxes ([ ] ↔ [x])',
-        },
-    });
+            label: config.label,
+            description: config.description,
+        };
+    }
+
+    await joplin.settings.registerSettings(settingsSpec);
 }

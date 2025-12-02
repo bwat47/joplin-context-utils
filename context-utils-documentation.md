@@ -89,14 +89,16 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
+- Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
 - 7 boolean settings (all default `true`):
-    - `SETTING_SHOW_TOAST_MESSAGES`
-    - `SETTING_SHOW_OPEN_LINK`
-    - `SETTING_SHOW_COPY_PATH`
-    - `SETTING_SHOW_REVEAL_FILE`
-    - `SETTING_SHOW_COPY_CODE`
-    - `SETTING_SHOW_COPY_OCR_TEXT`
-    - `SETTING_SHOW_TOGGLE_TASK`
+    - `showToastMessages` - Show toast notifications
+    - `showOpenLink` - Show "Open Link" in context menu
+    - `showCopyPath` - Show "Copy Path" in context menu
+    - `showRevealFile` - Show "Reveal File" in context menu
+    - `showCopyCode` - Show "Copy Code" in context menu
+    - `showCopyOcrText` - Show "Copy OCR Text" in context menu
+    - `showToggleTask` - Show task toggle options in context menu
+- Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
 
@@ -157,7 +159,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/utils/toastUtils.ts**
 
 - Toast notification wrapper
-- Checks `SETTING_SHOW_TOAST_MESSAGES` before showing
+- Checks `settingsCache.showToastMessages` before showing
 - Graceful error handling
 
 ## Key Patterns
