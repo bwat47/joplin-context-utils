@@ -11,6 +11,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - External URLs (`https://...`)
 - Joplin resources (`:/32-hex-id`)
 - Email addresses (`mailto:...`)
+- Markdown links (`[text](url)`)
+- Reference-style links (`[text][ref]` with `[ref]: url`)
 - Markdown images (`![alt](url)`)
 - HTML images (`<img src="...">`)
 - Inline code (`` `code` ``)
@@ -129,15 +131,16 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 **src/contentScripts/contextDetection.ts**
 
-- **Multi-context detection logic**
-- Returns array of contexts to support simultaneous detection
-- Hybrid detection approach (delegates to `parsingUtils.ts`)
-- **Priority: Code > Checkboxes > Links > Images > HTML**
+- Multi-context detection logic (returns array of contexts)
+- Delegates parsing to `parsingUtils.ts`
+- Detection priority: Code > Links > Images (checkboxes run alongside as secondary context)
 
 **src/contentScripts/parsingUtils.ts**
 
 - Pure utility functions for parsing:
     - `extractUrl` (syntax tree traversal)
+    - `extractReferenceLabel` (syntax tree traversal for reference links)
+    - `findReferenceDefinition` (finds URL for reference label, case-insensitive, first occurrence wins)
     - `parseImageTag` (regex)
     - `classifyUrl` (regex)
     - `parseInlineCode` (regex)
@@ -231,87 +234,31 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
 
 **For Code - Hybrid Approach:**
 
-- **Inline code**: Regex (because `InlineCode` nodes are flat/leaf nodes with backticks included)
+- **Inline code**: Regex (because `InlineCode` nodes include backticks)
+- **Fenced code blocks**: Syntax tree to extract `CodeText` children, with regex fallback
+- **Indented code blocks**: Syntax tree to collect multiple `CodeText` children (one per line)
 
-    ```typescript
-    // InlineCode node contains: `code`
-    const match = codeText.match(/^`(.+)`$/s);
-    return match ? { code: match[1] } : null;
-    ```
-
-- **Fenced code blocks**: Syntax tree with regex fallback
-    ````typescript
-    // Try to find CodeText child (excludes fence markers)
-    if (cursor.name === 'CodeText') {
-        return { code: view.state.doc.sliceString(cursor.from, cursor.to) };
-    }
-    // Fallback to regex if no CodeText child
-    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m);
-    ````
-
-### 3. Content Script Communication (Pull Architecture)
-
-**Command registration pattern** - content script registers commands that main plugin calls on-demand:
-
-```typescript
-// Content script - register command
-codeMirrorWrapper.registerCommand('contextUtils-getContextAtCursor', () => {
-    const pos = view.state.selection.main.head;
-    const contexts = detectContextAtPosition(view, pos); // Returns array
-    return contexts;
-});
-
-// Main plugin - call command when needed
-const contexts = (await joplin.commands.execute('editor.execCommand', {
-    name: 'contextUtils-getContextAtCursor',
-})) as EditorContext[];
-
-// Process each context to build menu items
-for (const context of contexts) {
-    // Add menu items for this context
-}
-```
-
-**Benefits over push architecture:**
-
-- Direct request/response - no race conditions
-- Only executes when needed - zero overhead during typing
-- Guaranteed to return contexts for current cursor position
-- Supports multiple contexts at same position (e.g., code inside task list)
-
-### 4. Checkbox Detection and Toggling
-
-**Multi-Context Support:**
-The plugin can return multiple contexts simultaneously. For example, when cursor is inside inline code within a task list item:
-
-- Returns `[CodeContext, CheckboxContext]`
-- Menu shows both "Copy Code" AND "Check Task" / "Uncheck Task"
+### 3. Checkbox Detection and Toggling
 
 **Detection Strategy:**
 
 1. **Selection check** - If there's a text selection, check for tasks first (returns single `TaskSelectionContext`)
-2. **Primary context** - Detect code/links/images via syntax tree
-3. **Secondary context** - Always check if on a checkbox line (if primary context exists)
+2. **Primary context** - Detect code/links/images via syntax tree (Priority: Code > Links > Images)
+3. **Secondary context** - Check if on a checkbox line (runs alongside primary, enables multi-context support)
 
-**Detection Priority (for primary context):**
+**Checkbox Detection:**
+Two-step validation to prevent false positives:
 
-1. Code blocks/inline code (highest)
-2. Links - Markdown and bare URLs
-3. Images - Markdown and HTML images
-
-**Checkbox Detection (secondary, runs alongside primary):**
-Uses two-step validation to prevent false positives:
-
-1. **Syntax tree check** - Verify cursor is inside `ListItem` or `Task` node (prevents detection in code blocks)
-2. **Pattern matching** - If in list item, check line text for checkbox pattern
+1. **Syntax tree check** - Verify cursor is inside `Task` node
+2. **Pattern matching** - If in task node, check line text for checkbox pattern
 
 ```typescript
-// Step 1: Verify we're in a ListItem/Task node via syntax tree
+// Step 1: Verify we're in a Task node via syntax tree
 tree.iterate({
     from: pos,
     to: pos,
     enter: (node) => {
-        if (node.type.name === 'ListItem' || node.type.name === 'Task') {
+        if (node.name === 'Task') {
             isInTaskList = true;
             return false;
         }
@@ -323,20 +270,18 @@ tree.iterate({
 const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
 ```
 
-Supports:
-
-- List markers: `-`, `*`, `+`
-- Indentation (nested task lists)
+Features:
+- Supports list markers: `-`, `*`, `+`
+- Supports indentation (nested task lists)
 - Checkbox states: lowercase `x` (checked) or space (unchecked)
-- Detection anywhere on the task line (not just on the checkbox)
-- **Prevents false positives** in code blocks via syntax tree validation
+- Detects anywhere on the task line (not just on the checkbox)
+- Prevents false positives by only checking `Task` nodes (not plain text in code blocks)
 
 **Task Selection Detection:**
-When user has selected text:
 
-1. **Optimized Scan (O(N))**: Iterates the syntax tree ONCE for the entire selection range
-2. Validates `ListItem`/`Task` nodes directly during traversal
-3. Deduplicates tasks (handles multiple nodes per line)
+1. Iterates syntax tree once for entire selection range (O(N))
+2. Validates `Task` nodes directly during traversal
+3. Deduplicates tasks (handles multiple Task nodes per line)
 4. Counts checked vs unchecked tasks
 5. Returns `TaskSelectionContext` if tasks found
 
@@ -351,7 +296,7 @@ Uses two commands for atomic operations:
     - **Atomic Transaction**: Applies all changes in a single CodeMirror transaction (one undo step)
     - Aborts entire batch if any line doesn't match expectation
 
-### 5. Note vs Resource Distinction
+### 4. Note vs Resource Distinction
 
 Joplin uses the same `:/32-hex-id` syntax for both note links and resource (attachment) links. The content script cannot distinguish between them (it only sees text).
 
@@ -381,28 +326,28 @@ This prevents errors when trying to get file paths for notes (which don't have p
 
 **Markdown:**
 
-- `Link` - `[text](url)` (entire structure with `URL` child nodes)
+- `Link` - `[text](url)` or `[text][ref]` (entire structure with `URL` or `LinkLabel` child nodes)
+- `LinkReference` - Reference definition `[ref]: url` (contains `LinkLabel` and `URL` children)
+- `LinkLabel` - Label in reference links (e.g., `[ref]` in `[text][ref]` or `[ref]: url`)
 - `Image` - `![alt](url)` (entire structure with `URL` child nodes)
-- `URL` - Bare URLs or child nodes of Link/Image
+- `URL` - Bare URLs or child nodes of Link/Image/LinkReference
 - `Autolink` - `<url>`
 - `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
 - `FencedCode` - ` ` ```code blocks (may have`CodeText` child excluding fence markers)
 - `CodeBlock` - Indented code blocks (4 spaces/tab, has multiple `CodeText` children, one per line)
 - `CodeText` - Content of code blocks (single child for fenced, multiple children for indented)
-- `ListItem` - List items (may contain task checkboxes)
-- `Task` - Task list items (GFM extension)
+- `Task` - Task list items with checkboxes (GFM extension, e.g., `- [ ] Task`)
 
 **HTML in Markdown:**
 
 - `HTMLTag` - Entire tag (no internal structure)
 - Must use regex for `<img src="...">` parsing (acceptable here)
 
-**Important Note on Code Nodes:**
+**Code Node Details:**
 
-- In Joplin's markdown parser, `InlineCode` is a **leaf node** containing the full text including backticks (`` `code` ``)
-- `FencedCode` typically has a single `CodeText` child containing all code (excluding fence markers)
-- `CodeBlock` (indented) has multiple `CodeText` children, one per line (each includes trailing newline)
-- Code extraction collects all `CodeText` children and joins them (empty string for indented, since newlines included)
+- `InlineCode` - Leaf node with backticks included (`` `code` ``)
+- `FencedCode` - Single `CodeText` child (excludes fence markers)
+- `CodeBlock` - Multiple `CodeText` children, one per line (includes trailing newlines)
 
 ### Settings Best Practices
 
@@ -438,6 +383,10 @@ Content scripts must be declared here for webpack bundling.
     - Note links: Should only show "Open Note"
     - Resource links: Should show all resource options
 - Test with external URLs and email addresses
+- **Test reference-style links:**
+    - `[text][ref]` with `[ref]: url` → detects link correctly
+    - Case-insensitive matching: `[UPPER]`, `[upper]`, `[UpPeR]` all match `[upper]: url`
+    - Multiple definitions with same label → uses first occurrence
 - Test inline code and fenced code blocks (including nested backticks in fenced blocks)
 - **Test checkbox toggling:**
     - Single checkbox: Cursor on `- [ ] Task` → shows "Check Task"
