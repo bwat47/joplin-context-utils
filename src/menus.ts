@@ -9,19 +9,21 @@ import { settingsCache } from './settings';
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 
 /**
- * Checks if a Joplin ID is a note (as opposed to a resource/attachment)
+ * Determines the type of a Joplin ID (note, resource, or invalid)
+ * Uses Promise.any to return as soon as one lookup succeeds
  * @param id - The 32-character hex ID
- * @returns true if it's a note, false if it's a resource or doesn't exist
+ * @returns 'note', 'resource', or null if neither exists
  */
-async function isJoplinNote(id: string): Promise<boolean> {
+async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> {
     try {
-        // Try to fetch it as a note. If this succeeds, it's a note.
-        await joplin.data.get(['notes', id], { fields: ['id'] });
-        return true;
+        const { type } = await Promise.any([
+            joplin.data.get(['notes', id], { fields: ['id'] }).then(() => ({ type: 'note' as const })),
+            joplin.data.get(['resources', id], { fields: ['id'] }).then(() => ({ type: 'resource' as const })),
+        ]);
+        return type;
     } catch {
-        // If it throws (404), it's not a note.
-        // It's likely a resource (attachment) or a broken link.
-        return false;
+        // AggregateError: all promises rejected (ID doesn't exist as note or resource)
+        return null;
     }
 }
 
@@ -73,16 +75,18 @@ export async function registerContextMenuFilter(): Promise<void> {
                 // Handle different context types
                 if (context.contextType === 'link') {
                     // For Joplin resources, check if it's a note or an actual resource
-                    let isNote = false;
+                    let idType: 'note' | 'resource' | null = null;
                     let hasOcr = false;
                     if (context.type === LinkType.JoplinResource) {
                         const resourceId = extractJoplinResourceId(context.url);
-                        isNote = await isJoplinNote(resourceId);
-                        // Only check for OCR if it's not a note (i.e., it's a resource)
-                        if (!isNote && settingsCache.showCopyOcrText) {
+                        idType = await getJoplinIdType(resourceId);
+                        // Only check for OCR if it's a resource (not a note)
+                        if (idType === 'resource' && settingsCache.showCopyOcrText) {
                             hasOcr = await hasOcrText(resourceId);
                         }
                     }
+
+                    const isNote = idType === 'note';
 
                     if (settingsCache.showOpenLink) {
                         contextMenuItems.push({
@@ -93,7 +97,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     }
 
                     // Only show resource-specific options for actual resources (not notes)
-                    if (context.type === LinkType.JoplinResource && !isNote) {
+                    if (context.type === LinkType.JoplinResource && idType === 'resource') {
                         if (settingsCache.showCopyPath) {
                             contextMenuItems.push({
                                 commandName: COMMAND_IDS.COPY_PATH,
