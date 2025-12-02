@@ -107,7 +107,7 @@ export function parseCodeBlock(
     // Fallback: If no CodeText child found, use regex to strip fence markers
     // This handles cases where FencedCode is a flat node
     const codeText = view.state.doc.sliceString(node.from, node.to);
-    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```$/m) || codeText.match(/^~~~[^\n]*\n([\s\S]*?)~~~$/m);
+    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```\s*$/m) || codeText.match(/^~~~[^\n]*\n([\s\S]*?)~~~\s*$/m);
 
     if (!match) {
         return null;
