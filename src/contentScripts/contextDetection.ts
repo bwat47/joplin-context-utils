@@ -178,7 +178,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
 /**
  * Detects checkbox context at the current line
  * This is separate from primary context detection to allow showing both
- * Uses syntax tree to verify we're in a ListItem/Task node (not in a code block)
+ * Uses syntax tree to verify we're in a Task node
  *
  * @param view - CodeMirror EditorView
  * @param pos - Cursor position
@@ -188,13 +188,13 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
     const tree = syntaxTree(view.state);
     let isInTaskList = false;
 
-    // Check if cursor is within a ListItem or Task node
+    // Check if cursor is within a Task node (GFM task list item)
     // This prevents false positives inside code blocks
     tree.iterate({
         from: pos,
         to: pos,
         enter: (node) => {
-            if (node.type.name === 'ListItem' || node.type.name === 'Task') {
+            if (node.name === 'Task') {
                 isInTaskList = true;
                 return false; // Stop iteration
             }
@@ -228,7 +228,7 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
 /**
  * Detects task list checkboxes within a text selection
  * Scans all lines in the selection range for task list items
- * Uses syntax tree to verify each line is in a ListItem/Task node (not in a code block)
+ * Uses syntax tree to verify each line is in a Task node
  *
  * @param view - CodeMirror EditorView
  * @param from - Start of selection
@@ -247,12 +247,11 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
         from: from,
         to: to,
         enter: (node) => {
-            // Check for list items (GFM structure)
-            if (node.name === 'ListItem' || node.name === 'Task') {
+            // Check for Task nodes (GFM task list items)
+            if (node.name === 'Task') {
                 const line = doc.lineAt(node.from);
 
-                // Deduplicate: If multiple nodes appear on the same line, skip subsequent ones
-                // This handles cases where Task is a child of ListItem on the same line
+                // Deduplicate: If multiple Task nodes appear on the same line, skip subsequent ones
                 const lastTask = tasks[tasks.length - 1];
                 if (lastTask && doc.lineAt(lastTask.from).number === line.number) return;
 
