@@ -75,7 +75,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Plugin registration and initialization
 - Coordinates all subsystems
-- Initialization order matters (settings → content script → commands → menu)
+- Initialization order matters (settings → settings cache → content script → commands → menu)
 
 **src/types.ts**
 
@@ -271,6 +271,7 @@ const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
 ```
 
 Features:
+
 - Supports list markers: `-`, `*`, `+`
 - Supports indentation (nested task lists)
 - Checkbox states: lowercase `x` (checked) or space (unchecked)
@@ -300,15 +301,19 @@ Uses two commands for atomic operations:
 
 Joplin uses the same `:/32-hex-id` syntax for both note links and resource (attachment) links. The content script cannot distinguish between them (it only sees text).
 
-The main plugin (menus.ts) uses the `isJoplinNote()` helper to check if an ID is a note:
+The main plugin (menus.ts) uses the `getJoplinIdType()` helper to check if an ID is a note or a resource. It uses `Promise.any` to check both endpoints concurrently:
 
 ```typescript
-async function isJoplinNote(id: string): Promise<boolean> {
+async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> {
     try {
-        await joplin.data.get(['notes', id], { fields: ['id'] });
-        return true; // It's a note
+        const { type } = await Promise.any([
+            joplin.data.get(['notes', id], { fields: ['id'] }).then(() => ({ type: 'note' as const })),
+            joplin.data.get(['resources', id], { fields: ['id'] }).then(() => ({ type: 'resource' as const })),
+        ]);
+        return type;
     } catch {
-        return false; // It's a resource or invalid ID
+        // AggregateError: all promises rejected (ID doesn't exist as note or resource)
+        return null;
     }
 }
 ```
@@ -317,8 +322,9 @@ async function isJoplinNote(id: string): Promise<boolean> {
 
 - **Note links**: Show "Open Note" only (no Copy Path or Reveal File)
 - **Resource links**: Show "Open Resource", "Copy Resource Path", "Reveal File in Folder"
+- **Invalid IDs**: Treated as neither (no menu items shown)
 
-This prevents errors when trying to get file paths for notes (which don't have physical files in the resources directory).
+This prevents errors when trying to get file paths for notes (which don't have physical files in the resources directory) and ensures robust handling of invalid IDs.
 
 ## Important Notes
 
@@ -352,7 +358,8 @@ This prevents errors when trying to get file paths for notes (which don't have p
 ### Settings Best Practices
 
 - All settings default to `true`
-- Check settings asynchronously before operations
+- **Use `settingsCache` for synchronous access** (avoids async overhead)
+- Cache is automatically updated via `joplin.settings.onChange`
 - Settings changes apply immediately (no restart needed)
 
 ### Error Handling
