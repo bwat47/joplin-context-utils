@@ -236,12 +236,12 @@ async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<v
 }
 
 /**
- * "Check All Tasks" handler
- * Checks all unchecked tasks in the selection
+ * Bulk update tasks handler
+ * Used by both Check All and Uncheck All commands
  */
-async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+async function handleBulkTaskUpdate(taskSelectionContext: TaskSelectionContext, setChecked: boolean): Promise<void> {
     // Filter to only the tasks that need changing
-    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => !task.checked);
+    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => task.checked !== setChecked);
 
     if (tasksToUpdate.length === 0) return;
 
@@ -249,7 +249,7 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
     const replacements = tasksToUpdate.map((task) => ({
         from: task.from,
         to: task.to,
-        text: toggleCheckboxInLine(task.lineText, true),
+        text: toggleCheckboxInLine(task.lineText, setChecked),
         expectedText: task.lineText, // Include for optimistic concurrency check
     }));
 
@@ -259,12 +259,13 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
         args: [replacements],
     })) as boolean;
 
+    const action = setChecked ? 'Checked' : 'Unchecked';
     if (success) {
         await showToast(
-            `Checked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
+            `${action} ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
             ToastType.Success
         );
-        logger.info(`Checked ${replacements.length} tasks`);
+        logger.info(`${action} ${replacements.length} tasks`);
     } else {
         await showToast('Content changed; update aborted', ToastType.Error);
         logger.warn('Batch update aborted due to content mismatch');
@@ -272,37 +273,15 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
 }
 
 /**
+ * "Check All Tasks" handler
+ */
+async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
+    await handleBulkTaskUpdate(taskSelectionContext, true);
+}
+
+/**
  * "Uncheck All Tasks" handler
- * Unchecks all checked tasks in the selection
  */
 async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
-    // Filter to only the tasks that need changing
-    const tasksToUpdate = taskSelectionContext.tasks.filter((task) => task.checked);
-
-    if (tasksToUpdate.length === 0) return;
-
-    // Map to the replacement format
-    const replacements = tasksToUpdate.map((task) => ({
-        from: task.from,
-        to: task.to,
-        text: toggleCheckboxInLine(task.lineText, false),
-        expectedText: task.lineText, // Include for optimistic concurrency check
-    }));
-
-    // Send ONE IPC message
-    const success = (await joplin.commands.execute('editor.execCommand', {
-        name: BATCH_REPLACE_COMMAND,
-        args: [replacements],
-    })) as boolean;
-
-    if (success) {
-        await showToast(
-            `Unchecked ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
-            ToastType.Success
-        );
-        logger.info(`Unchecked ${replacements.length} tasks`);
-    } else {
-        await showToast('Content changed; update aborted', ToastType.Error);
-        logger.warn('Batch update aborted due to content mismatch');
-    }
+    await handleBulkTaskUpdate(taskSelectionContext, false);
 }
