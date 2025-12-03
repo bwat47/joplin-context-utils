@@ -102,9 +102,19 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             else if (type.name === 'Link') {
                 let url = extractUrl(node.node, view);
 
-                // If no URL found, check if it's a reference link [text][ref]
+                // If no URL found, check if it's a reference link
                 if (!url) {
-                    const label = extractReferenceLabel(node.node, view);
+                    let label = extractReferenceLabel(node.node, view);
+
+                    // Handle shortcut [foo] and collapsed [foo][] reference links
+                    // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
+                    // - Collapsed: [foo][] has LinkLabel child with value "[]"
+                    if (!label || label === '[]') {
+                        label = view.state.doc.sliceString(from, to);
+                        // Strip trailing [] for collapsed reference links
+                        label = label.replace(/\[\]$/, '');
+                    }
+
                     if (label) {
                         url = findReferenceDefinition(view, label);
                     }

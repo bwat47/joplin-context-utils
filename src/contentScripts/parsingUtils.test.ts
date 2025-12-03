@@ -151,6 +151,42 @@ describe('parsingUtils', () => {
 
                 expect(label).toBeNull();
             });
+
+            it('should return null for shortcut reference links', () => {
+                const text = '[Google]\n\n[Google]: https://google.com';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let label = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            label = extractReferenceLabel(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                // Shortcut links have no explicit label, should return null
+                expect(label).toBeNull();
+            });
+
+            it('should return "[]" for collapsed reference links', () => {
+                const text = '[Google][]\n\n[Google]: https://google.com';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let label = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            label = extractReferenceLabel(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                // Collapsed links have empty label "[]"
+                expect(label).toBe('[]');
+            });
         });
 
         describe('findReferenceDefinition', () => {
@@ -203,6 +239,22 @@ describe('parsingUtils', () => {
                 expect(findReferenceDefinition({ state } as any, '[Upper]')).toBe(
                     'https://example.com/case-insensitive'
                 );
+            });
+
+            it('should find definition for shortcut reference link', () => {
+                const text = '[Google]\n\n[Google]: https://google.com';
+                const { state } = createView(text);
+                // For shortcut links [foo], the label is the link text itself
+                const url = findReferenceDefinition({ state } as any, '[Google]');
+                expect(url).toBe('https://google.com');
+            });
+
+            it('should find definition for collapsed reference link', () => {
+                const text = '[Google][]\n\n[Google]: https://google.com';
+                const { state } = createView(text);
+                // For collapsed links [foo][], the label should be the link text
+                const url = findReferenceDefinition({ state } as any, '[Google]');
+                expect(url).toBe('https://google.com');
             });
         });
     });
