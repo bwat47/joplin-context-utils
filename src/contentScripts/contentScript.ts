@@ -29,47 +29,18 @@ export default (_context: ContentScriptContext) => {
 
             const view: EditorView = codeMirrorWrapper.editor as EditorView;
 
-            // Track the position of the last right-click
-            // This allows us to get the context at the click location even if the cursor
-            // is elsewhere (e.g., when right-clicking inside a text selection)
-            let lastRightClickPos: number | null = null;
-
-            view.dom.addEventListener('mousedown', (event) => {
-                // Clear on any click first to ensure we don't use stale data
-                lastRightClickPos = null;
-
-                // If it's a right click (button 2), capture the position
-                if (event.button === 2) {
-                    const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-                    if (pos !== null) {
-                        lastRightClickPos = pos;
-                        logger.debug('Right click detected at pos:', pos);
-                    }
-                }
-            });
-
-            // Clear the tracked position on key press to ensure keyboard navigation
-            // resets the context to the cursor
-            view.dom.addEventListener('keydown', () => {
-                lastRightClickPos = null;
-            });
-
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens
             codeMirrorWrapper.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
                 // Force view to sync/measure before reading cursor position
+                // This works around a timing issue on Linux where the view might not
+                // have synced with the cursor position update from the right-click event
+                // See: https://codemirror.net/docs/ref/#view.EditorView.requestMeasure
                 view.requestMeasure();
 
-                // Use the position from the last right-click if available and valid,
-                // otherwise fall back to the main cursor position.
-                let pos = view.state.selection.main.head;
-                if (lastRightClickPos !== null && lastRightClickPos <= view.state.doc.length) {
-                    pos = lastRightClickPos;
-                    logger.debug('Using last right-click position:', pos);
-                }
-
+                const pos = view.state.selection.main.head;
                 const context = detectContextAtPosition(view, pos);
-                logger.debug('Context detected at position:', pos, context);
+                logger.debug('Context detected at cursor:', context);
                 return context;
             });
 

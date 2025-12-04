@@ -55,7 +55,7 @@ export async function registerContextMenuFilter(): Promise<void> {
             await new Promise((resolve) => setTimeout(resolve, 10));
 
             // Get contexts directly from editor (pull architecture)
-            // This is guaranteed to match the current click location or cursor position
+            // This is guaranteed to match the current cursor position
             // May return multiple contexts (e.g., code + checkbox)
             const contexts = (await joplin.commands.execute('editor.execCommand', {
                 name: GET_CONTEXT_AT_CURSOR_COMMAND,
