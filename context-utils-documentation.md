@@ -52,7 +52,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 2. **Main Plugin** (menus.ts):
     - When context menu opens, calls `joplin.commands.execute('editor.execCommand', { name: 'contextUtils-getContextAtCursor' })`
-    - Awaits contexts directly from editor (guaranteed to match cursor position)
+    - Awaits contexts directly from editor (guaranteed to match click location or cursor position)
     - Iterates through returned contexts array
     - Builds context menu dynamically with items for all detected contexts
 
@@ -62,7 +62,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 **Key Benefits of Pull Architecture:**
 
-- ✅ Zero race conditions (context always matches cursor position)
+- ✅ Zero race conditions (context always matches user interaction)
 - ✅ Zero overhead (detection only runs on right-click, not every cursor movement)
 - ✅ Simpler code (no message passing, no global state)
 - ✅ Multi-context support (can show multiple relevant options simultaneously)
