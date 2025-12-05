@@ -194,6 +194,8 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
     // If no context found yet, check for footnotes
     // CodeMirror's markdown parser does not recognize footnote syntax,
     // so we detect them via regex on the current line
+    // Low chance of false positives here (despite relying on regex for detection)
+    // Because we check the syntax tree for code/links/images/html tags first
     if (!context) {
         const line = view.state.doc.lineAt(pos);
         const lineText = line.text;
