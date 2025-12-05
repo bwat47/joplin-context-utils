@@ -13,6 +13,7 @@ export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
  */
 export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
+export const SCROLL_TO_POSITION_COMMAND = 'contextUtils-scrollToPosition';
 
 /**
  * Content script entry point
@@ -139,6 +140,34 @@ export default (_context: ContentScriptContext) => {
                     }
                 }
             );
+
+            // Register command to scroll to a specific position
+            codeMirrorWrapper.registerCommand(SCROLL_TO_POSITION_COMMAND, (pos: number) => {
+                if (typeof pos !== 'number' || !Number.isFinite(pos)) {
+                    logger.error('scrollToPosition: pos must be a finite number');
+                    return;
+                }
+
+                const scrollEffect = EditorView.scrollIntoView(pos, { y: 'nearest' });
+
+                // Initial scroll
+                view.dispatch({
+                    effects: scrollEffect,
+                    selection: { anchor: pos, head: pos },
+                });
+                view.focus();
+
+                // Retry scroll after a short delay to ensure it settles
+                // This is needed because CodeMirror's scrollIntoView can be unreliable
+                // especially when images are being rendered in the editor
+                setTimeout(() => {
+                    view.dispatch({
+                        effects: scrollEffect,
+                    });
+                }, 100);
+
+                logger.debug('Scrolled to position:', pos);
+            });
         },
     };
 };

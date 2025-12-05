@@ -85,6 +85,24 @@ export interface TaskSelectionContext {
     to: number;
 }
 
+/**
+ * Represents a detected footnote reference
+ */
+export interface FootnoteContext {
+    /** Discriminator for union type */
+    contextType: 'footnote';
+
+    /** The footnote label (e.g., "1" from "[^1]") */
+    label: string;
+
+    /** The target position (start of the definition line) */
+    targetPos: number;
+
+    /** Position information for the footnote reference */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -99,7 +117,7 @@ export enum LinkType {
 /**
  * Union type for all context types
  */
-export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext;
+export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext;
 
 /**
  * Content script context provided by Joplin
@@ -131,6 +149,7 @@ export const COMMAND_IDS = {
     TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
     CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
     UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
+    GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
 } as const;
 
 /**

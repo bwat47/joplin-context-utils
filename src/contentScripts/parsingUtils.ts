@@ -172,3 +172,25 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 
     return null;
 }
+
+/**
+ * Finds the definition line for a footnote label (case-insensitive)
+ * Returns the position (from) of the definition line
+ */
+export function findFootnoteDefinition(view: EditorView, label: string): number | null {
+    const doc = view.state.doc;
+    const lines = doc.lines;
+    const labelLower = label.toLowerCase();
+
+    // Iterate all lines to find [^label]:
+    for (let i = 1; i <= lines; i++) {
+        const line = doc.line(i);
+        const trimmed = line.text.trimStart().toLowerCase();
+        // Check if line starts with [^label]: (case-insensitive)
+        if (trimmed.startsWith(`[^${labelLower}]:`)) {
+            return line.from;
+        }
+    }
+
+    return null;
+}

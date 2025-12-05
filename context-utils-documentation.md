@@ -19,6 +19,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Code blocks (` ` ```)
 - **Task list checkboxes** (`- [ ]` / `- [x]`)
 - **Task selections** (multiple selected checkboxes)
+- **Footnotes** (`[^1]` reference)
 
 ## Architecture
 
@@ -80,10 +81,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/types.ts**
 
 - Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext`
+- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext`
 - `LinkType` enum (ExternalUrl, JoplinResource, Email)
 - `TaskInfo` interface for individual tasks in selections
-- Command IDs (including checkbox commands)
+- Command IDs (including checkbox and footnote commands)
 - `EditorRange` for text replacement operations
 
 **src/settings.ts**
@@ -121,6 +122,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - **Toggle Checkbox** (single checkbox `[ ]` ↔ `[x]`)
     - **Check All Tasks** (bulk check unchecked tasks in selection)
     - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
+    - **Go to Footnote** (scrolls to footnote definition)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**
@@ -130,12 +132,14 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
     - `contextUtils-replaceRange` - text replacement for checkbox toggling
     - `contextUtils-batchReplace` - atomic batch replacement for bulk operations
+    - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
 
 **src/contentScripts/contextDetection.ts**
 
 - Multi-context detection logic (returns array of contexts)
 - Delegates parsing to `parsingUtils.ts`
-- Detection priority: Code > Links > Images (checkboxes run alongside as secondary context)
+- Detection priority: Code > Links > Images > Footnotes (checkboxes run alongside as secondary context)
+- Uses text scanning for footnotes (syntax tree doesn't detect them)
 
 **src/contentScripts/parsingUtils.ts**
 
@@ -147,6 +151,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `classifyUrl` (regex)
     - `parseInlineCode` (regex)
     - `parseCodeBlock` (syntax tree + regex fallback)
+    - `findFootnoteDefinition` (line scan)
 
 ### Utilities
 
@@ -167,7 +172,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 ### 1. Discriminated Unions
 
 ```typescript
-type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext;
+type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext;
 
 interface LinkContext {
     contextType: 'link'; // Discriminator
@@ -197,6 +202,14 @@ interface TaskSelectionContext {
     tasks: TaskInfo[];
     checkedCount: number;
     uncheckedCount: number;
+    from: number;
+    to: number;
+}
+
+interface FootnoteContext {
+    contextType: 'footnote'; // Discriminator
+    label: string;
+    targetPos: number;
     from: number;
     to: number;
 }
@@ -328,6 +341,14 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
 
 This prevents errors when trying to get file paths for notes (which don't have physical files in the resources directory) and ensures robust handling of invalid IDs.
 
+### 5. Footnote Detection
+
+Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust detection:
+
+1.  **Primary Check**: Syntax tree traversal (standard flow).
+2.  **Fallback Check**: If no other context is found, the plugin scans the current line text for footnote references `[^label]`.
+3.  **Definition Lookup**: Once a label is found, `findFootnoteDefinition` scans the document line-by-line to find the corresponding `[^label]:` definition. This is efficient enough for typical document sizes and avoids complex full-document parsing.
+
 ## Important Notes
 
 ### CodeMirror 6 Syntax Nodes
@@ -416,3 +437,8 @@ Content scripts must be declared here for webpack bundling.
 - **Test false positive prevention:**
     - Code block containing `- [ ] Task` text → NO checkbox menu (only "Copy Code")
     - Selection including code block with task-like text → doesn't count as tasks
+- **Test footnotes:**
+    - Cursor on `[^1]` → shows "Go to footnote"
+    - Clicking "Go to footnote" → scrolls to `[^1]: definition`
+    - Missing definition → command should handle gracefully (or not appear if we pre-validate)
+    - Multiple footnotes on same line → detects correct one based on cursor position
