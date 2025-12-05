@@ -13,6 +13,7 @@ export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
  */
 export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
+export const SCROLL_TO_POSITION_COMMAND = 'contextUtils-scrollToPosition';
 
 /**
  * Content script entry point
@@ -139,6 +140,21 @@ export default (_context: ContentScriptContext) => {
                     }
                 }
             );
+
+            // Register command to scroll to a specific position
+            codeMirrorWrapper.registerCommand(SCROLL_TO_POSITION_COMMAND, (pos: number) => {
+                if (typeof pos !== 'number' || !Number.isFinite(pos)) {
+                    logger.error('scrollToPosition: pos must be a finite number');
+                    return;
+                }
+
+                view.dispatch({
+                    effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+                    selection: { anchor: pos, head: pos },
+                });
+                view.focus();
+                logger.debug('Scrolled to position:', pos);
+            });
         },
     };
 };

@@ -1,9 +1,21 @@
 import joplin from 'api';
-import { COMMAND_IDS, LinkContext, CodeContext, CheckboxContext, TaskSelectionContext, LinkType } from './types';
+import {
+    COMMAND_IDS,
+    LinkContext,
+    CodeContext,
+    CheckboxContext,
+    TaskSelectionContext,
+    LinkType,
+    FootnoteContext,
+} from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import { REPLACE_RANGE_COMMAND, BATCH_REPLACE_COMMAND } from './contentScripts/contentScript';
+import {
+    REPLACE_RANGE_COMMAND,
+    BATCH_REPLACE_COMMAND,
+    SCROLL_TO_POSITION_COMMAND,
+} from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
 
 /**
@@ -110,6 +122,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to uncheck all tasks:', error);
                 await showToast('Failed to uncheck all tasks', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.GO_TO_FOOTNOTE,
+        label: 'Go to footnote',
+        execute: async (footnoteContext: FootnoteContext) => {
+            try {
+                await handleGoToFootnote(footnoteContext);
+            } catch (error) {
+                logger.error('Failed to go to footnote:', error);
+                await showToast('Failed to go to footnote', ToastType.Error);
             }
         },
     });
@@ -284,4 +309,15 @@ async function handleCheckAllTasks(taskSelectionContext: TaskSelectionContext): 
  */
 async function handleUncheckAllTasks(taskSelectionContext: TaskSelectionContext): Promise<void> {
     await handleBulkTaskUpdate(taskSelectionContext, false);
+}
+
+/**
+ * "Go to footnote" handler
+ */
+async function handleGoToFootnote(footnoteContext: FootnoteContext): Promise<void> {
+    await joplin.commands.execute('editor.execCommand', {
+        name: SCROLL_TO_POSITION_COMMAND,
+        args: [footnoteContext.targetPos],
+    });
+    logger.info('Scrolled to footnote definition:', footnoteContext.label);
 }

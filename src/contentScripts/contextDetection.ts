@@ -1,6 +1,14 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
-import { LinkContext, CodeContext, CheckboxContext, TaskSelectionContext, TaskInfo, EditorContext } from '../types';
+import {
+    LinkContext,
+    CodeContext,
+    CheckboxContext,
+    TaskSelectionContext,
+    TaskInfo,
+    EditorContext,
+    FootnoteContext,
+} from '../types';
 import {
     parseInlineCode,
     parseCodeBlock,
@@ -9,6 +17,7 @@ import {
     parseImageTag,
     extractReferenceLabel,
     findReferenceDefinition,
+    findFootnoteDefinition,
 } from './parsingUtils';
 
 /**
@@ -60,9 +69,9 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
  * @param pos - Cursor position to check
  * @returns Primary context if found, null otherwise
  */
-function detectPrimaryContext(view: EditorView, pos: number): LinkContext | CodeContext | null {
+function detectPrimaryContext(view: EditorView, pos: number): LinkContext | CodeContext | FootnoteContext | null {
     const tree = syntaxTree(view.state);
-    let context: LinkContext | CodeContext | null = null;
+    let context: LinkContext | CodeContext | FootnoteContext | null = null;
 
     // Traverse syntax tree to find nodes at position
     tree.iterate({
@@ -181,6 +190,39 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             }
         },
     });
+
+    // If no context found yet, check for footnotes
+    // Footnotes might not be parsed as specific nodes, so we check the text
+    if (!context) {
+        const line = view.state.doc.lineAt(pos);
+        const lineText = line.text;
+        const relativePos = pos - line.from;
+
+        // Regex to find all footnotes in the line: [^label]
+        const footnoteRegex = /\[\^([^\]]+)\]/g;
+        let match;
+        while ((match = footnoteRegex.exec(lineText)) !== null) {
+            const start = match.index;
+            const end = start + match[0].length;
+
+            // Check if cursor is within this footnote reference
+            if (relativePos >= start && relativePos <= end) {
+                const label = match[1];
+                const targetPos = findFootnoteDefinition(view, label);
+
+                if (targetPos !== null) {
+                    context = {
+                        contextType: 'footnote',
+                        label,
+                        targetPos,
+                        from: line.from + start,
+                        to: line.from + end,
+                    };
+                    break;
+                }
+            }
+        }
+    }
 
     return context;
 }
