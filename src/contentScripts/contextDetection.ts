@@ -192,13 +192,14 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
     });
 
     // If no context found yet, check for footnotes
-    // Footnotes might not be parsed as specific nodes, so we check the text
+    // CodeMirror's markdown parser does not recognize footnote syntax,
+    // so we detect them via regex on the current line
     if (!context) {
         const line = view.state.doc.lineAt(pos);
         const lineText = line.text;
         const relativePos = pos - line.from;
 
-        // Regex to find all footnotes in the line: [^label]
+        // Regex to find all footnote references in the line: [^label]
         const footnoteRegex = /\[\^([^\]]+)\]/g;
         let match;
         while ((match = footnoteRegex.exec(lineText)) !== null) {
@@ -208,6 +209,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             // Check if cursor is within this footnote reference
             if (relativePos >= start && relativePos <= end) {
                 const label = match[1];
+
                 const targetPos = findFootnoteDefinition(view, label);
 
                 if (targetPos !== null) {

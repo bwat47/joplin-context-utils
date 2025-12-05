@@ -158,7 +158,8 @@ export default (_context: ContentScriptContext) => {
                 view.focus();
 
                 // Retry scroll after a short delay to ensure it settles
-                // This helps when the editor layout is shifting or loading
+                // This is needed because CodeMirror's scrollIntoView can be unreliable
+                // especially when images are being rendered in the editor
                 setTimeout(() => {
                     view.dispatch({
                         effects: scrollEffect,

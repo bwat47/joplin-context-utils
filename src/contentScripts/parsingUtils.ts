@@ -174,27 +174,20 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 }
 
 /**
- * Extracts footnote label from text (e.g. "1" from "[^1]")
- */
-export function extractFootnoteLabel(text: string): string | null {
-    const match = text.match(/^\[\^([^\]]+)\]$/);
-    return match ? match[1] : null;
-}
-
-/**
- * Finds the definition line for a footnote label
+ * Finds the definition line for a footnote label (case-insensitive)
  * Returns the position (from) of the definition line
  */
 export function findFootnoteDefinition(view: EditorView, label: string): number | null {
     const doc = view.state.doc;
     const lines = doc.lines;
+    const labelLower = label.toLowerCase();
 
     // Iterate all lines to find [^label]:
     for (let i = 1; i <= lines; i++) {
         const line = doc.line(i);
-        // Check if line starts with [^label]:
-        // We trim start to allow for indentation, though footnotes are usually top level
-        if (line.text.trimStart().startsWith(`[^${label}]:`)) {
+        const trimmed = line.text.trimStart().toLowerCase();
+        // Check if line starts with [^label]: (case-insensitive)
+        if (trimmed.startsWith(`[^${labelLower}]:`)) {
             return line.from;
         }
     }
