@@ -139,7 +139,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Multi-context detection logic (returns array of contexts)
 - Delegates parsing to `parsingUtils.ts`
 - Detection priority: Code > Links > Images > Footnotes (checkboxes run alongside as secondary context)
-- Uses text scanning fallback for footnotes if syntax tree doesn't detect them
+- Uses text scanning for footnotes (syntax tree doesn't detect them)
 
 **src/contentScripts/parsingUtils.ts**
 
@@ -151,7 +151,6 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `classifyUrl` (regex)
     - `parseInlineCode` (regex)
     - `parseCodeBlock` (syntax tree + regex fallback)
-    - `extractFootnoteLabel` (regex)
     - `findFootnoteDefinition` (line scan)
 
 ### Utilities
@@ -344,7 +343,7 @@ This prevents errors when trying to get file paths for notes (which don't have p
 
 ### 5. Footnote Detection
 
-Footnotes in CodeMirror 6 markdown mode may not always be parsed as distinct syntax nodes depending on the parser version and configuration. To ensure robust detection:
+Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust detection:
 
 1.  **Primary Check**: Syntax tree traversal (standard flow).
 2.  **Fallback Check**: If no other context is found, the plugin scans the current line text for footnote references `[^label]`.
