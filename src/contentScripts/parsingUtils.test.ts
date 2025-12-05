@@ -5,6 +5,7 @@ import {
     parseInlineCode,
     extractReferenceLabel,
     findReferenceDefinition,
+    findFootnoteDefinition,
 } from './parsingUtils';
 import { LinkType } from '../types';
 import { EditorState } from '@codemirror/state';
@@ -255,6 +256,40 @@ describe('parsingUtils', () => {
                 // For collapsed links [foo][], the label should be the link text
                 const url = findReferenceDefinition({ state } as any, '[Google]');
                 expect(url).toBe('https://google.com');
+            });
+        });
+
+        describe('findFootnoteDefinition', () => {
+            it('should find footnote definition', () => {
+                const text = 'Some text[^1] here.\n\n[^1]: This is the footnote.';
+                const { state } = createView(text);
+                const pos = findFootnoteDefinition({ state } as any, '1');
+                expect(pos).toBe(text.indexOf('[^1]:'));
+            });
+
+            it('should return null if definition not found', () => {
+                const text = 'Some text[^1] here.\n\nNo definition.';
+                const { state } = createView(text);
+                const pos = findFootnoteDefinition({ state } as any, '1');
+                expect(pos).toBeNull();
+            });
+
+            it('should match labels case-insensitively', () => {
+                const text = 'Reference[^Note] here.\n\n[^note]: Definition text.';
+                const { state } = createView(text);
+
+                // All case variations should find the same definition
+                expect(findFootnoteDefinition({ state } as any, 'Note')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as any, 'NOTE')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as any, 'note')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as any, 'NoTe')).toBe(text.indexOf('[^note]:'));
+            });
+
+            it('should handle footnotes with complex labels', () => {
+                const text = 'Text[^my-note-1] here.\n\n[^my-note-1]: Complex label footnote.';
+                const { state } = createView(text);
+                const pos = findFootnoteDefinition({ state } as any, 'my-note-1');
+                expect(pos).toBe(text.indexOf('[^my-note-1]:'));
             });
         });
     });
