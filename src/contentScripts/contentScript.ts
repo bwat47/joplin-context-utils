@@ -148,11 +148,23 @@ export default (_context: ContentScriptContext) => {
                     return;
                 }
 
+                const scrollEffect = EditorView.scrollIntoView(pos, { y: 'nearest' });
+
+                // Initial scroll
                 view.dispatch({
-                    effects: EditorView.scrollIntoView(pos, { y: 'center' }),
+                    effects: scrollEffect,
                     selection: { anchor: pos, head: pos },
                 });
                 view.focus();
+
+                // Retry scroll after a short delay to ensure it settles
+                // This helps when the editor layout is shifting or loading
+                setTimeout(() => {
+                    view.dispatch({
+                        effects: scrollEffect,
+                    });
+                }, 100);
+
                 logger.debug('Scrolled to position:', pos);
             });
         },
