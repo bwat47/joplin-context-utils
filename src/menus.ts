@@ -170,11 +170,13 @@ export async function registerContextMenuFilter(): Promise<void> {
                         }
                     }
                 } else if (context.contextType === 'footnote') {
-                    contextMenuItems.push({
-                        commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
-                        commandArgs: [context],
-                        label: 'Go to footnote',
-                    });
+                    if (settingsCache.showGoToFootnote) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
+                            commandArgs: [context],
+                            label: 'Go to footnote',
+                        });
+                    }
                 }
             }
 
