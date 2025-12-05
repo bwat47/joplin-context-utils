@@ -55,6 +55,12 @@ const SETTINGS_CONFIG = {
         label: 'Show task toggle options in context menu',
         description: 'Display options to check/uncheck task list checkboxes ([ ] ↔ [x])',
     },
+    showGoToFootnote: {
+        key: `${SECTION_ID}.showGoToFootnote`,
+        defaultValue: true,
+        label: 'Show "Go to footnote" in context menu',
+        description: 'Display option to navigate to footnote definitions',
+    },
 } as const;
 
 export type SettingsCache = {
