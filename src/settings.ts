@@ -23,7 +23,8 @@ const SETTINGS_CONFIG = {
         key: `${SECTION_ID}.showOpenLink`,
         defaultValue: true,
         label: 'Show "Open Link" in context menu',
-        description: 'Display option to open external URLs in browser or Joplin resources in default app',
+        description:
+            'Display option to open external URLs in browser, open Joplin resources in default app, or open selected Note',
     },
     showCopyPath: {
         key: `${SECTION_ID}.showCopyPath`,
