@@ -96,6 +96,16 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
 
+                    // Show "Pin to Tabs" for notes (requires Note Tabs plugin)
+                    // If Note Tabs isn't installed, command execution will show an error toast
+                    if (isNote && settingsCache.showPinToTabs) {
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.PIN_TO_TABS,
+                            commandArgs: [context],
+                            label: 'Pin to Tabs',
+                        });
+                    }
+
                     // Only show resource-specific options for actual resources (not notes)
                     if (context.type === LinkType.JoplinResource && idType === 'resource') {
                         if (settingsCache.showCopyPath) {

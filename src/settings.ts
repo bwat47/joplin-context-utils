@@ -61,6 +61,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Go to footnote" in context menu',
         description: 'Display option to navigate to footnote definitions',
     },
+    showPinToTabs: {
+        key: `${SECTION_ID}.showPinToTabs`,
+        defaultValue: true,
+        label: 'Show "Pin to Tabs" in context menu',
+        description: 'Display option to pin notes to the tabs bar (requires Note Tabs plugin)',
+    },
 } as const;
 
 export type SettingsCache = {

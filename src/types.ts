@@ -150,6 +150,7 @@ export const COMMAND_IDS = {
     CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
     UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
     GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
+    PIN_TO_TABS: 'contextUtils.pinToTabs',
 } as const;
 
 /**

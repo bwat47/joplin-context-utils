@@ -138,6 +138,19 @@ export async function registerCommands(): Promise<void> {
             }
         },
     });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.PIN_TO_TABS,
+        label: 'Pin to Tabs',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handlePinToTabs(linkContext);
+            } catch (error) {
+                logger.error('Failed to pin note to tabs:', error);
+                await showToast('Failed to pin note (is Note Tabs installed?)', ToastType.Error);
+            }
+        },
+    });
 }
 
 /**
@@ -320,4 +333,19 @@ async function handleGoToFootnote(footnoteContext: FootnoteContext): Promise<voi
         args: [footnoteContext.targetPos],
     });
     logger.info('Scrolled to footnote definition:', footnoteContext.label);
+}
+
+/**
+ * "Pin to Tabs" handler
+ * Calls the Note Tabs plugin's tabsPinNote command
+ */
+async function handlePinToTabs(linkContext: LinkContext): Promise<void> {
+    if (linkContext.type !== LinkType.JoplinResource) {
+        throw new Error('Pin to tabs only works for Joplin note links');
+    }
+
+    const noteId = extractJoplinResourceId(linkContext.url);
+    // Call the Note Tabs plugin command with the array signature it expects
+    await joplin.commands.execute('tabsPinNote', [noteId]);
+    logger.info('Pinned note to tabs:', noteId);
 }
