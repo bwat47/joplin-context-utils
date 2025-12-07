@@ -28,6 +28,8 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Pin to Tabs** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
 
+**Open in New Window** - Allows you to right click a link to another joplin note and open it in a new window.
+
 ## Settings
 
 - Each context menu option can be enabled or disabled in the Plugin settings.
