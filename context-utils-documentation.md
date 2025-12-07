@@ -91,7 +91,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 9 boolean settings (all default `true`):
+- 10 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showCopyPath` - Show "Copy Path" in context menu
@@ -101,6 +101,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showToggleTask` - Show task toggle options in context menu
     - `showGoToFootnote` - Show "Go to footnote" in context menu
     - `showPinToTabs` - Show "Pin to Tabs" in context menu (requires Note Tabs plugin)
+    - `showOpenNoteNewWindow` - Show "Open in New Window" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -126,6 +127,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
     - **Go to Footnote** (scrolls to footnote definition)
     - **Pin to Tabs** (pins note to tabs via Note Tabs plugin)
+    - **Open in New Window** (opens note in a new Joplin window)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**

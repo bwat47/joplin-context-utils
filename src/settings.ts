@@ -67,6 +67,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Pin to Tabs" in context menu',
         description: 'Display option to pin notes to the tabs bar (requires Note Tabs plugin)',
     },
+    showOpenNoteNewWindow: {
+        key: `${SECTION_ID}.showOpenNoteNewWindow`,
+        defaultValue: true,
+        label: 'Show "Open in New Window" in context menu',
+        description: 'Display option to open notes in a new window',
+    },
 } as const;
 
 export type SettingsCache = {

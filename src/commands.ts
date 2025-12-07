@@ -151,6 +151,19 @@ export async function registerCommands(): Promise<void> {
             }
         },
     });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.OPEN_NOTE_NEW_WINDOW,
+        label: 'Open in New Window',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleOpenNoteNewWindow(linkContext);
+            } catch (error) {
+                logger.error('Failed to open note in new window:', error);
+                await showToast('Failed to open note in new window', ToastType.Error);
+            }
+        },
+    });
 }
 
 /**
@@ -348,4 +361,18 @@ async function handlePinToTabs(linkContext: LinkContext): Promise<void> {
     // Call the Note Tabs plugin command with the array signature it expects
     await joplin.commands.execute('tabsPinNote', [noteId]);
     logger.info('Pinned note to tabs:', noteId);
+}
+
+/**
+ * "Open in New Window" handler
+ * Opens the note in a new Joplin window
+ */
+async function handleOpenNoteNewWindow(linkContext: LinkContext): Promise<void> {
+    if (linkContext.type !== LinkType.JoplinResource) {
+        throw new Error('Open in new window only works for Joplin note links');
+    }
+
+    const noteId = extractJoplinResourceId(linkContext.url);
+    await joplin.commands.execute('openNoteInNewWindow', noteId);
+    logger.info('Opened note in new window:', noteId);
 }
