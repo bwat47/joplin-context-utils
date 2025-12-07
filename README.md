@@ -38,6 +38,6 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 ## Misc Notes
 
-- Most of these context menu options overlap with the ones provided by the Rich Markdown plugin (this plugin provides similar options but as a standalone plugin).
+- Some of these context menu options overlap with the ones provided by the Rich Markdown plugin (this plugin provides similar options but as a standalone plugin). Each option can be toggled on/off to avoid conflicts/duplicate menu items.
 
 - Options for "Copy Image" and "Resize Image" are intentionally not provided by this plugin, as they are available in my other plugin: https://github.com/bwat47/simple-image-resize
