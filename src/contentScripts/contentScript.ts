@@ -9,10 +9,14 @@ import { detectContextAtPosition } from './contextDetection';
 export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
 
 /**
- * Command name for replacing a range of text in the editor
+ * Command names for replacing a range of text in the editor
  */
 export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
+
+/**
+ * Command name for scrolling editor to specified position
+ */
 export const SCROLL_TO_POSITION_COMMAND = 'contextUtils-scrollToPosition';
 
 /**
