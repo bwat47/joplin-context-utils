@@ -20,6 +20,22 @@ export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
 export const SCROLL_TO_POSITION_COMMAND = 'contextUtils-scrollToPosition';
 
 /**
+ * Validates that a range has valid finite numbers with from <= to
+ * @returns true if valid, false otherwise (logs error on failure)
+ */
+function validateRange(from: number, to: number, context: string): boolean {
+    if (typeof from !== 'number' || typeof to !== 'number' || !Number.isFinite(from) || !Number.isFinite(to)) {
+        logger.error(`${context}: from and to must be finite numbers`);
+        return false;
+    }
+    if (from > to) {
+        logger.error(`${context}: from must be <= to`);
+        return false;
+    }
+    return true;
+}
+
+/**
  * Content script entry point
  */
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -54,24 +70,7 @@ export default (_context: ContentScriptContext) => {
             codeMirrorWrapper.registerCommand(
                 REPLACE_RANGE_COMMAND,
                 (newText: string, from: number, to: number, expectedText?: string) => {
-                    // Validate inputs
-                    if (typeof newText !== 'string') {
-                        logger.error('replaceRange: newText must be a string');
-                        return false;
-                    }
-
-                    if (
-                        typeof from !== 'number' ||
-                        typeof to !== 'number' ||
-                        !Number.isFinite(from) ||
-                        !Number.isFinite(to)
-                    ) {
-                        logger.error('replaceRange: from and to must be finite numbers');
-                        return false;
-                    }
-
-                    if (from > to) {
-                        logger.error('replaceRange: from must be <= to');
+                    if (!validateRange(from, to, 'replaceRange')) {
                         return false;
                     }
 
@@ -109,6 +108,13 @@ export default (_context: ContentScriptContext) => {
             codeMirrorWrapper.registerCommand(
                 BATCH_REPLACE_COMMAND,
                 (replacements: Array<{ from: number; to: number; text: string; expectedText?: string }>) => {
+                    // Validate all ranges before proceeding
+                    for (const r of replacements) {
+                        if (!validateRange(r.from, r.to, 'batchReplace')) {
+                            return false;
+                        }
+                    }
+
                     // Safety Check: Verify all texts match expectation before applying ANY changes
                     for (const r of replacements) {
                         if (r.expectedText !== undefined) {
