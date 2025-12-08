@@ -291,6 +291,30 @@ describe('parsingUtils', () => {
                 const pos = findFootnoteDefinition({ state } as any, 'my-note-1');
                 expect(pos).toBe(text.indexOf('[^my-note-1]:'));
             });
+
+            it('should skip footnote definitions inside code blocks', () => {
+                const text =
+                    'Reference[^1] here.\n\n' +
+                    '```\n' +
+                    '[^1]: This is inside a code block\n' +
+                    '```\n\n' +
+                    '[^1]: This is the real footnote definition.';
+                const { state } = createView(text);
+                const pos = findFootnoteDefinition({ state } as any, '1');
+                // Should find the definition AFTER the code block, not inside it
+                expect(pos).toBe(text.lastIndexOf('[^1]:'));
+            });
+
+            it('should return null if only match is inside code block', () => {
+                const text =
+                    'Reference[^1] here.\n\n' +
+                    '```\n' +
+                    '[^1]: This is inside a code block\n' +
+                    '```';
+                const { state } = createView(text);
+                const pos = findFootnoteDefinition({ state } as any, '1');
+                expect(pos).toBeNull();
+            });
         });
     });
 });

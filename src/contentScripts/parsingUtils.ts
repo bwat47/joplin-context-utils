@@ -1,6 +1,7 @@
 import { SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
+import { RegExpCursor } from '@codemirror/search';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
 /**
@@ -174,22 +175,62 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 }
 
 /**
+ * Checks if a specific position in the document is inside a code block
+ * @param view - The EditorView
+ * @param pos - Position to check
+ * @returns true if the position is inside a code block
+ */
+function isInCodeBlock(view: EditorView, pos: number): boolean {
+    const tree = syntaxTree(view.state);
+
+    // Resolve the node at this position
+    // side: 1 ensures we resolve inside the node if we are at the very start
+    let node = tree.resolveInner(pos, 1);
+
+    // Traverse up the tree to check parents
+    while (node) {
+        const type = node.type.name;
+        // Check for CodeMirror markdown code node types
+        if (type === 'FencedCode' || type === 'CodeBlock' || type === 'InlineCode' || type === 'CodeText') {
+            return true;
+        }
+        node = node.parent;
+    }
+    return false;
+}
+
+/**
  * Finds the definition line for a footnote label (case-insensitive)
  * Returns the position (from) of the definition line
+ * Uses CodeMirror's RegExpCursor for efficient regex-based searching
+ * Skips matches inside code blocks
  */
 export function findFootnoteDefinition(view: EditorView, label: string): number | null {
-    const doc = view.state.doc;
-    const lines = doc.lines;
-    const labelLower = label.toLowerCase();
+    // Escape special regex characters in the label
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Iterate all lines to find [^label]:
-    for (let i = 1; i <= lines; i++) {
-        const line = doc.line(i);
-        const trimmed = line.text.trimStart().toLowerCase();
-        // Check if line starts with [^label]: (case-insensitive)
-        if (trimmed.startsWith(`[^${labelLower}]:`)) {
-            return line.from;
+    // Regex pattern: Start of line (^), optional whitespace (\s*), match footnote def
+    const pattern = `^\\s*\\[\\^${escapedLabel}\\]:`;
+
+    // Create a cursor that scans the whole document (case-insensitive)
+    const cursor = new RegExpCursor(view.state.doc, pattern, { ignoreCase: true });
+
+    // Iterate through all matches until we find a valid one (not in code block)
+    while (!cursor.next().done) {
+        const matchStart = cursor.value.from;
+
+        // Skip matches inside code blocks
+        if (isInCodeBlock(view, matchStart)) {
+            continue;
         }
+
+        // Valid match found - calculate the position of the actual [
+        const matchText = cursor.value.match[0];
+        const bracketOffset = matchText.indexOf('[');
+        if (bracketOffset < 0) {
+            return null;
+        }
+        return matchStart + bracketOffset;
     }
 
     return null;
