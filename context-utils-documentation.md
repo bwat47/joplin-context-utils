@@ -100,8 +100,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showCopyOcrText` - Show "Copy OCR Text" in context menu
     - `showToggleTask` - Show task toggle options in context menu
     - `showGoToFootnote` - Show "Go to footnote" in context menu
-    - `showPinToTabs` - Show "Pin to Tabs" in context menu (requires Note Tabs plugin)
-    - `showOpenNoteNewWindow` - Show "Open in New Window" in context menu
+    - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
+    - `showOpenNoteNewWindow` - Show "Open Note in New Window" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -126,8 +126,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - **Check All Tasks** (bulk check unchecked tasks in selection)
     - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
     - **Go to Footnote** (scrolls to footnote definition)
-    - **Pin to Tabs** (pins note to tabs via Note Tabs plugin)
-    - **Open in New Window** (opens note in a new Joplin window)
+    - **Open Note as Pinned Tab** (opens note as pinned tab via Note Tabs plugin)
+    - **Open Note in New Window** (opens note in a new Joplin window)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**

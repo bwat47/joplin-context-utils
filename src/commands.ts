@@ -141,20 +141,20 @@ export async function registerCommands(): Promise<void> {
 
     await joplin.commands.register({
         name: COMMAND_IDS.PIN_TO_TABS,
-        label: 'Pin to Tabs',
+        label: 'Open Note as Pinned Tab',
         execute: async (linkContext: LinkContext) => {
             try {
                 await handlePinToTabs(linkContext);
             } catch (error) {
-                logger.error('Failed to pin note to tabs:', error);
-                await showToast('Failed to pin note (is Note Tabs installed?)', ToastType.Error);
+                logger.error('Failed to open note as pinned tab:', error);
+                await showToast('Failed to open note as pinned tab (is Note Tabs installed?)', ToastType.Error);
             }
         },
     });
 
     await joplin.commands.register({
         name: COMMAND_IDS.OPEN_NOTE_NEW_WINDOW,
-        label: 'Open in New Window',
+        label: 'Open Note in New Window',
         execute: async (linkContext: LinkContext) => {
             try {
                 await handleOpenNoteNewWindow(linkContext);

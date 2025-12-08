@@ -96,22 +96,22 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
 
-                    // Show "Open in New Window" for notes
+                    // Show "Open Note in New Window" for notes
                     if (isNote && settingsCache.showOpenNoteNewWindow) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.OPEN_NOTE_NEW_WINDOW,
                             commandArgs: [context],
-                            label: 'Open in New Window',
+                            label: 'Open Note in New Window',
                         });
                     }
 
-                    // Show "Pin to Tabs" for notes (requires Note Tabs plugin)
+                    // Show "Open Note as Pinned Tab" for notes (requires Note Tabs plugin)
                     // If Note Tabs isn't installed, command execution will show an error toast
                     if (isNote && settingsCache.showPinToTabs) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.PIN_TO_TABS,
                             commandArgs: [context],
-                            label: 'Pin to Tabs',
+                            label: 'Open Note as Pinned Tab',
                         });
                     }
 
