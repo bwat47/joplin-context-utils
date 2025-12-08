@@ -1,6 +1,7 @@
 import { SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
+import { RegExpCursor } from '@codemirror/search';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
 /**
@@ -176,20 +177,26 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 /**
  * Finds the definition line for a footnote label (case-insensitive)
  * Returns the position (from) of the definition line
+ * Uses CodeMirror's RegExpCursor for efficient regex-based searching
  */
 export function findFootnoteDefinition(view: EditorView, label: string): number | null {
-    const doc = view.state.doc;
-    const lines = doc.lines;
-    const labelLower = label.toLowerCase();
+    // Escape special regex characters in the label
+    const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-    // Iterate all lines to find [^label]:
-    for (let i = 1; i <= lines; i++) {
-        const line = doc.line(i);
-        const trimmed = line.text.trimStart().toLowerCase();
-        // Check if line starts with [^label]: (case-insensitive)
-        if (trimmed.startsWith(`[^${labelLower}]:`)) {
-            return line.from;
-        }
+    // Regex pattern: Start of line (^), optional whitespace (\s*), match footnote def
+    const pattern = `^\\s*\\[\\^${escapedLabel}\\]:`;
+
+    // Create a cursor that scans the whole document (case-insensitive)
+    const cursor = new RegExpCursor(view.state.doc, pattern, { ignoreCase: true });
+
+    // .next() finds the first match
+    if (cursor.next().done === false) {
+        // cursor.value.from points to where ^ matched (which may be at a newline)
+        // We need the position of the actual [, so find its offset within the match
+        const matchStart = cursor.value.from;
+        const matchText = cursor.value.match[0];
+        const bracketOffset = matchText.indexOf('[');
+        return bracketOffset >= 0 ? matchStart + bracketOffset : matchStart;
     }
 
     return null;
