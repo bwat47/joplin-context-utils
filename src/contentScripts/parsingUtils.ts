@@ -175,9 +175,35 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 }
 
 /**
+ * Checks if a specific position in the document is inside a code block
+ * @param view - The EditorView
+ * @param pos - Position to check
+ * @returns true if the position is inside a code block
+ */
+function isInCodeBlock(view: EditorView, pos: number): boolean {
+    const tree = syntaxTree(view.state);
+
+    // Resolve the node at this position
+    // side: 1 ensures we resolve inside the node if we are at the very start
+    let node = tree.resolveInner(pos, 1);
+
+    // Traverse up the tree to check parents
+    while (node) {
+        const type = node.type.name;
+        // Check for CodeMirror markdown code node types
+        if (type === 'FencedCode' || type === 'CodeBlock' || type === 'InlineCode' || type === 'CodeText') {
+            return true;
+        }
+        node = node.parent;
+    }
+    return false;
+}
+
+/**
  * Finds the definition line for a footnote label (case-insensitive)
  * Returns the position (from) of the definition line
  * Uses CodeMirror's RegExpCursor for efficient regex-based searching
+ * Skips matches inside code blocks
  */
 export function findFootnoteDefinition(view: EditorView, label: string): number | null {
     // Escape special regex characters in the label
@@ -189,15 +215,18 @@ export function findFootnoteDefinition(view: EditorView, label: string): number 
     // Create a cursor that scans the whole document (case-insensitive)
     const cursor = new RegExpCursor(view.state.doc, pattern, { ignoreCase: true });
 
-    // .next() finds the first match
-    const result = cursor.next();
-    if (!result.done) {
-        // cursor.value.from points to where ^ matched (which may be at a newline)
-        // We need the position of the actual [, so find its offset within the match
+    // Iterate through all matches until we find a valid one (not in code block)
+    while (!cursor.next().done) {
         const matchStart = cursor.value.from;
+
+        // Skip matches inside code blocks
+        if (isInCodeBlock(view, matchStart)) {
+            continue;
+        }
+
+        // Valid match found - calculate the position of the actual [
         const matchText = cursor.value.match[0];
         const bracketOffset = matchText.indexOf('[');
-        // If '[' not found, the regex matched something unexpected - return null
         if (bracketOffset < 0) {
             return null;
         }

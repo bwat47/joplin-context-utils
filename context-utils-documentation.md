@@ -156,7 +156,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `classifyUrl` (regex)
     - `parseInlineCode` (regex)
     - `parseCodeBlock` (syntax tree + regex fallback)
-    - `findFootnoteDefinition` (line scan)
+    - `findFootnoteDefinition` (RegExpCursor with code block filtering)
 
 ### Utilities
 
@@ -352,7 +352,7 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 
 1.  **Primary Check**: Syntax tree traversal (standard flow).
 2.  **Fallback Check**: If no other context is found, the plugin scans the current line text for footnote references `[^label]`.
-3.  **Definition Lookup**: Once a label is found, `findFootnoteDefinition` scans the document line-by-line to find the corresponding `[^label]:` definition. This is efficient enough for typical document sizes and avoids complex full-document parsing.
+3.  **Definition Lookup**: Once a label is found, `findFootnoteDefinition` scans the document using codemirror's RegExpCursor to find the corresponding `[^label]:` definition.
 
 ## Important Notes
 
