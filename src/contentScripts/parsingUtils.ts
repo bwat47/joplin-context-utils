@@ -190,13 +190,18 @@ export function findFootnoteDefinition(view: EditorView, label: string): number 
     const cursor = new RegExpCursor(view.state.doc, pattern, { ignoreCase: true });
 
     // .next() finds the first match
-    if (cursor.next().done === false) {
+    const result = cursor.next();
+    if (!result.done) {
         // cursor.value.from points to where ^ matched (which may be at a newline)
         // We need the position of the actual [, so find its offset within the match
         const matchStart = cursor.value.from;
         const matchText = cursor.value.match[0];
         const bracketOffset = matchText.indexOf('[');
-        return bracketOffset >= 0 ? matchStart + bracketOffset : matchStart;
+        // If '[' not found, the regex matched something unexpected - return null
+        if (bracketOffset < 0) {
+            return null;
+        }
+        return matchStart + bracketOffset;
     }
 
     return null;
