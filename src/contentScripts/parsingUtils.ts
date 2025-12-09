@@ -1,7 +1,6 @@
 import { SyntaxNode } from '@lezer/common';
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
-import { RegExpCursor } from '@codemirror/search';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
 /**
@@ -175,62 +174,29 @@ export function findReferenceDefinition(view: EditorView, label: string): string
 }
 
 /**
- * Checks if a specific position in the document is inside a code block
- * @param view - The EditorView
- * @param pos - Position to check
- * @returns true if the position is inside a code block
- */
-function isInCodeBlock(view: EditorView, pos: number): boolean {
-    const tree = syntaxTree(view.state);
-
-    // Resolve the node at this position
-    // side: 1 ensures we resolve inside the node if we are at the very start
-    let node = tree.resolveInner(pos, 1);
-
-    // Traverse up the tree to check parents
-    while (node) {
-        const type = node.type.name;
-        // Check for CodeMirror markdown code node types
-        if (type === 'FencedCode' || type === 'CodeBlock' || type === 'InlineCode' || type === 'CodeText') {
-            return true;
-        }
-        node = node.parent;
-    }
-    return false;
-}
-
-/**
  * Finds the definition line for a footnote label (case-insensitive)
  * Returns the position (from) of the definition line
- * Uses CodeMirror's RegExpCursor for efficient regex-based searching
- * Skips matches inside code blocks
+ * Iterates through lines and tracks fenced code block state to skip matches inside code
  */
 export function findFootnoteDefinition(view: EditorView, label: string): number | null {
-    // Escape special regex characters in the label
     const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = new RegExp(`^\\s*\\[\\^${escapedLabel}\\]:`, 'i');
 
-    // Regex pattern: Start of line (^), optional whitespace (\s*), match footnote def
-    const pattern = `^\\s*\\[\\^${escapedLabel}\\]:`;
+    let lineStart = 0;
+    let inFencedCode = false;
 
-    // Create a cursor that scans the whole document (case-insensitive)
-    const cursor = new RegExpCursor(view.state.doc, pattern, { ignoreCase: true });
-
-    // Iterate through all matches until we find a valid one (not in code block)
-    while (!cursor.next().done) {
-        const matchStart = cursor.value.from;
-
-        // Skip matches inside code blocks
-        if (isInCodeBlock(view, matchStart)) {
-            continue;
+    for (const line of view.state.doc.iterLines()) {
+        // Track fenced code blocks (``` or ~~~)
+        if (/^(`{3,}|~{3,})/.test(line)) {
+            inFencedCode = !inFencedCode;
         }
 
-        // Valid match found - calculate the position of the actual [
-        const matchText = cursor.value.match[0];
-        const bracketOffset = matchText.indexOf('[');
-        if (bracketOffset < 0) {
-            return null;
+        if (!inFencedCode && pattern.test(line)) {
+            const bracketOffset = line.indexOf('[');
+            return lineStart + bracketOffset;
         }
-        return matchStart + bracketOffset;
+
+        lineStart += line.length + 1; // +1 for newline
     }
 
     return null;
