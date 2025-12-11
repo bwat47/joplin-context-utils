@@ -12,7 +12,9 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Open Link/Open Resource/Send Email/Open Note** - Open external URLs in browser, open Joplin resources in default app, open mailto: links in default mail client, or open linked note.
 
-**Go to footnote** - Scroll editor to selected footnote.
+**Go to footnote** - Scroll editor to defintion associated with the selected Footnote reference.
+
+**Go to heading** - Scroll editor to specified heading when right clicking on internal anchor link (e.g. `[Test](#test)`)
 
 **Copy URL/Copy Path/Copy Email** - Copy URL or resource file path to clipboard, or copy email address from mailto: link.
 
