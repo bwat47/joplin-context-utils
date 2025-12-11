@@ -1,5 +1,5 @@
 import { SyntaxNode } from '@lezer/common';
-import { syntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
@@ -138,7 +138,8 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
  * Uses the first occurrence if multiple definitions exist with the same label
  */
 export function findReferenceDefinition(view: EditorView, label: string): string | null {
-    const tree = syntaxTree(view.state);
+    const tree = ensureSyntaxTree(view.state, view.state.doc.length);
+    if (!tree) return null;
     const cursor = tree.cursor();
 
     // Loop through the entire tree in document order
