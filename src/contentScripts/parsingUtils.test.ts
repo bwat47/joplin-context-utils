@@ -306,11 +306,7 @@ describe('parsingUtils', () => {
             });
 
             it('should return null if only match is inside code block', () => {
-                const text =
-                    'Reference[^1] here.\n\n' +
-                    '```\n' +
-                    '[^1]: This is inside a code block\n' +
-                    '```';
+                const text = 'Reference[^1] here.\n\n' + '```\n' + '[^1]: This is inside a code block\n' + '```';
                 const { state } = createView(text);
                 const pos = findFootnoteDefinition({ state } as any, '1');
                 expect(pos).toBeNull();
