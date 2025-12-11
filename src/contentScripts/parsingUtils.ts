@@ -56,6 +56,9 @@ export function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'con
         return { url, type: LinkType.Email };
     } else if (url.match(/^https?:\/\//)) {
         return { url, type: LinkType.ExternalUrl };
+    } else if (url.match(/^#[^\s]+$/)) {
+        // Internal anchor link (e.g., #heading-slug)
+        return { url, type: LinkType.InternalAnchor };
     }
 
     return null;

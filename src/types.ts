@@ -112,6 +112,9 @@ export enum LinkType {
 
     /** Email mailto: URL */
     Email = 'email',
+
+    /** Internal anchor link (#heading) */
+    InternalAnchor = 'internal-anchor',
 }
 
 /**
@@ -150,6 +153,7 @@ export const COMMAND_IDS = {
     CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
     UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
     GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
+    GO_TO_HEADING: 'contextUtils.goToHeading',
     PIN_TO_TABS: 'contextUtils.pinToTabs',
     OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
 } as const;

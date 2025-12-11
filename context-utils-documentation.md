@@ -11,6 +11,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - External URLs (`https://...`)
 - Joplin resources (`:/32-hex-id`)
 - Email addresses (`mailto:...`)
+- **Internal anchor links** (`#heading-slug`)
 - Markdown links (`[text](url)`)
 - Reference-style links (`[text][ref]` with `[ref]: url`)
 - Markdown images (`![alt](url)`)
@@ -82,7 +83,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Type definitions with discriminated unions
 - `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext`
-- `LinkType` enum (ExternalUrl, JoplinResource, Email)
+- `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
 - `TaskInfo` interface for individual tasks in selections
 - Command IDs (including checkbox and footnote commands)
 - `EditorRange` for text replacement operations
@@ -91,7 +92,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 10 boolean settings (all default `true`):
+- 11 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showCopyPath` - Show "Copy Path" in context menu
@@ -100,6 +101,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showCopyOcrText` - Show "Copy OCR Text" in context menu
     - `showToggleTask` - Show task toggle options in context menu
     - `showGoToFootnote` - Show "Go to footnote" in context menu
+    - `showGoToHeading` - Show "Go to heading" in context menu
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
     - `showOpenNoteNewWindow` - Show "Open Note in New Window" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
@@ -126,6 +128,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - **Check All Tasks** (bulk check unchecked tasks in selection)
     - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
     - **Go to Footnote** (scrolls to footnote definition)
+    - **Go to Heading** (navigates to heading via Joplin's `jumpToHash` command)
     - **Open Note as Pinned Tab** (opens note as pinned tab via Note Tabs plugin)
     - **Open Note in New Window** (opens note in a new Joplin window)
 - All commands show toast notifications (if enabled)
@@ -447,3 +450,8 @@ Content scripts must be declared here for webpack bundling.
     - Clicking "Go to footnote" → scrolls to `[^1]: definition`
     - Missing definition → command should handle gracefully (or not appear if we pre-validate)
     - Multiple footnotes on same line → detects correct one based on cursor position
+- **Test internal anchor links:**
+    - Cursor on `[link](#heading)` → shows "Go to heading"
+    - Clicking "Go to heading" → scrolls to matching heading
+    - Missing heading → shows "Heading not found" toast
+    - Case handling: `#My-Heading` should match heading "My Heading" (via Joplin's slug normalization)

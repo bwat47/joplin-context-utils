@@ -88,7 +88,9 @@ export async function registerContextMenuFilter(): Promise<void> {
 
                     const isNote = idType === 'note';
 
-                    if (settingsCache.showOpenLink) {
+                    // Show "Open Link" for all link types except internal anchors
+                    // (internal anchors are handled by "Go to heading" instead)
+                    if (settingsCache.showOpenLink && context.type !== LinkType.InternalAnchor) {
                         contextMenuItems.push({
                             commandName: COMMAND_IDS.OPEN_LINK,
                             commandArgs: [context],
@@ -149,6 +151,13 @@ export async function registerContextMenuFilter(): Promise<void> {
                             commandName: COMMAND_IDS.COPY_PATH,
                             commandArgs: [context],
                             label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
+                        });
+                    } else if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
+                        // For internal anchor links (#heading), show "Go to heading"
+                        contextMenuItems.push({
+                            commandName: COMMAND_IDS.GO_TO_HEADING,
+                            commandArgs: [context],
+                            label: 'Go to heading',
                         });
                     }
                 } else if (context.contextType === 'code') {

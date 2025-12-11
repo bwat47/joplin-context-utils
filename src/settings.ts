@@ -62,6 +62,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Go to footnote" in context menu',
         description: 'Display option to navigate to footnote definitions',
     },
+    showGoToHeading: {
+        key: `${SECTION_ID}.showGoToHeading`,
+        defaultValue: true,
+        label: 'Show "Go to heading" in context menu',
+        description: 'Display option to navigate to headings via internal anchor links (#heading)',
+    },
     showPinToTabs: {
         key: `${SECTION_ID}.showPinToTabs`,
         defaultValue: true,

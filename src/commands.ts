@@ -140,6 +140,19 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
+        name: COMMAND_IDS.GO_TO_HEADING,
+        label: 'Go to heading',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleGoToHeading(linkContext);
+            } catch (error) {
+                logger.error('Failed to go to heading:', error);
+                await showToast('Failed to go to heading', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
         name: COMMAND_IDS.PIN_TO_TABS,
         label: 'Open Note as Pinned Tab',
         execute: async (linkContext: LinkContext) => {
@@ -346,6 +359,27 @@ async function handleGoToFootnote(footnoteContext: FootnoteContext): Promise<voi
         args: [footnoteContext.targetPos],
     });
     logger.info('Scrolled to footnote definition:', footnoteContext.label);
+}
+
+/**
+ * "Go to heading" handler
+ * Uses Joplin's built-in jumpToHash command to navigate to headings
+ */
+async function handleGoToHeading(linkContext: LinkContext): Promise<void> {
+    // Remove the leading # from the anchor URL
+    const hash = linkContext.url.slice(1);
+
+    const success = await joplin.commands.execute('editor.execCommand', {
+        name: 'jumpToHash',
+        args: [hash],
+    });
+
+    if (success) {
+        logger.info('Jumped to heading:', hash);
+    } else {
+        await showToast('Heading not found', ToastType.Error);
+        logger.warn('Heading not found:', hash);
+    }
 }
 
 /**
