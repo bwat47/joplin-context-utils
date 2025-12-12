@@ -90,9 +90,22 @@ export default (_context: ContentScriptContext) => {
                             }
                         }
 
-                        // Perform the text replacement
+                        // Calculate new cursor position to preserve relative offset
+                        // This prevents the cursor from jumping to the start of the line when replacing the whole line
+                        let selection = undefined;
+                        const currentHead = view.state.selection.main.head;
+                        if (currentHead >= from && currentHead <= to) {
+                            const offset = currentHead - from;
+                            // Ensure offset doesn't exceed new text length
+                            const newOffset = Math.min(offset, newText.length);
+                            const newHead = from + newOffset;
+                            selection = { anchor: newHead, head: newHead };
+                        }
+
+                        // Perform the text replacement with cursor preservation
                         view.dispatch({
                             changes: { from, to, insert: newText },
+                            ...(selection && { selection }),
                         });
                         logger.debug(`Replaced text from ${from} to ${to} with:`, newText);
                         return true;
