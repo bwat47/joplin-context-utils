@@ -36,6 +36,19 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
+        name: COMMAND_IDS.ADD_EXTERNAL_LINK,
+        label: 'Add External Link',
+        execute: async () => {
+            try {
+                await handleAddExternalLink();
+            } catch (error) {
+                logger.error('Failed to add external link:', error);
+                await showToast('Failed to add external link', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
         name: COMMAND_IDS.COPY_PATH,
         label: 'Copy Path',
         execute: async (linkContext: LinkContext) => {
@@ -409,4 +422,13 @@ async function handleOpenNoteNewWindow(linkContext: LinkContext): Promise<void> 
     const noteId = extractJoplinResourceId(linkContext.url);
     await joplin.commands.execute('openNoteInNewWindow', noteId);
     logger.info('Opened note in new window:', noteId);
+}
+
+/**
+ * "Add External Link" handler
+ * Opens Joplin's built-in "Insert Link" dialog
+ */
+async function handleAddExternalLink(): Promise<void> {
+    await joplin.commands.execute('textLink');
+    logger.info('Opened Add External Link dialog');
 }

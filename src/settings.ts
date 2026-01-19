@@ -26,6 +26,12 @@ const SETTINGS_CONFIG = {
         description:
             'Display option to open external URLs in browser, open Joplin resources in default app, or open selected Note',
     },
+    showAddExternalLink: {
+        key: `${SECTION_ID}.showAddExternalLink`,
+        defaultValue: true,
+        label: 'Show "Add External Link" in context menu',
+        description: 'Display option to insert a hyperlink at the cursor',
+    },
     showCopyPath: {
         key: `${SECTION_ID}.showCopyPath`,
         defaultValue: true,

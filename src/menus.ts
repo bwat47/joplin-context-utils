@@ -57,13 +57,13 @@ export async function registerContextMenuFilter(): Promise<void> {
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
             // May return multiple contexts (e.g., code + checkbox)
-            const contexts = (await joplin.commands.execute('editor.execCommand', {
+            let contexts = (await joplin.commands.execute('editor.execCommand', {
                 name: GET_CONTEXT_AT_CURSOR_COMMAND,
             })) as EditorContext[];
 
-            if (!contexts || contexts.length === 0) {
-                // No context at cursor, return menu unchanged
-                return menuItems;
+            if (!contexts) {
+                // Ensure contexts is an array even if null
+                contexts = [];
             }
 
             logger.debug('Building context menu for contexts:', contexts);
@@ -206,6 +206,14 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
                 }
+            }
+
+            // Always show "Add External Link" if enabled (not context-sensitive)
+            if (settingsCache.showAddExternalLink) {
+                contextMenuItems.push({
+                    commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
+                    label: 'Add External Link',
+                });
             }
 
             // Only add items if we have any menu items to show
