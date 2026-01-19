@@ -68,7 +68,7 @@ export async function registerContextMenuFilter(): Promise<void> {
 
             logger.debug('Building context menu for contexts:', contexts);
 
-            const contextMenuItems: MenuItem[] = [];
+            const contextSensitiveItems: MenuItem[] = [];
 
             // Process each context and build menu items
             for (const context of contexts) {
@@ -91,7 +91,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     // Show "Open Link" for all link types except internal anchors
                     // (internal anchors are handled by "Go to heading" instead)
                     if (settingsCache.showOpenLink && context.type !== LinkType.InternalAnchor) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.OPEN_LINK,
                             commandArgs: [context],
                             label: getLabelForOpenLink(context, isNote),
@@ -100,7 +100,7 @@ export async function registerContextMenuFilter(): Promise<void> {
 
                     // Show "Open Note in New Window" for notes
                     if (isNote && settingsCache.showOpenNoteNewWindow) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.OPEN_NOTE_NEW_WINDOW,
                             commandArgs: [context],
                             label: 'Open Note in New Window',
@@ -110,7 +110,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     // Show "Open Note as Pinned Tab" for notes (requires Note Tabs plugin)
                     // If Note Tabs isn't installed, command execution will show an error toast
                     if (isNote && settingsCache.showPinToTabs) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.PIN_TO_TABS,
                             commandArgs: [context],
                             label: 'Open Note as Pinned Tab',
@@ -120,7 +120,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     // Only show resource-specific options for actual resources (not notes)
                     if (context.type === LinkType.JoplinResource && idType === 'resource') {
                         if (settingsCache.showCopyPath) {
-                            contextMenuItems.push({
+                            contextSensitiveItems.push({
                                 commandName: COMMAND_IDS.COPY_PATH,
                                 commandArgs: [context],
                                 label: 'Copy Resource Path',
@@ -128,7 +128,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         }
 
                         if (settingsCache.showRevealFile) {
-                            contextMenuItems.push({
+                            contextSensitiveItems.push({
                                 commandName: COMMAND_IDS.REVEAL_FILE,
                                 commandArgs: [context],
                                 label: 'Reveal File in Folder',
@@ -136,7 +136,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         }
 
                         if (hasOcr) {
-                            contextMenuItems.push({
+                            contextSensitiveItems.push({
                                 commandName: COMMAND_IDS.COPY_OCR_TEXT,
                                 commandArgs: [context],
                                 label: 'Copy OCR Text',
@@ -147,14 +147,14 @@ export async function registerContextMenuFilter(): Promise<void> {
                         settingsCache.showCopyPath
                     ) {
                         // For external URLs and emails, still show copy option
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.COPY_PATH,
                             commandArgs: [context],
                             label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
                         });
                     } else if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
                         // For internal anchor links (#heading), show "Go to heading"
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.GO_TO_HEADING,
                             commandArgs: [context],
                             label: 'Go to heading',
@@ -163,7 +163,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                 } else if (context.contextType === 'code') {
                     // Check setting and build menu items for code
                     if (settingsCache.showCopyCode) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.COPY_CODE,
                             commandArgs: [context],
                             label: 'Copy Code',
@@ -172,7 +172,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                 } else if (context.contextType === 'checkbox') {
                     // Check setting and build menu items for task checkboxes
                     if (settingsCache.showToggleTask) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
                             label: context.checked ? 'Uncheck Task' : 'Check Task',
@@ -182,7 +182,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     // Check setting and build menu items for task selection
                     if (settingsCache.showToggleTask) {
                         if (context.uncheckedCount > 0) {
-                            contextMenuItems.push({
+                            contextSensitiveItems.push({
                                 commandName: COMMAND_IDS.CHECK_ALL_TASKS,
                                 commandArgs: [context],
                                 label: `Check All Tasks (${context.uncheckedCount})`,
@@ -190,7 +190,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         }
 
                         if (context.checkedCount > 0) {
-                            contextMenuItems.push({
+                            contextSensitiveItems.push({
                                 commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
                                 commandArgs: [context],
                                 label: `Uncheck All Tasks (${context.checkedCount})`,
@@ -199,7 +199,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     }
                 } else if (context.contextType === 'footnote') {
                     if (settingsCache.showGoToFootnote) {
-                        contextMenuItems.push({
+                        contextSensitiveItems.push({
                             commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
                             commandArgs: [context],
                             label: 'Go to footnote',
@@ -208,9 +208,11 @@ export async function registerContextMenuFilter(): Promise<void> {
                 }
             }
 
+            const globalItems: MenuItem[] = [];
+
             // Always show "Add External Link" if enabled (not context-sensitive)
             if (settingsCache.showAddExternalLink) {
-                contextMenuItems.push({
+                globalItems.push({
                     commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
                     label: 'Add External Link',
                 });
@@ -218,14 +220,24 @@ export async function registerContextMenuFilter(): Promise<void> {
 
             // Always show "Add Link to Note" if enabled (not context-sensitive)
             if (settingsCache.showAddLinkToNote) {
-                contextMenuItems.push({
+                globalItems.push({
                     commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
                     label: 'Add Link to Note',
                 });
             }
 
+            // Combine items
+            const finalContextItems: MenuItem[] = [...contextSensitiveItems];
+
+            // Add separator if we have both context items and global items
+            if (contextSensitiveItems.length > 0 && globalItems.length > 0) {
+                finalContextItems.push({ type: 'separator' });
+            }
+
+            finalContextItems.push(...globalItems);
+
             // Only add items if we have any menu items to show
-            if (contextMenuItems.length === 0) {
+            if (finalContextItems.length === 0) {
                 return menuItems;
             }
 
@@ -234,7 +246,7 @@ export async function registerContextMenuFilter(): Promise<void> {
 
             // Return original items plus our additions
             return {
-                items: [...menuItems.items, separator, ...contextMenuItems],
+                items: [...menuItems.items, separator, ...finalContextItems],
             };
         } catch (error) {
             logger.error('Error in context menu filter:', error);
