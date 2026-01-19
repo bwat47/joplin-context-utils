@@ -216,6 +216,14 @@ export async function registerContextMenuFilter(): Promise<void> {
                 });
             }
 
+            // Always show "Add Link to Note" if enabled (not context-sensitive)
+            if (settingsCache.showAddLinkToNote) {
+                contextMenuItems.push({
+                    commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
+                    label: 'Add Link to Note',
+                });
+            }
+
             // Only add items if we have any menu items to show
             if (contextMenuItems.length === 0) {
                 return menuItems;

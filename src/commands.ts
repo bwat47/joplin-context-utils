@@ -49,6 +49,19 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
+        name: COMMAND_IDS.ADD_LINK_TO_NOTE,
+        label: 'Add Link to Note',
+        execute: async () => {
+            try {
+                await handleAddLinkToNote();
+            } catch (error) {
+                logger.error('Failed to add link to note:', error);
+                await showToast('Failed to add link to note', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
         name: COMMAND_IDS.COPY_PATH,
         label: 'Copy Path',
         execute: async (linkContext: LinkContext) => {
@@ -431,4 +444,13 @@ async function handleOpenNoteNewWindow(linkContext: LinkContext): Promise<void> 
 async function handleAddExternalLink(): Promise<void> {
     await joplin.commands.execute('textLink');
     logger.info('Opened Add External Link dialog');
+}
+
+/**
+ * "Add Link to Note" handler
+ * Opens Joplin's built-in "Link to Note" dialog
+ */
+async function handleAddLinkToNote(): Promise<void> {
+    await joplin.commands.execute('linkToNote');
+    logger.info('Opened Add Link to Note dialog');
 }

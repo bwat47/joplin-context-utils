@@ -32,6 +32,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Add External Link" in context menu',
         description: 'Display option to insert a hyperlink at the cursor',
     },
+    showAddLinkToNote: {
+        key: `${SECTION_ID}.showAddLinkToNote`,
+        defaultValue: true,
+        label: 'Show "Add Link to Note" in context menu',
+        description: 'Display option to link to another note at the cursor',
+    },
     showCopyPath: {
         key: `${SECTION_ID}.showCopyPath`,
         defaultValue: true,
