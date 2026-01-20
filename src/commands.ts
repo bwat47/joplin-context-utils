@@ -214,11 +214,11 @@ async function handleOpenLink(linkContext: LinkContext): Promise<void> {
     if (linkContext.type === LinkType.ExternalUrl || linkContext.type === LinkType.Email) {
         // Use Joplin's built-in command to open external URL
         await joplin.commands.execute('openItem', linkContext.url);
-        logger.info('Opened external URL:', linkContext.url);
+        logger.debug('Opened external URL:', linkContext.url);
     } else if (linkContext.type === LinkType.JoplinResource) {
         // Joplin's openItem command can handle resource links directly
         await joplin.commands.execute('openItem', linkContext.url);
-        logger.info('Opened resource:', linkContext.url);
+        logger.debug('Opened resource:', linkContext.url);
     } else {
         throw new Error(`Unsupported link type: ${linkContext.type}`);
     }
@@ -234,14 +234,14 @@ async function handleCopyPath(linkContext: LinkContext): Promise<void> {
 
     if (linkContext.type === LinkType.ExternalUrl) {
         textToCopy = linkContext.url;
-        logger.info('Copying URL to clipboard:', textToCopy);
+        logger.debug('Copying URL to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.Email) {
         textToCopy = linkContext.url.replace(/^mailto:/i, '');
-        logger.info('Copying email to clipboard:', textToCopy);
+        logger.debug('Copying email to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.JoplinResource) {
         const resourceId = extractJoplinResourceId(linkContext.url);
         textToCopy = await joplin.data.resourcePath(resourceId);
-        logger.info('Copying resource path to clipboard:', textToCopy);
+        logger.debug('Copying resource path to clipboard:', textToCopy);
     } else {
         throw new Error(`Unsupported link type: ${linkContext.type}`);
     }
@@ -262,7 +262,7 @@ async function handleRevealFile(linkContext: LinkContext): Promise<void> {
 
     // Use Joplin's built-in revealResourceFile command
     await joplin.commands.execute('revealResourceFile', resourceId);
-    logger.info('Revealed resource file:', resourceId);
+    logger.debug('Revealed resource file:', resourceId);
 }
 
 /**
@@ -272,7 +272,7 @@ async function handleRevealFile(linkContext: LinkContext): Promise<void> {
 async function handleCopyCode(codeContext: CodeContext): Promise<void> {
     await joplin.clipboard.writeText(codeContext.code);
     await showToast('Code copied to clipboard', ToastType.Success);
-    logger.info('Copied code to clipboard');
+    logger.debug('Copied code to clipboard');
 }
 
 /**
@@ -299,7 +299,7 @@ async function handleCopyOcrText(linkContext: LinkContext): Promise<void> {
 
     await joplin.clipboard.writeText(resource.ocr_text);
     await showToast('OCR text copied to clipboard', ToastType.Success);
-    logger.info('Copied OCR text to clipboard for resource:', resourceId);
+    logger.debug('Copied OCR text to clipboard for resource:', resourceId);
 }
 
 /**
@@ -322,7 +322,7 @@ async function handleToggleCheckbox(checkboxContext: CheckboxContext): Promise<v
 
     const action = checkboxContext.checked ? 'unchecked' : 'checked';
     await showToast(`Task ${action}`, ToastType.Success);
-    logger.info(`Toggled checkbox: ${action}`);
+    logger.debug(`Toggled checkbox: ${action}`);
 }
 
 /**
@@ -355,7 +355,7 @@ async function handleBulkTaskUpdate(taskSelectionContext: TaskSelectionContext, 
             `${action} ${replacements.length} task${replacements.length !== 1 ? 's' : ''}`,
             ToastType.Success
         );
-        logger.info(`${action} ${replacements.length} tasks`);
+        logger.debug(`${action} ${replacements.length} tasks`);
     } else {
         await showToast('Content changed; update aborted', ToastType.Error);
         logger.warn('Batch update aborted due to content mismatch');
@@ -384,7 +384,7 @@ async function handleGoToFootnote(footnoteContext: FootnoteContext): Promise<voi
         name: SCROLL_TO_POSITION_COMMAND,
         args: [footnoteContext.targetPos],
     });
-    logger.info('Scrolled to footnote definition:', footnoteContext.label);
+    logger.debug('Scrolled to footnote definition:', footnoteContext.label);
 }
 
 /**
@@ -401,7 +401,7 @@ async function handleGoToHeading(linkContext: LinkContext): Promise<void> {
     });
 
     if (success) {
-        logger.info('Jumped to heading:', hash);
+        logger.debug('Jumped to heading:', hash);
     } else {
         await showToast('Heading not found', ToastType.Error);
         logger.warn('Heading not found:', hash);
@@ -420,7 +420,7 @@ async function handlePinToTabs(linkContext: LinkContext): Promise<void> {
     const noteId = extractJoplinResourceId(linkContext.url);
     // Call the Note Tabs plugin command with the array signature it expects
     await joplin.commands.execute('tabsPinNote', [noteId]);
-    logger.info('Pinned note to tabs:', noteId);
+    logger.debug('Pinned note to tabs:', noteId);
 }
 
 /**
@@ -434,7 +434,7 @@ async function handleOpenNoteNewWindow(linkContext: LinkContext): Promise<void> 
 
     const noteId = extractJoplinResourceId(linkContext.url);
     await joplin.commands.execute('openNoteInNewWindow', noteId);
-    logger.info('Opened note in new window:', noteId);
+    logger.debug('Opened note in new window:', noteId);
 }
 
 /**
@@ -443,7 +443,7 @@ async function handleOpenNoteNewWindow(linkContext: LinkContext): Promise<void> 
  */
 async function handleAddExternalLink(): Promise<void> {
     await joplin.commands.execute('textLink');
-    logger.info('Opened Add External Link dialog');
+    logger.debug('Opened Add External Link dialog');
 }
 
 /**
@@ -452,5 +452,5 @@ async function handleAddExternalLink(): Promise<void> {
  */
 async function handleAddLinkToNote(): Promise<void> {
     await joplin.commands.execute('linkToNote');
-    logger.info('Opened Add Link to Note dialog');
+    logger.debug('Opened Add Link to Note dialog');
 }

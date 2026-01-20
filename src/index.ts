@@ -7,16 +7,16 @@ import { logger } from './logger';
 
 joplin.plugins.register({
     onStart: async function () {
-        logger.info('Context Utils plugin starting...');
+        logger.debug('Context Utils plugin starting...');
 
         try {
             // 1. Register settings
             await registerSettings();
-            logger.info('Settings registered');
+            logger.debug('Settings registered');
 
             // 2. Initialize settings cache
             await initializeSettingsCache();
-            logger.info('Settings cache initialized');
+            logger.debug('Settings cache initialized');
 
             // 3. Register content script for link detection
             await joplin.contentScripts.register(
@@ -24,17 +24,17 @@ joplin.plugins.register({
                 CONTENT_SCRIPT_ID,
                 './contentScripts/contentScript.js' // .js extension (webpack output)
             );
-            logger.info('Link detection content script registered');
+            logger.debug('Link detection content script registered');
 
             // 4. Register commands
             await registerCommands();
-            logger.info('Commands registered');
+            logger.debug('Commands registered');
 
             // 5. Register context menu filter
             await registerContextMenuFilter();
-            logger.info('Context menu filter registered');
+            logger.debug('Context menu filter registered');
 
-            logger.info('Context Utils plugin started successfully');
+            logger.debug('Context Utils plugin started successfully');
         } catch (error) {
             logger.error('Failed to start Context Utils plugin:', error);
             throw error;
