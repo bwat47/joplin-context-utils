@@ -145,6 +145,8 @@ export interface CodeMirrorWrapper {
  */
 export const COMMAND_IDS = {
     OPEN_LINK: 'contextUtils.openLink',
+    ADD_EXTERNAL_LINK: 'contextUtils.addExternalLink',
+    ADD_LINK_TO_NOTE: 'contextUtils.addLinkToNote',
     COPY_PATH: 'contextUtils.copyPath',
     REVEAL_FILE: 'contextUtils.revealFile',
     COPY_CODE: 'contextUtils.copyCode',

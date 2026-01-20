@@ -6,11 +6,15 @@
 
 # Context Utils
 
-Context Utils is a Joplin plugin that adds context menu options in the markdown editor related to links, images, task lists and code. The context menu options will only appear when applicable (e.g. Copy Code only appears when right clicking inside a Code Block or Inline Code).
+Context Utils is a Joplin plugin that adds context menu options in the markdown editor related to links, images, task lists and code. Most of the context menu options will only appear when applicable (e.g. Copy Code only appears when right clicking inside a Code Block or Inline Code).
 
 ## Context Menu Options
 
 **Open Link/Open Resource/Send Email/Open Note** - Open external URLs in browser, open Joplin resources in default app, open mailto: links in default mail client, or open linked note.
+
+**Add External Link** - Display option to insert a hyperlink at the cursor
+
+**Add Link to Note** - Display option to link to another note at the cursor
 
 **Go to footnote** - Scroll editor to defintion associated with the selected Footnote reference.
 
