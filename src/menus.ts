@@ -49,21 +49,55 @@ async function hasOcrText(id: string): Promise<boolean> {
  */
 export async function registerContextMenuFilter(): Promise<void> {
     await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
+        const globalItems: MenuItem[] = [];
+
+        // Always show "Add External Link" if enabled (not context-sensitive)
+        if (settingsCache.showAddExternalLink) {
+            globalItems.push({
+                commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
+                label: 'Add External Link',
+            });
+        }
+
+        // Always show "Add Link to Note" if enabled (not context-sensitive)
+        if (settingsCache.showAddLinkToNote) {
+            globalItems.push({
+                commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
+                label: 'Add Link to Note',
+            });
+        }
+
         try {
-            // Small delay to work around timing issue on Linux where cursor position
-            // may not have updated yet when context menu filter is called
-            await new Promise((resolve) => setTimeout(resolve, 10));
+            const shouldBuildContextSensitiveItems =
+                settingsCache.showOpenLink ||
+                settingsCache.showOpenNoteNewWindow ||
+                settingsCache.showPinToTabs ||
+                settingsCache.showCopyPath ||
+                settingsCache.showRevealFile ||
+                settingsCache.showCopyCode ||
+                settingsCache.showCopyOcrText ||
+                settingsCache.showToggleTask ||
+                settingsCache.showGoToFootnote ||
+                settingsCache.showGoToHeading;
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
             // May return multiple contexts (e.g., code + checkbox)
-            let contexts = (await joplin.commands.execute('editor.execCommand', {
-                name: GET_CONTEXT_AT_CURSOR_COMMAND,
-            })) as EditorContext[];
+            let contexts: EditorContext[] = [];
+            if (shouldBuildContextSensitiveItems) {
+                try {
+                    // Small delay to work around timing issue on Linux where cursor position
+                    // may not have updated yet when context menu filter is called
+                    await new Promise((resolve) => setTimeout(resolve, 10));
 
-            if (!contexts) {
-                // Ensure contexts is an array even if null
-                contexts = [];
+                    const contextsResult = await joplin.commands.execute('editor.execCommand', {
+                        name: GET_CONTEXT_AT_CURSOR_COMMAND,
+                    });
+
+                    contexts = (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
+                } catch (error) {
+                    logger.error('Error getting contexts at cursor:', error);
+                }
             }
 
             logger.debug('Building context menu for contexts:', contexts);
@@ -208,24 +242,6 @@ export async function registerContextMenuFilter(): Promise<void> {
                 }
             }
 
-            const globalItems: MenuItem[] = [];
-
-            // Always show "Add External Link" if enabled (not context-sensitive)
-            if (settingsCache.showAddExternalLink) {
-                globalItems.push({
-                    commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
-                    label: 'Add External Link',
-                });
-            }
-
-            // Always show "Add Link to Note" if enabled (not context-sensitive)
-            if (settingsCache.showAddLinkToNote) {
-                globalItems.push({
-                    commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
-                    label: 'Add Link to Note',
-                });
-            }
-
             // Combine items
             const finalContextItems: MenuItem[] = [...contextSensitiveItems];
 
@@ -251,7 +267,15 @@ export async function registerContextMenuFilter(): Promise<void> {
         } catch (error) {
             logger.error('Error in context menu filter:', error);
             // Return original menu on error to avoid breaking context menu
-            return menuItems;
+            // but still show global (non-context-sensitive) items when possible.
+            if (globalItems.length === 0) {
+                return menuItems;
+            }
+
+            const separator: MenuItem = { type: 'separator' };
+            return {
+                items: [...menuItems.items, separator, ...globalItems],
+            };
         }
     });
 }
