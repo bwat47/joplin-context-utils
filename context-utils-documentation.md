@@ -92,9 +92,11 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 11 boolean settings (all default `true`):
+- 13 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
+    - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
+    - `showAddLinkToNote` - Display option to link to another note at the cursor
     - `showCopyPath` - Show "Copy Path" in context menu
     - `showRevealFile` - Show "Reveal File" in context menu
     - `showCopyCode` - Show "Copy Code" in context menu
@@ -109,12 +111,12 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
-- Pulls contexts on-demand from content script via `editor.execCommand` (returns array)
+- Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + checkbox)
 - Distinguishes between note links and resource links using `isJoplinNote()` helper
 - Resource-specific options (Copy Path, Reveal File) only shown for actual resources
 - Checks settings before adding menu items
-- Only adds separator if ≥1 menu item will be shown
+- Adds separator if ≥1 menu item will be shown, and between context-sensitive and non-context sensitive menu items
 
 **src/commands.ts**
 
