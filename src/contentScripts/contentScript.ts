@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import type { ContentScriptContext, CodeMirrorWrapper } from '../types';
+import type { CodeMirrorWrapper } from '../types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
 
@@ -38,8 +38,7 @@ function validateRange(from: number, to: number, context: string): boolean {
 /**
  * Content script entry point
  */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export default (_context: ContentScriptContext) => {
+export default () => {
     return {
         plugin: (codeMirrorWrapper: CodeMirrorWrapper) => {
             // Check CM6 availability
