@@ -110,6 +110,40 @@ export interface FootnoteContext {
     to: number;
 }
 
+/**
+ * Represents information about a single link in a selection (for batch operations)
+ */
+export interface LinkInfo {
+    /** The URL */
+    url: string;
+
+    /** Link type */
+    type: LinkType;
+
+    /** URL position within the document */
+    from: number;
+    to: number;
+
+    /** If this is a markdown link [text](url), these track the full link range */
+    markdownLinkFrom?: number;
+    markdownLinkTo?: number;
+}
+
+/**
+ * Represents multiple links in a selection (for batch title fetching)
+ */
+export interface LinkSelectionContext {
+    /** Discriminator for union type */
+    contextType: 'linkSelection';
+
+    /** Array of links found in the selection */
+    links: LinkInfo[];
+
+    /** Position information for the entire selection */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -124,10 +158,13 @@ export enum LinkType {
     InternalAnchor = 'internal-anchor',
 }
 
-/**
- * Union type for all context types
- */
-export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext;
+export type EditorContext =
+    | LinkContext
+    | CodeContext
+    | CheckboxContext
+    | TaskSelectionContext
+    | FootnoteContext
+    | LinkSelectionContext;
 
 /**
  * Content script context provided by Joplin
@@ -166,6 +203,7 @@ export const COMMAND_IDS = {
     PIN_TO_TABS: 'contextUtils.pinToTabs',
     OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
     FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
+    FETCH_ALL_LINK_TITLES: 'contextUtils.fetchAllLinkTitles',
 } as const;
 
 /**

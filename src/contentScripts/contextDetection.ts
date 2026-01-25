@@ -8,6 +8,9 @@ import {
     TaskInfo,
     EditorContext,
     FootnoteContext,
+    LinkSelectionContext,
+    LinkInfo,
+    LinkType,
 } from '../types';
 import {
     parseInlineCode,
@@ -35,12 +38,18 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
 
     // Check if there's a selection (not just cursor)
     if (selection.from !== selection.to) {
-        // Check for tasks in selection
+        // Check for tasks in selection (takes precedence)
         const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
         if (taskSelection) {
             return [taskSelection];
         }
-        // If selection doesn't contain tasks, fall through to normal detection
+
+        // Check for links in selection (for batch title fetching)
+        const linkSelection = detectLinksInSelection(view, selection.from, selection.to);
+        if (linkSelection) {
+            return [linkSelection];
+        }
+        // If selection doesn't contain tasks or links, fall through to normal detection
     }
 
     const contexts: EditorContext[] = [];
@@ -355,6 +364,86 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
         tasks,
         checkedCount,
         uncheckedCount,
+        from,
+        to,
+    };
+}
+
+/**
+ * Detects external HTTP(S) links within a text selection
+ * Scans the selection range for Link, URL, and Autolink nodes
+ * Only includes external URLs (not Joplin resources, emails, or anchors)
+ * Excludes reference-style links since they can't be updated in place
+ *
+ * @param view - CodeMirror EditorView
+ * @param from - Start of selection
+ * @param to - End of selection
+ * @returns LinkSelectionContext if external links found, null otherwise
+ */
+function detectLinksInSelection(view: EditorView, from: number, to: number): LinkSelectionContext | null {
+    const links: LinkInfo[] = [];
+    const tree = syntaxTree(view.state);
+    const seenRanges = new Set<string>(); // Deduplicate by position
+
+    tree.iterate({
+        from: from,
+        to: to,
+        enter: (node) => {
+            const { type } = node;
+
+            // Handle markdown links [text](url)
+            if (type.name === 'Link') {
+                const extracted = extractUrl(node.node, view);
+                if (extracted) {
+                    const classified = classifyUrl(extracted.url);
+                    // Only include external URLs
+                    if (classified && classified.type === LinkType.ExternalUrl) {
+                        const key = `${extracted.from}-${extracted.to}`;
+                        if (!seenRanges.has(key)) {
+                            seenRanges.add(key);
+                            links.push({
+                                url: classified.url,
+                                type: classified.type,
+                                from: extracted.from,
+                                to: extracted.to,
+                                markdownLinkFrom: node.from,
+                                markdownLinkTo: node.to,
+                            });
+                        }
+                    }
+                }
+                // Skip reference links (no extracted URL)
+            }
+            // Handle bare URLs
+            else if (type.name === 'URL' || type.name === 'Autolink') {
+                const urlText = view.state.doc.sliceString(node.from, node.to);
+                // Remove angle brackets if present (<url>)
+                const url = urlText.replace(/^<|>$/g, '');
+                const classified = classifyUrl(url);
+
+                // Only include external URLs
+                if (classified && classified.type === LinkType.ExternalUrl) {
+                    const key = `${node.from}-${node.to}`;
+                    if (!seenRanges.has(key)) {
+                        seenRanges.add(key);
+                        links.push({
+                            url: classified.url,
+                            type: classified.type,
+                            from: node.from,
+                            to: node.to,
+                            // No markdown link range for bare URLs
+                        });
+                    }
+                }
+            }
+        },
+    });
+
+    if (links.length === 0) return null;
+
+    return {
+        contextType: 'linkSelection',
+        links,
         from,
         to,
     };

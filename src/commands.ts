@@ -7,6 +7,7 @@ import {
     TaskSelectionContext,
     LinkType,
     FootnoteContext,
+    LinkSelectionContext,
 } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
@@ -214,6 +215,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to fetch link title:', error);
                 await showToast('Failed to fetch link title', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.FETCH_ALL_LINK_TITLES,
+        label: 'Fetch All Link Titles',
+        execute: async (linkSelectionContext: LinkSelectionContext) => {
+            try {
+                await handleBatchFetchLinkTitles(linkSelectionContext);
+            } catch (error) {
+                logger.error('Failed to fetch link titles:', error);
+                await showToast('Failed to fetch link titles', ToastType.Error);
             }
         },
     });
@@ -504,4 +518,41 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
         await showToast('Link title updated', ToastType.Success);
     }
     logger.debug('Updated link title:', title);
+}
+
+/**
+ * "Fetch All Link Titles" handler
+ * Fetches titles for all links in selection and updates them in a single atomic operation
+ */
+async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<void> {
+    // Fetch all titles in parallel
+    const results = await Promise.all(
+        ctx.links.map(async (link) => ({
+            link,
+            result: await fetchLinkTitle(link.url),
+        }))
+    );
+
+    // Build replacements for all links (using fetched title or domain fallback)
+    const replacements = results.map(({ link, result }) => ({
+        from: link.markdownLinkFrom ?? link.from,
+        to: link.markdownLinkTo ?? link.to,
+        text: `[${result.title}](${link.url})`,
+    }));
+
+    // Execute batch replace (atomic operation)
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: BATCH_REPLACE_COMMAND,
+        args: [replacements],
+    })) as boolean;
+
+    if (!success) {
+        throw new Error('Failed to update links in editor');
+    }
+
+    // Count successful title fetches (non-fallback)
+    const successCount = results.filter((r) => !r.result.isFallback).length;
+
+    await showToast(`Fetched ${successCount}/${ctx.links.length} titles`, ToastType.Success);
+    logger.debug(`Batch updated ${ctx.links.length} links, ${successCount} with fetched titles`);
 }

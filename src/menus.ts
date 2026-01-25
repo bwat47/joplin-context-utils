@@ -255,6 +255,15 @@ export async function registerContextMenuFilter(): Promise<void> {
                             label: 'Go to footnote',
                         });
                     }
+                } else if (context.contextType === 'linkSelection') {
+                    // Check setting and build menu items for link selection (batch title fetch)
+                    if (settingsCache.showFetchLinkTitle) {
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.FETCH_ALL_LINK_TITLES,
+                            commandArgs: [context],
+                            label: `Fetch All Link Titles (${context.links.length})`,
+                        });
+                    }
                 }
             }
 
