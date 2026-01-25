@@ -4,23 +4,53 @@ import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
 /**
+ * Result of URL extraction, including position information
+ */
+export interface ExtractedUrl {
+    url: string;
+    from: number;
+    to: number;
+    /** Optional raw title attribute token from markdown link [text](url "title") */
+    linkTitleToken?: string;
+}
+
+/**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
+ * Returns both the URL string and its position within the document
+ * Also extracts the optional link title token if present
  */
-export function extractUrl(node: SyntaxNode, view: EditorView): string | null {
+export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | null {
     const cursor = node.cursor();
 
     // Enter the node
     if (!cursor.firstChild()) return null;
 
-    // Traverse children to find the URL node
+    let url: string | null = null;
+    let urlFrom = 0;
+    let urlTo = 0;
+    let linkTitleToken: string | undefined;
+
+    // Traverse children to find URL and LinkTitle nodes
     do {
         if (cursor.name === 'URL') {
-            return view.state.doc.sliceString(cursor.from, cursor.to);
+            url = view.state.doc.sliceString(cursor.from, cursor.to);
+            urlFrom = cursor.from;
+            urlTo = cursor.to;
+        } else if (cursor.name === 'LinkTitle') {
+            // LinkTitle includes the quotes/parentheses; preserve verbatim
+            linkTitleToken = view.state.doc.sliceString(cursor.from, cursor.to);
         }
     } while (cursor.nextSibling());
 
-    return null;
+    if (!url) return null;
+
+    return {
+        url,
+        from: urlFrom,
+        to: urlTo,
+        linkTitleToken,
+    };
 }
 
 /**

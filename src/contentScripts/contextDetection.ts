@@ -8,6 +8,9 @@ import {
     TaskInfo,
     EditorContext,
     FootnoteContext,
+    LinkSelectionContext,
+    LinkInfo,
+    LinkType,
 } from '../types';
 import {
     parseInlineCode,
@@ -35,12 +38,25 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
 
     // Check if there's a selection (not just cursor)
     if (selection.from !== selection.to) {
+        const selectionContexts: EditorContext[] = [];
+
         // Check for tasks in selection
         const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
         if (taskSelection) {
-            return [taskSelection];
+            selectionContexts.push(taskSelection);
         }
-        // If selection doesn't contain tasks, fall through to normal detection
+
+        // Check for links in selection (for batch title fetching)
+        const linkSelection = detectLinksInSelection(view, selection.from, selection.to);
+        if (linkSelection) {
+            selectionContexts.push(linkSelection);
+        }
+
+        // Return selection contexts if any found
+        if (selectionContexts.length > 0) {
+            return selectionContexts;
+        }
+        // If selection doesn't contain tasks or links, fall through to normal detection
     }
 
     const contexts: EditorContext[] = [];
@@ -109,42 +125,62 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             }
             // Check for markdown link syntax [text](url)
             else if (type.name === 'Link') {
-                let url = extractUrl(node.node, view);
+                const extracted = extractUrl(node.node, view);
 
-                // If no URL found, check if it's a reference link
-                if (!url) {
-                    let label = extractReferenceLabel(node.node, view);
-
-                    // Handle shortcut [foo] and collapsed [foo][] reference links
-                    // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
-                    // - Collapsed: [foo][] has LinkLabel child with value "[]"
-                    if (!label || label === '[]') {
-                        label = view.state.doc.sliceString(from, to);
-                        // Strip trailing [] for collapsed reference links
-                        label = label.replace(/\[\]$/, '');
-                    }
-
-                    if (label) {
-                        url = findReferenceDefinition(view, label);
+                // If URL found directly, use it with position info
+                if (extracted) {
+                    const classified = classifyUrl(extracted.url);
+                    if (classified) {
+                        const fullLinkText = view.state.doc.sliceString(from, to);
+                        context = {
+                            contextType: 'link',
+                            ...classified,
+                            from: extracted.from,
+                            to: extracted.to,
+                            // Track full markdown link range for replacement
+                            markdownLinkFrom: from,
+                            markdownLinkTo: to,
+                            // Preserve optional title attribute
+                            linkTitleToken: extracted.linkTitleToken,
+                            expectedText: fullLinkText,
+                        };
+                        return false; // Stop iteration
                     }
                 }
 
-                const classified = url ? classifyUrl(url) : null;
+                // If no URL found, check if it's a reference link
+                let label = extractReferenceLabel(node.node, view);
 
-                if (classified) {
-                    context = {
-                        contextType: 'link',
-                        ...classified,
-                        from,
-                        to,
-                    };
-                    return false; // Stop iteration
+                // Handle shortcut [foo] and collapsed [foo][] reference links
+                // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
+                // - Collapsed: [foo][] has LinkLabel child with value "[]"
+                if (!label || label === '[]') {
+                    label = view.state.doc.sliceString(from, to);
+                    // Strip trailing [] for collapsed reference links
+                    label = label.replace(/\[\]$/, '');
+                }
+
+                if (label) {
+                    const refUrl = findReferenceDefinition(view, label);
+                    const classified = refUrl ? classifyUrl(refUrl) : null;
+
+                    if (classified) {
+                        // Reference links: mark as such so Fetch Link Title can be hidden
+                        context = {
+                            contextType: 'link',
+                            ...classified,
+                            from,
+                            to,
+                            isReferenceLink: true,
+                        };
+                        return false; // Stop iteration
+                    }
                 }
             }
             // Check for markdown image syntax ![alt](url)
             else if (type.name === 'Image') {
-                const url = extractUrl(node.node, view);
-                const classified = url ? classifyUrl(url) : null;
+                const extracted = extractUrl(node.node, view);
+                const classified = extracted ? classifyUrl(extracted.url) : null;
 
                 if (classified) {
                     context = {
@@ -152,6 +188,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...classified,
                         from,
                         to,
+                        isImage: true,
                     };
                     return false; // Stop iteration
                 }
@@ -169,6 +206,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...classified,
                         from,
                         to,
+                        expectedText: urlText,
                     };
                     return false; // Stop iteration
                 }
@@ -184,6 +222,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...parsedImage,
                         from,
                         to,
+                        isImage: true,
                     };
                     return false; // Stop iteration
                 }
@@ -339,6 +378,100 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
         tasks,
         checkedCount,
         uncheckedCount,
+        from,
+        to,
+    };
+}
+
+/**
+ * Detects external HTTP(S) links within a text selection
+ * Scans the selection range for Link, URL, and Autolink nodes
+ * Only includes external URLs (not Joplin resources, emails, or anchors)
+ * Excludes reference-style links since they can't be updated in place
+ *
+ * @param view - CodeMirror EditorView
+ * @param from - Start of selection
+ * @param to - End of selection
+ * @returns LinkSelectionContext if external links found, null otherwise
+ */
+function detectLinksInSelection(view: EditorView, from: number, to: number): LinkSelectionContext | null {
+    const links: LinkInfo[] = [];
+    const tree = syntaxTree(view.state);
+    const seenRanges = new Set<string>(); // Deduplicate by position
+
+    tree.iterate({
+        from: from,
+        to: to,
+        enter: (node) => {
+            const { type } = node;
+
+            // Handle markdown links [text](url)
+            if (type.name === 'Link') {
+                if (node.node.parent?.type.name === 'Image') {
+                    return;
+                }
+                const extracted = extractUrl(node.node, view);
+                if (extracted) {
+                    const classified = classifyUrl(extracted.url);
+                    // Only include external URLs
+                    if (classified && classified.type === LinkType.ExternalUrl) {
+                        const key = `${extracted.from}-${extracted.to}`;
+                        if (!seenRanges.has(key)) {
+                            seenRanges.add(key);
+                            const fullLinkText = view.state.doc.sliceString(node.from, node.to);
+                            links.push({
+                                url: classified.url,
+                                type: classified.type,
+                                from: extracted.from,
+                                to: extracted.to,
+                                markdownLinkFrom: node.from,
+                                markdownLinkTo: node.to,
+                                linkTitleToken: extracted.linkTitleToken,
+                                expectedText: fullLinkText,
+                            });
+                        }
+                    }
+                }
+                // Skip reference links (no extracted URL)
+            }
+            // Handle bare URLs
+            else if (type.name === 'URL' || type.name === 'Autolink') {
+                const parentType = node.node.parent?.type.name;
+                if (parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock') {
+                    return;
+                }
+                if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
+                    return;
+                }
+                const urlText = view.state.doc.sliceString(node.from, node.to);
+                // Remove angle brackets if present (<url>)
+                const url = urlText.replace(/^<|>$/g, '');
+                const classified = classifyUrl(url);
+
+                // Only include external URLs
+                if (classified && classified.type === LinkType.ExternalUrl) {
+                    const key = `${node.from}-${node.to}`;
+                    if (!seenRanges.has(key)) {
+                        seenRanges.add(key);
+                        links.push({
+                            url: classified.url,
+                            type: classified.type,
+                            from: node.from,
+                            to: node.to,
+                            // No markdown link range for bare URLs
+                            expectedText: urlText,
+                        });
+                    }
+                }
+            }
+        },
+    });
+
+    if (links.length === 0) return null;
+
+    return {
+        contextType: 'linkSelection',
+        links,
         from,
         to,
     };

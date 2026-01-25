@@ -14,6 +14,22 @@ export interface LinkContext {
     /** Position information for the link */
     from: number;
     to: number;
+
+    /** If this is a markdown link [text](url), these track the full link range */
+    markdownLinkFrom?: number;
+    markdownLinkTo?: number;
+
+    /** True if this is a reference-style link [text][ref] */
+    isReferenceLink?: boolean;
+
+    /** Optional raw title attribute token from markdown link [text](url "title") */
+    linkTitleToken?: string;
+
+    /** Expected text for optimistic concurrency checks */
+    expectedText?: string;
+
+    /** True if this is an image embed (markdown or HTML img tag) */
+    isImage?: boolean;
 }
 
 /**
@@ -103,6 +119,46 @@ export interface FootnoteContext {
     to: number;
 }
 
+/**
+ * Represents information about a single link in a selection (for batch operations)
+ */
+export interface LinkInfo {
+    /** The URL */
+    url: string;
+
+    /** Link type */
+    type: LinkType;
+
+    /** URL position within the document */
+    from: number;
+    to: number;
+
+    /** If this is a markdown link [text](url), these track the full link range */
+    markdownLinkFrom?: number;
+    markdownLinkTo?: number;
+
+    /** Optional raw title attribute token from markdown link [text](url "title") */
+    linkTitleToken?: string;
+
+    /** Expected text for optimistic concurrency checks */
+    expectedText?: string;
+}
+
+/**
+ * Represents multiple links in a selection (for batch title fetching)
+ */
+export interface LinkSelectionContext {
+    /** Discriminator for union type */
+    contextType: 'linkSelection';
+
+    /** Array of links found in the selection */
+    links: LinkInfo[];
+
+    /** Position information for the entire selection */
+    from: number;
+    to: number;
+}
+
 export enum LinkType {
     /** External HTTP/HTTPS URL */
     ExternalUrl = 'external-url',
@@ -117,10 +173,13 @@ export enum LinkType {
     InternalAnchor = 'internal-anchor',
 }
 
-/**
- * Union type for all context types
- */
-export type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext;
+export type EditorContext =
+    | LinkContext
+    | CodeContext
+    | CheckboxContext
+    | TaskSelectionContext
+    | FootnoteContext
+    | LinkSelectionContext;
 
 /**
  * Content script context provided by Joplin
@@ -158,6 +217,8 @@ export const COMMAND_IDS = {
     GO_TO_HEADING: 'contextUtils.goToHeading',
     PIN_TO_TABS: 'contextUtils.pinToTabs',
     OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
+    FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
+    FETCH_ALL_LINK_TITLES: 'contextUtils.fetchAllLinkTitles',
 } as const;
 
 /**

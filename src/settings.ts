@@ -92,6 +92,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Note in New Window" in context menu',
         description: 'Display option to open notes in a new window',
     },
+    showFetchLinkTitle: {
+        key: `${SECTION_ID}.showFetchLinkTitle`,
+        defaultValue: true,
+        label: 'Show "Fetch Link Title" in context menu',
+        description: 'Display option to fetch and insert the title of HTTP(S) links',
+    },
 } as const;
 
 export type SettingsCache = {
