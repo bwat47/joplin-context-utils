@@ -14,6 +14,10 @@ export interface LinkContext {
     /** Position information for the link */
     from: number;
     to: number;
+
+    /** If this is a markdown link [text](url), these track the full link range */
+    markdownLinkFrom?: number;
+    markdownLinkTo?: number;
 }
 
 /**
@@ -158,6 +162,7 @@ export const COMMAND_IDS = {
     GO_TO_HEADING: 'contextUtils.goToHeading',
     PIN_TO_TABS: 'contextUtils.pinToTabs',
     OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
+    FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
 } as const;
 
 /**

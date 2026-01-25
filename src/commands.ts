@@ -17,6 +17,7 @@ import {
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
+import { fetchLinkTitle } from './utils/linkTitleUtils';
 
 /**
  * Registers all context menu commands
@@ -200,6 +201,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to open note in new window:', error);
                 await showToast('Failed to open note in new window', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.FETCH_LINK_TITLE,
+        label: 'Fetch Link Title',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await handleFetchLinkTitle(linkContext);
+            } catch (error) {
+                logger.error('Failed to fetch link title:', error);
+                await showToast('Failed to fetch link title', ToastType.Error);
             }
         },
     });
@@ -453,4 +467,41 @@ async function handleAddExternalLink(): Promise<void> {
 async function handleAddLinkToNote(): Promise<void> {
     await joplin.commands.execute('linkToNote');
     logger.debug('Opened Add Link to Note dialog');
+}
+
+/**
+ * "Fetch Link Title" handler
+ * Fetches the title from an HTTP(S) URL and updates the link in the editor
+ */
+async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
+    if (linkContext.type !== LinkType.ExternalUrl) {
+        throw new Error('Fetch link title only works for HTTP(S) links');
+    }
+
+    const { title, isFallback } = await fetchLinkTitle(linkContext.url);
+
+    // Build the new markdown link
+    const newText = `[${title}](${linkContext.url})`;
+
+    // Determine replacement range:
+    // - If markdownLinkFrom/To is set, replace the full [text](url)
+    // - Otherwise, it's a bare URL, replace just the URL
+    const from = linkContext.markdownLinkFrom ?? linkContext.from;
+    const to = linkContext.markdownLinkTo ?? linkContext.to;
+
+    const success = (await joplin.commands.execute('editor.execCommand', {
+        name: REPLACE_RANGE_COMMAND,
+        args: [newText, from, to],
+    })) as boolean;
+
+    if (!success) {
+        throw new Error('Failed to replace link text');
+    }
+
+    if (isFallback) {
+        await showToast('No title found, using domain name', ToastType.Info);
+    } else {
+        await showToast('Link title updated', ToastType.Success);
+    }
+    logger.debug('Updated link title:', title);
 }

@@ -109,42 +109,58 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
             }
             // Check for markdown link syntax [text](url)
             else if (type.name === 'Link') {
-                let url = extractUrl(node.node, view);
+                const extracted = extractUrl(node.node, view);
 
-                // If no URL found, check if it's a reference link
-                if (!url) {
-                    let label = extractReferenceLabel(node.node, view);
-
-                    // Handle shortcut [foo] and collapsed [foo][] reference links
-                    // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
-                    // - Collapsed: [foo][] has LinkLabel child with value "[]"
-                    if (!label || label === '[]') {
-                        label = view.state.doc.sliceString(from, to);
-                        // Strip trailing [] for collapsed reference links
-                        label = label.replace(/\[\]$/, '');
-                    }
-
-                    if (label) {
-                        url = findReferenceDefinition(view, label);
+                // If URL found directly, use it with position info
+                if (extracted) {
+                    const classified = classifyUrl(extracted.url);
+                    if (classified) {
+                        context = {
+                            contextType: 'link',
+                            ...classified,
+                            from: extracted.from,
+                            to: extracted.to,
+                            // Track full markdown link range for replacement
+                            markdownLinkFrom: from,
+                            markdownLinkTo: to,
+                        };
+                        return false; // Stop iteration
                     }
                 }
 
-                const classified = url ? classifyUrl(url) : null;
+                // If no URL found, check if it's a reference link
+                let label = extractReferenceLabel(node.node, view);
 
-                if (classified) {
-                    context = {
-                        contextType: 'link',
-                        ...classified,
-                        from,
-                        to,
-                    };
-                    return false; // Stop iteration
+                // Handle shortcut [foo] and collapsed [foo][] reference links
+                // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
+                // - Collapsed: [foo][] has LinkLabel child with value "[]"
+                if (!label || label === '[]') {
+                    label = view.state.doc.sliceString(from, to);
+                    // Strip trailing [] for collapsed reference links
+                    label = label.replace(/\[\]$/, '');
+                }
+
+                if (label) {
+                    const refUrl = findReferenceDefinition(view, label);
+                    const classified = refUrl ? classifyUrl(refUrl) : null;
+
+                    if (classified) {
+                        // Reference links: we don't have URL position, just use link node range
+                        // Note: Fetch Link Title won't work well for reference links
+                        context = {
+                            contextType: 'link',
+                            ...classified,
+                            from,
+                            to,
+                        };
+                        return false; // Stop iteration
+                    }
                 }
             }
             // Check for markdown image syntax ![alt](url)
             else if (type.name === 'Image') {
-                const url = extractUrl(node.node, view);
-                const classified = url ? classifyUrl(url) : null;
+                const extracted = extractUrl(node.node, view);
+                const classified = extracted ? classifyUrl(extracted.url) : null;
 
                 if (classified) {
                     context = {

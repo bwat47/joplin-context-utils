@@ -4,10 +4,20 @@ import { EditorView } from '@codemirror/view';
 import { LinkContext, CodeContext, LinkType } from '../types';
 
 /**
+ * Result of URL extraction, including position information
+ */
+export interface ExtractedUrl {
+    url: string;
+    from: number;
+    to: number;
+}
+
+/**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
+ * Returns both the URL string and its position within the document
  */
-export function extractUrl(node: SyntaxNode, view: EditorView): string | null {
+export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | null {
     const cursor = node.cursor();
 
     // Enter the node
@@ -16,7 +26,11 @@ export function extractUrl(node: SyntaxNode, view: EditorView): string | null {
     // Traverse children to find the URL node
     do {
         if (cursor.name === 'URL') {
-            return view.state.doc.sliceString(cursor.from, cursor.to);
+            return {
+                url: view.state.doc.sliceString(cursor.from, cursor.to),
+                from: cursor.from,
+                to: cursor.to,
+            };
         }
     } while (cursor.nextSibling());
 

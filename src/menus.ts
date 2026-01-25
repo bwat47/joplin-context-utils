@@ -78,7 +78,8 @@ export async function registerContextMenuFilter(): Promise<void> {
                 settingsCache.showCopyOcrText ||
                 settingsCache.showToggleTask ||
                 settingsCache.showGoToFootnote ||
-                settingsCache.showGoToHeading;
+                settingsCache.showGoToHeading ||
+                settingsCache.showFetchLinkTitle;
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
@@ -186,7 +187,18 @@ export async function registerContextMenuFilter(): Promise<void> {
                             commandArgs: [context],
                             label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
                         });
-                    } else if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
+                    }
+
+                    // Show "Fetch Link Title" only for external HTTP(S) URLs
+                    if (context.type === LinkType.ExternalUrl && settingsCache.showFetchLinkTitle) {
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.FETCH_LINK_TITLE,
+                            commandArgs: [context],
+                            label: 'Fetch Link Title',
+                        });
+                    }
+
+                    if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
                         // For internal anchor links (#heading), show "Go to heading"
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.GO_TO_HEADING,
