@@ -131,6 +131,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                 if (extracted) {
                     const classified = classifyUrl(extracted.url);
                     if (classified) {
+                        const fullLinkText = view.state.doc.sliceString(from, to);
                         context = {
                             contextType: 'link',
                             ...classified,
@@ -141,6 +142,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                             markdownLinkTo: to,
                             // Preserve optional title attribute
                             linkTitle: extracted.linkTitle,
+                            expectedText: fullLinkText,
                         };
                         return false; // Stop iteration
                     }
@@ -203,6 +205,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...classified,
                         from,
                         to,
+                        expectedText: urlText,
                     };
                     return false; // Stop iteration
                 }
@@ -410,6 +413,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                         const key = `${extracted.from}-${extracted.to}`;
                         if (!seenRanges.has(key)) {
                             seenRanges.add(key);
+                            const fullLinkText = view.state.doc.sliceString(node.from, node.to);
                             links.push({
                                 url: classified.url,
                                 type: classified.type,
@@ -418,6 +422,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                                 markdownLinkFrom: node.from,
                                 markdownLinkTo: node.to,
                                 linkTitle: extracted.linkTitle,
+                                expectedText: fullLinkText,
                             });
                         }
                     }
@@ -442,6 +447,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                             from: node.from,
                             to: node.to,
                             // No markdown link range for bare URLs
+                            expectedText: urlText,
                         });
                     }
                 }

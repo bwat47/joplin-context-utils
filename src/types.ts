@@ -24,6 +24,9 @@ export interface LinkContext {
 
     /** Optional title attribute from markdown link [text](url "title") */
     linkTitle?: string;
+
+    /** Expected text for optimistic concurrency checks */
+    expectedText?: string;
 }
 
 /**
@@ -133,6 +136,9 @@ export interface LinkInfo {
 
     /** Optional title attribute from markdown link [text](url "title") */
     linkTitle?: string;
+
+    /** Expected text for optimistic concurrency checks */
+    expectedText?: string;
 }
 
 /**

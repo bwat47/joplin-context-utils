@@ -506,7 +506,7 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
 
     const success = (await joplin.commands.execute('editor.execCommand', {
         name: REPLACE_RANGE_COMMAND,
-        args: [newText, from, to],
+        args: [newText, from, to, linkContext.expectedText],
     })) as boolean;
 
     if (!success) {
@@ -542,6 +542,7 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
             from: link.markdownLinkFrom ?? link.from,
             to: link.markdownLinkTo ?? link.to,
             text: `[${result.title}](${link.url}${titlePart})`,
+            expectedText: link.expectedText,
         };
     });
 
