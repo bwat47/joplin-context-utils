@@ -141,7 +141,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                             markdownLinkFrom: from,
                             markdownLinkTo: to,
                             // Preserve optional title attribute
-                            linkTitle: extracted.linkTitle,
+                            linkTitleToken: extracted.linkTitleToken,
                             expectedText: fullLinkText,
                         };
                         return false; // Stop iteration
@@ -421,7 +421,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                                 to: extracted.to,
                                 markdownLinkFrom: node.from,
                                 markdownLinkTo: node.to,
-                                linkTitle: extracted.linkTitle,
+                                linkTitleToken: extracted.linkTitleToken,
                                 expectedText: fullLinkText,
                             });
                         }

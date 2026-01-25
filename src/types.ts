@@ -22,8 +22,8 @@ export interface LinkContext {
     /** True if this is a reference-style link [text][ref] */
     isReferenceLink?: boolean;
 
-    /** Optional title attribute from markdown link [text](url "title") */
-    linkTitle?: string;
+    /** Optional raw title attribute token from markdown link [text](url "title") */
+    linkTitleToken?: string;
 
     /** Expected text for optimistic concurrency checks */
     expectedText?: string;
@@ -134,8 +134,8 @@ export interface LinkInfo {
     markdownLinkFrom?: number;
     markdownLinkTo?: number;
 
-    /** Optional title attribute from markdown link [text](url "title") */
-    linkTitle?: string;
+    /** Optional raw title attribute token from markdown link [text](url "title") */
+    linkTitleToken?: string;
 
     /** Expected text for optimistic concurrency checks */
     expectedText?: string;

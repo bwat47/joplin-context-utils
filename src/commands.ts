@@ -495,7 +495,7 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
     const { title, isFallback } = await fetchLinkTitle(linkContext.url);
 
     // Build the new markdown link, preserving title attribute if present
-    const titlePart = linkContext.linkTitle ? ` "${linkContext.linkTitle}"` : '';
+    const titlePart = linkContext.linkTitleToken ? ` ${linkContext.linkTitleToken}` : '';
     const newText = `[${title}](${linkContext.url}${titlePart})`;
 
     // Determine replacement range:
@@ -537,7 +537,7 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
     // Build replacements for all links (using fetched title or domain fallback)
     // Preserve title attribute if present
     const replacements = results.map(({ link, result }) => {
-        const titlePart = link.linkTitle ? ` "${link.linkTitle}"` : '';
+        const titlePart = link.linkTitleToken ? ` ${link.linkTitleToken}` : '';
         return {
             from: link.markdownLinkFrom ?? link.from,
             to: link.markdownLinkTo ?? link.to,

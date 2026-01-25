@@ -138,7 +138,7 @@ describe('parsingUtils', () => {
                     url: 'https://joplinapp.org',
                     from: text.indexOf('https://joplinapp.org'),
                     to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
-                    linkTitle: 'Joplin [Docs]',
+                    linkTitleToken: '"Joplin [Docs]"',
                 });
             });
         });

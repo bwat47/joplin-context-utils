@@ -66,7 +66,7 @@ describe('contextDetection', () => {
 
         expect(linkSelection).toBeDefined();
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].linkTitle).toBe('Docs Title');
+        expect(linkSelection?.links[0].linkTitleToken).toBe('"Docs Title"');
         expect(linkSelection?.links[0].expectedText).toBe(doc);
     });
 

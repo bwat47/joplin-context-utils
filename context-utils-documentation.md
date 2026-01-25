@@ -247,7 +247,7 @@ interface LinkSelectionContext {
 `LinkContext` includes optional fields for markdown links:
 
 - `markdownLinkFrom`/`markdownLinkTo` - Full `[text](url)` range
-- `linkTitle` - Optional title attribute from `[text](url "title")`
+- `linkTitleToken` - Optional raw title attribute token from `[text](url "title")`
 - `isReferenceLink` - True for reference-style links (excluded from Fetch Title)
 
 TypeScript uses `contextType` to narrow types safely.
