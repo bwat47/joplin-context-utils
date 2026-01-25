@@ -141,6 +141,50 @@ describe('parsingUtils', () => {
                     linkTitleToken: '"Joplin [Docs]"',
                 });
             });
+
+            it('should preserve single-quoted title tokens', () => {
+                const text = "[Joplin](https://joplinapp.org 'Docs Title')";
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let extracted = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            extracted = extractUrl(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(extracted).toEqual({
+                    url: 'https://joplinapp.org',
+                    from: text.indexOf('https://joplinapp.org'),
+                    to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
+                    linkTitleToken: "'Docs Title'",
+                });
+            });
+
+            it('should preserve parenthesized title tokens', () => {
+                const text = '[Joplin](https://joplinapp.org (Docs Title))';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let extracted = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            extracted = extractUrl(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(extracted).toEqual({
+                    url: 'https://joplinapp.org',
+                    from: text.indexOf('https://joplinapp.org'),
+                    to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
+                    linkTitleToken: '(Docs Title)',
+                });
+            });
         });
 
         describe('extractReferenceLabel', () => {
