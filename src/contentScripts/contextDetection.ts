@@ -431,6 +431,9 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
             }
             // Handle bare URLs
             else if (type.name === 'URL' || type.name === 'Autolink') {
+                if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
+                    return;
+                }
                 const urlText = view.state.doc.sliceString(node.from, node.to);
                 // Remove angle brackets if present (<url>)
                 const url = urlText.replace(/^<|>$/g, '');
