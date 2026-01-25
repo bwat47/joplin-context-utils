@@ -11,16 +11,17 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - External URLs (`https://...`)
 - Joplin resources (`:/32-hex-id`)
 - Email addresses (`mailto:...`)
-- **Internal anchor links** (`#heading-slug`)
+- Internal anchor links (`#heading-slug`)
 - Markdown links (`[text](url)`)
 - Reference-style links (`[text][ref]` with `[ref]: url`)
 - Markdown images (`![alt](url)`)
 - HTML images (`<img src="...">`)
 - Inline code (`` `code` ``)
 - Code blocks (` ` ```)
-- **Task list checkboxes** (`- [ ]` / `- [x]`)
-- **Task selections** (multiple selected checkboxes)
-- **Footnotes** (`[^1]` reference)
+- Task list checkboxes (`- [ ]` / `- [x]`)
+- Task selections (multiple selected checkboxes)
+- Link selections (multiple selected HTTP(S) links for batch title fetching)
+- Footnotes (`[^1]` reference)
 
 ## Architecture
 
@@ -82,17 +83,18 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/types.ts**
 
 - Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext`
+- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext | LinkSelectionContext`
 - `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
 - `TaskInfo` interface for individual tasks in selections
-- Command IDs (including checkbox and footnote commands)
+- `LinkInfo` interface for individual links in selections
+- Command IDs (including checkbox, footnote, and fetch title commands)
 - `EditorRange` for text replacement operations
 
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 13 boolean settings (all default `true`):
+- 14 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -106,6 +108,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showGoToHeading` - Show "Go to heading" in context menu
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
     - `showOpenNoteNewWindow` - Show "Open Note in New Window" in context menu
+    - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -126,13 +129,15 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Reveal File (resources only → file explorer)
     - Copy Code (code blocks → clipboard)
     - Copy OCR Text (image resources → clipboard)
-    - **Toggle Checkbox** (single checkbox `[ ]` ↔ `[x]`)
-    - **Check All Tasks** (bulk check unchecked tasks in selection)
-    - **Uncheck All Tasks** (bulk uncheck checked tasks in selection)
-    - **Go to Footnote** (scrolls to footnote definition)
-    - **Go to Heading** (navigates to heading via Joplin's `jumpToHash` command)
-    - **Open Note as Pinned Tab** (opens note as pinned tab via Note Tabs plugin)
-    - **Open Note in New Window** (opens note in a new Joplin window)
+    - Toggle Checkbox (single checkbox `[ ]` ↔ `[x]`)
+    - Check All Tasks (bulk check unchecked tasks in selection)
+    - Uncheck All Tasks (bulk uncheck checked tasks in selection)
+    - Go to Footnote (scrolls to footnote definition)
+    - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
+    - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
+    - Open Note in New Window (opens note in a new Joplin window)
+    - Fetch Link Title (fetches web page title for single HTTP(S) link)
+    - Fetch All Link Titles (batch fetches titles for all HTTP(S) links in selection)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**
@@ -154,7 +159,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/contentScripts/parsingUtils.ts**
 
 - Pure utility functions for parsing:
-    - `extractUrl` (syntax tree traversal)
+    - `extractUrl` (syntax tree traversal, includes position and optional link title)
     - `extractReferenceLabel` (syntax tree traversal for reference links)
     - `findReferenceDefinition` (finds URL for reference label, case-insensitive, first occurrence wins)
     - `parseImageTag` (regex)
@@ -162,6 +167,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `parseInlineCode` (regex)
     - `parseCodeBlock` (syntax tree + regex fallback)
     - `findFootnoteDefinition` (RegExpCursor with code block filtering)
+
+**src/utils/linkTitleUtils.ts**
+
+- Title fetching utilities:
+    - `fetchLinkTitle` - Fetches page title from URL with 10s timeout, returns `{ title, isFallback }`
+    - `sanitizeLinkTitle` - Removes square brackets from titles (would break markdown syntax)
+    - `extractDomain` - Extracts domain from URL for fallback title
 
 ### Utilities
 
@@ -223,7 +235,20 @@ interface FootnoteContext {
     from: number;
     to: number;
 }
+
+interface LinkSelectionContext {
+    contextType: 'linkSelection'; // Discriminator
+    links: LinkInfo[];
+    from: number;
+    to: number;
+}
 ```
+
+`LinkContext` includes optional fields for markdown links:
+
+- `markdownLinkFrom`/`markdownLinkTo` - Full `[text](url)` range
+- `linkTitle` - Optional title attribute from `[text](url "title")`
+- `isReferenceLink` - True for reference-style links (excluded from Fetch Title)
 
 TypeScript uses `contextType` to narrow types safely.
 
@@ -310,6 +335,14 @@ Features:
 3. Deduplicates tasks (handles multiple Task nodes per line)
 4. Counts checked vs unchecked tasks
 5. Returns `TaskSelectionContext` if tasks found
+
+**Link Selection Detection:**
+
+1. Iterates syntax tree for selection range looking for `Link`, `URL`, `Autolink` nodes
+2. Only includes external HTTP(S) URLs (excludes Joplin resources, emails, anchors)
+3. Excludes reference-style links (no inline URL to replace)
+4. Returns `LinkSelectionContext` if external links found
+5. Both task and link selections can be returned together (if selection contains both)
 
 **Text Replacement:**
 Uses two commands for atomic operations:
@@ -457,3 +490,15 @@ Content scripts must be declared here for webpack bundling.
     - Clicking "Go to heading" → scrolls to matching heading
     - Missing heading → shows "Heading not found" toast
     - Case handling: `#My-Heading` should match heading "My Heading" (via Joplin's slug normalization)
+- **Test Fetch Link Title:**
+    - Single bare URL: `https://github.com` → right-click → "Fetch Link Title" → becomes `[GitHub](https://github.com)`
+    - Single markdown link: `[old](https://github.com)` → fetches and updates link text
+    - Title attribute preserved: `[old](url "title")` → `[fetched](url "title")`
+    - Reference links: Should NOT show "Fetch Link Title" option
+    - Failed fetch (network error/timeout) → uses domain as fallback with info toast
+    - Empty page title → uses domain as fallback
+- **Test batch Fetch All Link Titles:**
+    - Select text with multiple HTTP(S) links → shows "Fetch All Link Titles (N)"
+    - Mixed selection (tasks + links) → shows both task options AND fetch titles option
+    - Reference links in selection → excluded from count and processing
+    - Partial success → toast shows "Fetched X/N titles"
