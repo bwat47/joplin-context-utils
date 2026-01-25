@@ -38,16 +38,23 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
 
     // Check if there's a selection (not just cursor)
     if (selection.from !== selection.to) {
-        // Check for tasks in selection (takes precedence)
+        const selectionContexts: EditorContext[] = [];
+
+        // Check for tasks in selection
         const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
         if (taskSelection) {
-            return [taskSelection];
+            selectionContexts.push(taskSelection);
         }
 
         // Check for links in selection (for batch title fetching)
         const linkSelection = detectLinksInSelection(view, selection.from, selection.to);
         if (linkSelection) {
-            return [linkSelection];
+            selectionContexts.push(linkSelection);
+        }
+
+        // Return selection contexts if any found
+        if (selectionContexts.length > 0) {
+            return selectionContexts;
         }
         // If selection doesn't contain tasks or links, fall through to normal detection
     }
