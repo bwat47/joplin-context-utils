@@ -27,6 +27,9 @@ export interface LinkContext {
 
     /** Expected text for optimistic concurrency checks */
     expectedText?: string;
+
+    /** True if this is an image embed (markdown or HTML img tag) */
+    isImage?: boolean;
 }
 
 /**

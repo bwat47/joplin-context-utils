@@ -188,6 +188,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...classified,
                         from,
                         to,
+                        isImage: true,
                     };
                     return false; // Stop iteration
                 }
@@ -221,6 +222,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                         ...parsedImage,
                         from,
                         to,
+                        isImage: true,
                     };
                     return false; // Stop iteration
                 }
@@ -405,6 +407,9 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
 
             // Handle markdown links [text](url)
             if (type.name === 'Link') {
+                if (node.node.parent?.type.name === 'Image') {
+                    return;
+                }
                 const extracted = extractUrl(node.node, view);
                 if (extracted) {
                     const classified = classifyUrl(extracted.url);
@@ -431,6 +436,10 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
             }
             // Handle bare URLs
             else if (type.name === 'URL' || type.name === 'Autolink') {
+                const parentType = node.node.parent?.type.name;
+                if (parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock') {
+                    return;
+                }
                 if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
                     return;
                 }

@@ -193,6 +193,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                     if (
                         context.type === LinkType.ExternalUrl &&
                         !context.isReferenceLink &&
+                        !context.isImage &&
                         settingsCache.showFetchLinkTitle
                     ) {
                         contextSensitiveItems.push({

@@ -79,6 +79,24 @@ describe('contextDetection', () => {
         expect(linkSelection).toBeUndefined();
     });
 
+    it('excludes markdown images from selection', () => {
+        const doc = '![Alt](https://joplinapp.org/logo.png "Logo")';
+        const view = createViewWithSelection(doc, 0, doc.length);
+        const contexts = detectContextAtPosition(view, 0);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection).toBeUndefined();
+    });
+
+    it('excludes html img tags from selection', () => {
+        const doc = '<img src="https://joplinapp.org/logo.png" alt="Logo" />';
+        const view = createViewWithSelection(doc, 0, doc.length);
+        const contexts = detectContextAtPosition(view, 0);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection).toBeUndefined();
+    });
+
     it('detects checkbox context on a task line', () => {
         const doc = '- [ ] Task item';
         const view = createViewWithCursor(doc, doc.indexOf('['));
@@ -148,5 +166,17 @@ describe('contextDetection', () => {
         expect(linkContext?.url).toBe('https://joplinapp.org');
         expect(linkContext?.markdownLinkFrom).toBe(0);
         expect(linkContext?.markdownLinkTo).toBe(doc.length);
+    });
+
+    it('marks markdown image links as image contexts', () => {
+        const doc = '![Alt](https://joplinapp.org/logo.png "Logo")';
+        const pos = doc.indexOf('Alt');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const linkContext = getContext(contexts, 'link');
+
+        expect(linkContext).toBeDefined();
+        expect(linkContext?.type).toBe('external-url');
+        expect(linkContext?.isImage).toBe(true);
     });
 });

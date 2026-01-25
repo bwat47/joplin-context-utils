@@ -488,8 +488,8 @@ async function handleAddLinkToNote(): Promise<void> {
  * Fetches the title from an HTTP(S) URL and updates the link in the editor
  */
 async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
-    if (linkContext.type !== LinkType.ExternalUrl) {
-        throw new Error('Fetch link title only works for HTTP(S) links');
+    if (linkContext.type !== LinkType.ExternalUrl || linkContext.isImage) {
+        throw new Error('Fetch link title only works for non-image HTTP(S) links');
     }
 
     const { title, isFallback } = await fetchLinkTitle(linkContext.url);
