@@ -21,6 +21,9 @@ export interface LinkContext {
 
     /** True if this is a reference-style link [text][ref] */
     isReferenceLink?: boolean;
+
+    /** Optional title attribute from markdown link [text](url "title") */
+    linkTitle?: string;
 }
 
 /**
@@ -127,6 +130,9 @@ export interface LinkInfo {
     /** If this is a markdown link [text](url), these track the full link range */
     markdownLinkFrom?: number;
     markdownLinkTo?: number;
+
+    /** Optional title attribute from markdown link [text](url "title") */
+    linkTitle?: string;
 }
 
 /**

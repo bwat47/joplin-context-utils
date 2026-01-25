@@ -10,12 +10,15 @@ export interface ExtractedUrl {
     url: string;
     from: number;
     to: number;
+    /** Optional title attribute from markdown link [text](url "title") */
+    linkTitle?: string;
 }
 
 /**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
  * Returns both the URL string and its position within the document
+ * Also extracts the optional link title if present
  */
 export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | null {
     const cursor = node.cursor();
@@ -23,18 +26,33 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
     // Enter the node
     if (!cursor.firstChild()) return null;
 
-    // Traverse children to find the URL node
+    let url: string | null = null;
+    let urlFrom = 0;
+    let urlTo = 0;
+    let linkTitle: string | undefined;
+
+    // Traverse children to find URL and LinkTitle nodes
     do {
         if (cursor.name === 'URL') {
-            return {
-                url: view.state.doc.sliceString(cursor.from, cursor.to),
-                from: cursor.from,
-                to: cursor.to,
-            };
+            url = view.state.doc.sliceString(cursor.from, cursor.to);
+            urlFrom = cursor.from;
+            urlTo = cursor.to;
+        } else if (cursor.name === 'LinkTitle') {
+            // LinkTitle includes the quotes, extract content between them
+            const titleWithQuotes = view.state.doc.sliceString(cursor.from, cursor.to);
+            // Remove surrounding quotes (can be ", ', or ())
+            linkTitle = titleWithQuotes.slice(1, -1);
         }
     } while (cursor.nextSibling());
 
-    return null;
+    if (!url) return null;
+
+    return {
+        url,
+        from: urlFrom,
+        to: urlTo,
+        linkTitle,
+    };
 }
 
 /**

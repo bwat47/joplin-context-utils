@@ -494,8 +494,9 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
 
     const { title, isFallback } = await fetchLinkTitle(linkContext.url);
 
-    // Build the new markdown link
-    const newText = `[${title}](${linkContext.url})`;
+    // Build the new markdown link, preserving title attribute if present
+    const titlePart = linkContext.linkTitle ? ` "${linkContext.linkTitle}"` : '';
+    const newText = `[${title}](${linkContext.url}${titlePart})`;
 
     // Determine replacement range:
     // - If markdownLinkFrom/To is set, replace the full [text](url)
@@ -534,11 +535,15 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
     );
 
     // Build replacements for all links (using fetched title or domain fallback)
-    const replacements = results.map(({ link, result }) => ({
-        from: link.markdownLinkFrom ?? link.from,
-        to: link.markdownLinkTo ?? link.to,
-        text: `[${result.title}](${link.url})`,
-    }));
+    // Preserve title attribute if present
+    const replacements = results.map(({ link, result }) => {
+        const titlePart = link.linkTitle ? ` "${link.linkTitle}"` : '';
+        return {
+            from: link.markdownLinkFrom ?? link.from,
+            to: link.markdownLinkTo ?? link.to,
+            text: `[${result.title}](${link.url}${titlePart})`,
+        };
+    });
 
     // Execute batch replace (atomic operation)
     const success = (await joplin.commands.execute('editor.execCommand', {

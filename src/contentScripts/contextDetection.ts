@@ -139,6 +139,8 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                             // Track full markdown link range for replacement
                             markdownLinkFrom: from,
                             markdownLinkTo: to,
+                            // Preserve optional title attribute
+                            linkTitle: extracted.linkTitle,
                         };
                         return false; // Stop iteration
                     }
@@ -415,6 +417,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                                 to: extracted.to,
                                 markdownLinkFrom: node.from,
                                 markdownLinkTo: node.to,
+                                linkTitle: extracted.linkTitle,
                             });
                         }
                     }
