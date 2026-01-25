@@ -145,13 +145,13 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                     const classified = refUrl ? classifyUrl(refUrl) : null;
 
                     if (classified) {
-                        // Reference links: we don't have URL position, just use link node range
-                        // Note: Fetch Link Title won't work well for reference links
+                        // Reference links: mark as such so Fetch Link Title can be hidden
                         context = {
                             contextType: 'link',
                             ...classified,
                             from,
                             to,
+                            isReferenceLink: true,
                         };
                         return false; // Stop iteration
                     }

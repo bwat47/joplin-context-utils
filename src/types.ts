@@ -18,6 +18,9 @@ export interface LinkContext {
     /** If this is a markdown link [text](url), these track the full link range */
     markdownLinkFrom?: number;
     markdownLinkTo?: number;
+
+    /** True if this is a reference-style link [text][ref] */
+    isReferenceLink?: boolean;
 }
 
 /**

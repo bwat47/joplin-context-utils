@@ -189,8 +189,12 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
 
-                    // Show "Fetch Link Title" only for external HTTP(S) URLs
-                    if (context.type === LinkType.ExternalUrl && settingsCache.showFetchLinkTitle) {
+                    // Show "Fetch Link Title" only for external HTTP(S) URLs (not reference links)
+                    if (
+                        context.type === LinkType.ExternalUrl &&
+                        !context.isReferenceLink &&
+                        settingsCache.showFetchLinkTitle
+                    ) {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.FETCH_LINK_TITLE,
                             commandArgs: [context],
