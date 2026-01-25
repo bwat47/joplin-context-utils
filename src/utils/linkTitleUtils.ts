@@ -2,7 +2,7 @@
  * Utilities for fetching and processing link titles from web pages.
  */
 
-const FETCH_TIMEOUT_MS = 10000;
+const FETCH_TIMEOUT_MS = 5000;
 
 /**
  * Sanitizes a title for use in markdown link text.
