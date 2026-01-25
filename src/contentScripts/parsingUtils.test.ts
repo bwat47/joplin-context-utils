@@ -6,6 +6,7 @@ import {
     extractReferenceLabel,
     findReferenceDefinition,
     findFootnoteDefinition,
+    extractUrl,
 } from './parsingUtils';
 import { LinkType } from '../types';
 import { EditorState } from '@codemirror/state';
@@ -117,6 +118,30 @@ describe('parsingUtils', () => {
             // Mock EditorView since we only need state
             return { state } as any;
         };
+
+        describe('extractUrl', () => {
+            it('should extract URL and title attribute from markdown links', () => {
+                const text = '[Joplin](https://joplinapp.org "Joplin [Docs]")';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let extracted = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            extracted = extractUrl(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(extracted).toEqual({
+                    url: 'https://joplinapp.org',
+                    from: text.indexOf('https://joplinapp.org'),
+                    to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
+                    linkTitle: 'Joplin [Docs]',
+                });
+            });
+        });
 
         describe('extractReferenceLabel', () => {
             it('should extract label from reference link', () => {
