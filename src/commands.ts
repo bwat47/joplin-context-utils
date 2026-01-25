@@ -156,7 +156,7 @@ export async function registerCommands(): Promise<void> {
 
     await joplin.commands.register({
         name: COMMAND_IDS.GO_TO_FOOTNOTE,
-        label: 'Go to footnote',
+        label: 'Go to Footnote',
         execute: async (footnoteContext: FootnoteContext) => {
             try {
                 await handleGoToFootnote(footnoteContext);
@@ -169,7 +169,7 @@ export async function registerCommands(): Promise<void> {
 
     await joplin.commands.register({
         name: COMMAND_IDS.GO_TO_HEADING,
-        label: 'Go to heading',
+        label: 'Go to Heading',
         execute: async (linkContext: LinkContext) => {
             try {
                 await handleGoToHeading(linkContext);

@@ -16,9 +16,9 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Add Link to Note** - Insert a link to another note at the cursor
 
-**Go to footnote** - Scroll editor to defintion associated with the selected Footnote reference.
+**Go to Footnote** - Scroll editor to defintion associated with the selected Footnote reference.
 
-**Go to heading** - Scroll editor to specified heading when right clicking on internal anchor link (e.g. `[Test](#test)`)
+**Go to Heading** - Scroll editor to specified heading when right clicking on internal anchor link (e.g. `[Test](#test)`)
 
 **Copy URL/Copy Path/Copy Email** - Copy URL or resource file path to clipboard, or copy email address from mailto: link.
 

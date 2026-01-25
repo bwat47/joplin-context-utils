@@ -208,7 +208,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.GO_TO_HEADING,
                             commandArgs: [context],
-                            label: 'Go to heading',
+                            label: 'Go to Heading',
                         });
                     }
                 } else if (context.contextType === 'code') {
@@ -253,7 +253,7 @@ export async function registerContextMenuFilter(): Promise<void> {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
                             commandArgs: [context],
-                            label: 'Go to footnote',
+                            label: 'Go to Footnote',
                         });
                     }
                 } else if (context.contextType === 'linkSelection') {
