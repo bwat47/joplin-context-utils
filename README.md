@@ -12,9 +12,9 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Open Link/Open Resource/Send Email/Open Note** - Open external URLs in browser, open Joplin resources in default app, open mailto: links in default mail client, or open linked note.
 
-**Add External Link** - Display option to insert a hyperlink at the cursor
+**Add External Link** - Insert a hyperlink at the cursor
 
-**Add Link to Note** - Display option to link to another note at the cursor
+**Add Link to Note** - Insert a link to another note at the cursor
 
 **Go to footnote** - Scroll editor to defintion associated with the selected Footnote reference.
 
@@ -36,6 +36,10 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Open Note in New Window** - Allows you to right click a link to another joplin note and open it in a new window.
 
+**Fetch Link Title** - Fetches the title of a URL and updates markdown link to include the title.
+
+**Fetch All Link Titles** - Fetches the title of all URLs in the current selection and updates markdown links to include the titles.
+
 ## Settings
 
 - Each context menu option can be enabled or disabled in the Plugin settings.
@@ -44,6 +48,6 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 ## Misc Notes
 
-- Some of these context menu options overlap with the ones provided by the Rich Markdown plugin (this plugin provides similar options but as a standalone plugin). Each option can be toggled on/off to avoid conflicts/duplicate menu items.
+- Some of these context menu options overlap with the ones provided by the Rich Markdown plugin. Each option can be toggled on/off to avoid conflicts/duplicate menu items.
 
 - Options for "Copy Image" and "Resize Image" are intentionally not provided by this plugin, as they are available in my other plugin: https://github.com/bwat47/simple-image-resize
