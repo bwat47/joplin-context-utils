@@ -12,6 +12,43 @@ export function sanitizeLinkTitle(title: string): string {
     return title.replace(/[\[\]]/g, '');
 }
 
+function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
+    if (!value) return '';
+    const escaped = String(value).replace(/\\/g, '\\\\');
+    if (delimiter === '"') {
+        // Only escape quotes that would terminate the title string
+        return escaped.replace(/"/g, '\\"');
+    }
+    if (delimiter === "'") {
+        return escaped.replace(/'/g, "\\'");
+    }
+    return escaped.replace(/\)/g, '\\)');
+}
+
+/**
+ * Builds a replacement title attribute token using the existing delimiter style.
+ *
+ * @param existingToken - Raw title token, including delimiters
+ * @param title - Title text to place in the token
+ */
+export function buildTitleAttributeToken(existingToken: string, title: string): string {
+    const trimmed = existingToken.trim();
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+
+    if (first === '"' && last === '"') {
+        return `"${escapeTitleForDelimiter(title, '"')}"`;
+    }
+    if (first === "'" && last === "'") {
+        return `'${escapeTitleForDelimiter(title, "'")}'`;
+    }
+    if (first === '(' && last === ')') {
+        return `(${escapeTitleForDelimiter(title, '(')})`;
+    }
+
+    return `"${escapeTitleForDelimiter(title, '"')}"`;
+}
+
 /**
  * Extracts the domain name from a URL for use as a fallback title.
  * @example "https://www.example.com/path" → "example.com"

@@ -1,4 +1,4 @@
-import { sanitizeLinkTitle, extractDomain } from './linkTitleUtils';
+import { sanitizeLinkTitle, extractDomain, buildTitleAttributeToken } from './linkTitleUtils';
 
 describe('linkTitleUtils', () => {
     describe('sanitizeLinkTitle', () => {
@@ -10,6 +10,32 @@ describe('linkTitleUtils', () => {
     describe('extractDomain', () => {
         it('extracts domain without www prefix', () => {
             expect(extractDomain('https://www.joplinapp.org/path')).toBe('joplinapp.org');
+        });
+    });
+
+    describe('buildTitleAttributeToken', () => {
+        it('preserves double-quoted delimiter and escapes quotes', () => {
+            expect(buildTitleAttributeToken('"Old"', 'New "Title"')).toBe('"New \\"Title\\""');
+        });
+
+        it('escapes backslashes for double-quoted titles', () => {
+            expect(buildTitleAttributeToken('"Old"', 'Path\\To\\File')).toBe('"Path\\\\To\\\\File"');
+        });
+
+        it('preserves single-quoted delimiter and escapes single quotes', () => {
+            expect(buildTitleAttributeToken("'Old'", "O'Hara")).toBe("'O\\'Hara'");
+        });
+
+        it('escapes backslashes for single-quoted titles', () => {
+            expect(buildTitleAttributeToken("'Old'", 'Path\\To\\File')).toBe("'Path\\\\To\\\\File'");
+        });
+
+        it('preserves parenthesized delimiter and escapes closing parentheses', () => {
+            expect(buildTitleAttributeToken('(Old)', 'Title)Here')).toBe('(Title\\)Here)');
+        });
+
+        it('escapes backslashes for parenthesized titles', () => {
+            expect(buildTitleAttributeToken('(Old)', 'Path\\To\\File')).toBe('(Path\\\\To\\\\File)');
         });
     });
 });
