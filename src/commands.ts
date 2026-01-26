@@ -18,7 +18,7 @@ import {
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
-import { fetchLinkTitle } from './utils/linkTitleUtils';
+import { fetchLinkTitle, buildTitleAttributeToken } from './utils/linkTitleUtils';
 
 /**
  * Registers all context menu commands
@@ -494,8 +494,10 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
 
     const { title, isFallback } = await fetchLinkTitle(linkContext.url);
 
-    // Build the new markdown link, preserving title attribute if present
-    const titlePart = linkContext.linkTitleToken ? ` ${linkContext.linkTitleToken}` : '';
+    // Build the new markdown link, updating title attribute if present
+    const titlePart = linkContext.linkTitleToken
+        ? ` ${buildTitleAttributeToken(linkContext.linkTitleToken, title)}`
+        : '';
     const newText = `[${title}](${linkContext.url}${titlePart})`;
 
     // Determine replacement range:
@@ -535,9 +537,9 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
     );
 
     // Build replacements for all links (using fetched title or domain fallback)
-    // Preserve title attribute if present
+    // Update title attribute if present
     const replacements = results.map(({ link, result }) => {
-        const titlePart = link.linkTitleToken ? ` ${link.linkTitleToken}` : '';
+        const titlePart = link.linkTitleToken ? ` ${buildTitleAttributeToken(link.linkTitleToken, result.title)}` : '';
         return {
             from: link.markdownLinkFrom ?? link.from,
             to: link.markdownLinkTo ?? link.to,

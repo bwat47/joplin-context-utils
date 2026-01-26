@@ -13,6 +13,57 @@ export function sanitizeLinkTitle(title: string): string {
 }
 
 /**
+ * Escapes a Markdown title for use inside double quotes.
+ *
+ * The extraction regex captures raw text without interpreting escape sequences,
+ * so we only escape quotes that could terminate the string (e.g., from HTML &quot;).
+ * Backslashes are NOT escaped because we're working with raw text.
+ *
+ * @param value - Raw title text
+ * @returns Escaped title safe for use in Markdown `![alt](url "title")` syntax
+ */
+export function escapeMarkdownTitle(value: string): string {
+    if (!value) return '';
+    // Only escape quotes that would terminate the title string
+    return String(value).replace(/"/g, '\\"');
+}
+
+function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
+    if (!value) return '';
+    if (delimiter === '"') {
+        return escapeMarkdownTitle(value);
+    }
+    if (delimiter === "'") {
+        return String(value).replace(/'/g, "\\'");
+    }
+    return String(value).replace(/\)/g, '\\)');
+}
+
+/**
+ * Builds a replacement title attribute token using the existing delimiter style.
+ *
+ * @param existingToken - Raw title token, including delimiters
+ * @param title - Title text to place in the token
+ */
+export function buildTitleAttributeToken(existingToken: string, title: string): string {
+    const trimmed = existingToken.trim();
+    const first = trimmed[0];
+    const last = trimmed[trimmed.length - 1];
+
+    if (first === '"' && last === '"') {
+        return `"${escapeTitleForDelimiter(title, '"')}"`;
+    }
+    if (first === "'" && last === "'") {
+        return `'${escapeTitleForDelimiter(title, "'")}'`;
+    }
+    if (first === '(' && last === ')') {
+        return `(${escapeTitleForDelimiter(title, '(')})`;
+    }
+
+    return `"${escapeTitleForDelimiter(title, '"')}"`;
+}
+
+/**
  * Extracts the domain name from a URL for use as a fallback title.
  * @example "https://www.example.com/path" → "example.com"
  */
