@@ -14,14 +14,15 @@ export function sanitizeLinkTitle(title: string): string {
 
 function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
     if (!value) return '';
+    const escaped = String(value).replace(/\\/g, '\\\\');
     if (delimiter === '"') {
         // Only escape quotes that would terminate the title string
-        return String(value).replace(/"/g, '\\"');
+        return escaped.replace(/"/g, '\\"');
     }
     if (delimiter === "'") {
-        return String(value).replace(/'/g, "\\'");
+        return escaped.replace(/'/g, "\\'");
     }
-    return String(value).replace(/\)/g, '\\)');
+    return escaped.replace(/\)/g, '\\)');
 }
 
 /**

@@ -18,12 +18,24 @@ describe('linkTitleUtils', () => {
             expect(buildTitleAttributeToken('"Old"', 'New "Title"')).toBe('"New \\"Title\\""');
         });
 
+        it('escapes backslashes for double-quoted titles', () => {
+            expect(buildTitleAttributeToken('"Old"', 'Path\\To\\File')).toBe('"Path\\\\To\\\\File"');
+        });
+
         it('preserves single-quoted delimiter and escapes single quotes', () => {
             expect(buildTitleAttributeToken("'Old'", "O'Hara")).toBe("'O\\'Hara'");
         });
 
+        it('escapes backslashes for single-quoted titles', () => {
+            expect(buildTitleAttributeToken("'Old'", 'Path\\To\\File')).toBe("'Path\\\\To\\\\File'");
+        });
+
         it('preserves parenthesized delimiter and escapes closing parentheses', () => {
             expect(buildTitleAttributeToken('(Old)', 'Title)Here')).toBe('(Title\\)Here)');
+        });
+
+        it('escapes backslashes for parenthesized titles', () => {
+            expect(buildTitleAttributeToken('(Old)', 'Path\\To\\File')).toBe('(Path\\\\To\\\\File)');
         });
     });
 });
