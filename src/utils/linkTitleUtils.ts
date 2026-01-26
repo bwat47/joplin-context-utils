@@ -12,26 +12,11 @@ export function sanitizeLinkTitle(title: string): string {
     return title.replace(/[\[\]]/g, '');
 }
 
-/**
- * Escapes a Markdown title for use inside double quotes.
- *
- * The extraction regex captures raw text without interpreting escape sequences,
- * so we only escape quotes that could terminate the string (e.g., from HTML &quot;).
- * Backslashes are NOT escaped because we're working with raw text.
- *
- * @param value - Raw title text
- * @returns Escaped title safe for use in Markdown `![alt](url "title")` syntax
- */
-export function escapeMarkdownTitle(value: string): string {
-    if (!value) return '';
-    // Only escape quotes that would terminate the title string
-    return String(value).replace(/"/g, '\\"');
-}
-
 function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
     if (!value) return '';
     if (delimiter === '"') {
-        return escapeMarkdownTitle(value);
+        // Only escape quotes that would terminate the title string
+        return String(value).replace(/"/g, '\\"');
     }
     if (delimiter === "'") {
         return String(value).replace(/'/g, "\\'");

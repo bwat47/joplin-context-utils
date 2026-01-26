@@ -1,4 +1,4 @@
-import { sanitizeLinkTitle, extractDomain, escapeMarkdownTitle, buildTitleAttributeToken } from './linkTitleUtils';
+import { sanitizeLinkTitle, extractDomain, buildTitleAttributeToken } from './linkTitleUtils';
 
 describe('linkTitleUtils', () => {
     describe('sanitizeLinkTitle', () => {
@@ -10,12 +10,6 @@ describe('linkTitleUtils', () => {
     describe('extractDomain', () => {
         it('extracts domain without www prefix', () => {
             expect(extractDomain('https://www.joplinapp.org/path')).toBe('joplinapp.org');
-        });
-    });
-
-    describe('escapeMarkdownTitle', () => {
-        it('escapes double quotes to preserve title boundaries', () => {
-            expect(escapeMarkdownTitle('He said "Hello"')).toBe('He said \\"Hello\\"');
         });
     });
 
