@@ -3,6 +3,7 @@
  */
 
 const FETCH_TIMEOUT_MS = 5000;
+const JIRA_ISSUE_KEY_REGEX = /\/(?:browse|issues)\/([A-Z][A-Z0-9]+-\d+)(?:\/|$)/i;
 
 /**
  * Sanitizes a title for use in markdown link text.
@@ -10,6 +11,32 @@ const FETCH_TIMEOUT_MS = 5000;
  */
 export function sanitizeLinkTitle(title: string): string {
     return title.replace(/[\[\]]/g, '');
+}
+
+function extractJiraIssueKey(url: string): string | null {
+    try {
+        const parsed = new URL(url);
+        const hostname = parsed.hostname.toLowerCase();
+
+        if (hostname !== 'atlassian.net' && !hostname.endsWith('.atlassian.net')) {
+            return null;
+        }
+
+        const match = parsed.pathname.match(JIRA_ISSUE_KEY_REGEX);
+        if (!match) {
+            if (parsed.pathname.startsWith('/issues')) {
+                const selectedIssue = parsed.searchParams.get('selectedIssue');
+                if (selectedIssue) {
+                    return selectedIssue.toUpperCase();
+                }
+            }
+            return null;
+        }
+
+        return match[1].toUpperCase();
+    } catch {
+        return null;
+    }
 }
 
 function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
@@ -73,6 +100,12 @@ export function extractDomain(url: string): string {
 export async function fetchLinkTitle(url: string): Promise<{ title: string; isFallback: boolean }> {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    const jiraIssueKey = extractJiraIssueKey(url);
+    if (jiraIssueKey) {
+        clearTimeout(timeoutId);
+        return { title: jiraIssueKey, isFallback: false };
+    }
 
     try {
         const response = await fetch(url, {
