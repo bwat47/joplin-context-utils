@@ -34,7 +34,7 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Open Note in New Window** - Allows you to right click a link to another joplin note and open it in a new window.
 
-**Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title.
+**Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL).
 
 - Note that this results in an outbound request to fetch the web page title.
 - There's special handling for JIRA links to set the link text to the JIRA issue number (since JIRA issues just set the page title to "Jira"). There's currently no special handling for any other link types.
