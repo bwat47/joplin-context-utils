@@ -42,7 +42,7 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 - There's special handling for JIRA links to set the link text to the JIRA issue number (since JIRA issues just set the page title to "Jira"). There's currently no special handling for any other link types.
 
 > [!note]
-> Open All Links and Fetch Link Title/Fetch All Link Titles do not support reference-style links
+> Open All Links and Fetch Link Title/Fetch All Link Titles do not support reference-style links or links inside embeds.
 
 ## Settings
 
