@@ -219,6 +219,7 @@ export const COMMAND_IDS = {
     OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
     FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
     FETCH_ALL_LINK_TITLES: 'contextUtils.fetchAllLinkTitles',
+    OPEN_ALL_LINKS_IN_SELECTION: 'contextUtils.openAllLinksInSelection',
 } as const;
 
 /**
