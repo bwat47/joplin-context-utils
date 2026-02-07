@@ -20,7 +20,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Code blocks (` ` ```)
 - Task list checkboxes (`- [ ]` / `- [x]`)
 - Task selections (multiple selected checkboxes)
-- Link selections (multiple selected HTTP(S) links for batch title fetching)
+- Link selections (multiple selected HTTP(S) links for batch open/title operations)
 - Footnotes (`[^1]` reference)
 
 ## Architecture
@@ -87,14 +87,14 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
 - `TaskInfo` interface for individual tasks in selections
 - `LinkInfo` interface for individual links in selections
-- Command IDs (including checkbox, footnote, and fetch title commands)
+- Command IDs (including checkbox, footnote, fetch title, and batch open commands)
 - `EditorRange` for text replacement operations
 
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 14 boolean settings (all default `true`):
+- 15 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -109,6 +109,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
     - `showOpenNoteNewWindow` - Show "Open Note in New Window" in context menu
     - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
+    - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -138,6 +139,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Open Note in New Window (opens note in a new Joplin window)
     - Fetch Link Title (fetches web page title for single HTTP(S) link)
     - Fetch All Link Titles (batch fetches titles for all HTTP(S) links in selection)
+    - Open All Links (batch opens all HTTP(S) links in selection in order)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**
@@ -446,59 +448,3 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 ```
 
 Content scripts must be declared here for webpack bundling.
-
-## Testing Considerations
-
-- Test with URLs containing special characters (nested parentheses, spaces, etc.)
-- Verify settings changes apply without restart
-- Check context detection at various cursor positions
-- Test with both Joplin resources (attachments) and note links
-    - Note links: Should only show "Open Note"
-    - Resource links: Should show all resource options
-- Test with external URLs and email addresses
-- **Test reference-style links:**
-    - `[text][ref]` with `[ref]: url` → detects link correctly
-    - Case-insensitive matching: `[UPPER]`, `[upper]`, `[UpPeR]` all match `[upper]: url`
-    - Multiple definitions with same label → uses first occurrence
-- Test inline code and fenced code blocks (including nested backticks in fenced blocks)
-- **Test checkbox toggling:**
-    - Single checkbox: Cursor on `- [ ] Task` → shows "Check Task"
-    - Single checkbox: Cursor on `- [x] Done` → shows "Uncheck Task"
-    - Nested lists: `  - [ ] Nested` → detects correctly
-    - Cursor position: Anywhere on task line → detects checkbox
-- **Test bulk checkbox operations:**
-    - Select multiple task lines → shows "Check All Tasks (N)" and/or "Uncheck All Tasks (N)"
-    - Mixed selection with non-task lines → only processes tasks
-    - All checked selection → only shows "Uncheck All"
-    - All unchecked selection → only shows "Check All"
-    - Mixed checked/unchecked → shows both options with counts
-    - Toast feedback shows count of tasks processed
-- **Test multi-context support:**
-    - `- [ ] \`code\`` with cursor in code → shows both "Copy Code" AND "Check Task"
-    - `- [ ] [link](url)` with cursor in link → shows both link options AND "Check Task"
-    - Code block outside task list → shows only "Copy Code" (no checkbox)
-- **Test false positive prevention:**
-    - Code block containing `- [ ] Task` text → NO checkbox menu (only "Copy Code")
-    - Selection including code block with task-like text → doesn't count as tasks
-- **Test footnotes:**
-    - Cursor on `[^1]` → shows "Go to footnote"
-    - Clicking "Go to footnote" → scrolls to `[^1]: definition`
-    - Missing definition → command should handle gracefully (or not appear if we pre-validate)
-    - Multiple footnotes on same line → detects correct one based on cursor position
-- **Test internal anchor links:**
-    - Cursor on `[link](#heading)` → shows "Go to heading"
-    - Clicking "Go to heading" → scrolls to matching heading
-    - Missing heading → shows "Heading not found" toast
-    - Case handling: `#My-Heading` should match heading "My Heading" (via Joplin's slug normalization)
-- **Test Fetch Link Title:**
-    - Single bare URL: `https://github.com` → right-click → "Fetch Link Title" → becomes `[GitHub](https://github.com)`
-    - Single markdown link: `[old](https://github.com)` → fetches and updates link text
-    - Title attribute preserved: `[old](url "title")` → `[fetched](url "title")`
-    - Reference links: Should NOT show "Fetch Link Title" option
-    - Failed fetch (network error/timeout) → uses domain as fallback with info toast
-    - Empty page title → uses domain as fallback
-- **Test batch Fetch All Link Titles:**
-    - Select text with multiple HTTP(S) links → shows "Fetch All Link Titles (N)"
-    - Mixed selection (tasks + links) → shows both task options AND fetch titles option
-    - Reference links in selection → excluded from count and processing
-    - Partial success → toast shows "Fetched X/N titles"

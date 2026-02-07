@@ -79,7 +79,8 @@ export async function registerContextMenuFilter(): Promise<void> {
                 settingsCache.showToggleTask ||
                 settingsCache.showGoToFootnote ||
                 settingsCache.showGoToHeading ||
-                settingsCache.showFetchLinkTitle;
+                settingsCache.showFetchLinkTitle ||
+                settingsCache.showOpenAllLinksInSelection;
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
@@ -257,6 +258,14 @@ export async function registerContextMenuFilter(): Promise<void> {
                         });
                     }
                 } else if (context.contextType === 'linkSelection') {
+                    if (settingsCache.showOpenAllLinksInSelection) {
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
+                            commandArgs: [context],
+                            label: `Open All Links (${context.links.length})`,
+                        });
+                    }
+
                     // Check setting and build menu items for link selection (batch title fetch)
                     if (settingsCache.showFetchLinkTitle) {
                         contextSensitiveItems.push({

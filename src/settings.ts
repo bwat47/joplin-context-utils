@@ -98,6 +98,12 @@ const SETTINGS_CONFIG = {
         label: 'Show "Fetch Link Title" in context menu',
         description: 'Display option to fetch and insert the title of HTTP(S) links',
     },
+    showOpenAllLinksInSelection: {
+        key: `${SECTION_ID}.showOpenAllLinksInSelection`,
+        defaultValue: true,
+        label: 'Show "Open All Links" in context menu',
+        description: 'Display option to open all HTTP(S) links found in the current selection',
+    },
 } as const;
 
 export type SettingsCache = {

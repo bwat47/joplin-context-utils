@@ -231,6 +231,19 @@ export async function registerCommands(): Promise<void> {
             }
         },
     });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
+        label: 'Open All Links',
+        execute: async (linkSelectionContext: LinkSelectionContext) => {
+            try {
+                await handleOpenAllLinksInSelection(linkSelectionContext);
+            } catch (error) {
+                logger.error('Failed to open links in selection:', error);
+                await showToast('Failed to open links', ToastType.Error);
+            }
+        },
+    });
 }
 
 /**
@@ -563,4 +576,39 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
 
     await showToast(`Fetched ${successCount}/${ctx.links.length} titles`, ToastType.Success);
     logger.debug(`Batch updated ${ctx.links.length} links, ${successCount} with fetched titles`);
+}
+
+/**
+ * "Open All Links" handler
+ * Opens all detected HTTP(S) links in the current selection
+ */
+async function handleOpenAllLinksInSelection(ctx: LinkSelectionContext): Promise<void> {
+    if (ctx.links.length === 0) {
+        return;
+    }
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    for (const link of ctx.links) {
+        try {
+            await joplin.commands.execute('openItem', link.url);
+            successCount++;
+        } catch (error) {
+            failureCount++;
+            logger.error(`Failed to open URL in selection: ${link.url}`, error);
+        }
+    }
+
+    if (failureCount === 0) {
+        await showToast(`Opened ${successCount} link${successCount !== 1 ? 's' : ''}`, ToastType.Success);
+        return;
+    }
+
+    if (successCount > 0) {
+        await showToast(`Opened ${successCount}/${ctx.links.length} links`, ToastType.Info);
+        return;
+    }
+
+    await showToast('Failed to open links', ToastType.Error);
 }
