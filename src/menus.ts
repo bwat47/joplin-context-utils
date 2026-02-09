@@ -47,8 +47,8 @@ async function hasOcrText(id: string): Promise<boolean> {
  * Registers context menu filter
  * This is called BEFORE the context menu opens
  */
-export async function registerContextMenuFilter(): Promise<void> {
-    await joplin.workspace.filterEditorContextMenu(async (menuItems) => {
+export function registerContextMenuFilter(): void {
+    joplin.workspace.filterEditorContextMenu(async (menuItems) => {
         const globalItems: MenuItem[] = [];
 
         // Always show "Add External Link" if enabled (not context-sensitive)
