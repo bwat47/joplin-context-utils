@@ -31,7 +31,7 @@ joplin.plugins.register({
             logger.debug('Commands registered');
 
             // 5. Register context menu filter
-            await registerContextMenuFilter();
+            registerContextMenuFilter();
             logger.debug('Context menu filter registered');
 
             logger.debug('Context Utils plugin started successfully');
