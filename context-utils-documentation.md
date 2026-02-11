@@ -117,6 +117,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
+- Suppresses plugin link/resource menu entries for image embed contexts (`LinkContext.isImage === true`) so Joplin native image actions (joplin v3.6+) can be used without duplication
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + checkbox)
 - Distinguishes between note links and resource links using `isJoplinNote()` helper

@@ -136,6 +136,14 @@ export function registerContextMenuFilter(): void {
             for (const context of contexts) {
                 // Handle different context types
                 if (context.contextType === 'link') {
+                    const isImageEmbed = context.isImage === true;
+
+                    // Joplin 3.6+ provides native image context menu options in the editor.
+                    // Suppress all plugin-provided link/resource menu items for image embeds.
+                    if (isImageEmbed) {
+                        continue;
+                    }
+
                     // For Joplin resources, check if it's a note or an actual resource
                     let idType: 'note' | 'resource' | null = null;
                     let hasOcr = false;
@@ -220,7 +228,6 @@ export function registerContextMenuFilter(): void {
                     if (
                         context.type === LinkType.ExternalUrl &&
                         !context.isReferenceLink &&
-                        !context.isImage &&
                         settingsCache.showFetchLinkTitle
                     ) {
                         contextSensitiveItems.push({
