@@ -49,11 +49,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 1. **Content Script** (contentScript.ts):
     - Registers command `contextUtils-getContextAtCursor` using `codeMirrorWrapper.registerCommand()`
+    - Registers command `contextUtils-isEditorContextMenuOrigin` by tracking recent editor `contextmenu` events
     - Command executes on-demand when called by main plugin
     - Delegates detection to `contextDetection.ts`
     - Returns **array of contexts** (supports multiple simultaneous contexts)
 
 2. **Main Plugin** (menus.ts):
+    - First calls `contextUtils-isEditorContextMenuOrigin`; if false, injects no plugin menu items
     - When context menu opens, calls `joplin.commands.execute('editor.execCommand', { name: 'contextUtils-getContextAtCursor' })`
     - Awaits contexts directly from editor (guaranteed to match cursor position)
     - Iterates through returned contexts array
@@ -147,6 +149,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - CodeMirror 6 content script entry point (type: CodeMirrorPlugin)
 - Registers commands:
     - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
+    - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
     - `contextUtils-replaceRange` - text replacement for checkbox toggling
     - `contextUtils-batchReplace` - atomic batch replacement for bulk operations
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)

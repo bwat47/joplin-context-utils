@@ -3,7 +3,10 @@ import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import { GET_CONTEXT_AT_CURSOR_COMMAND } from './contentScripts/contentScript';
+import {
+    GET_CONTEXT_AT_CURSOR_COMMAND,
+    IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
+} from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
@@ -44,30 +47,53 @@ async function hasOcrText(id: string): Promise<boolean> {
 }
 
 /**
+ * Checks if the current context menu invocation originated from the markdown editor.
+ * Returns false for markdown viewer and other non-editor surfaces.
+ */
+async function isEditorContextMenuOrigin(): Promise<boolean> {
+    try {
+        const result = await joplin.commands.execute('editor.execCommand', {
+            name: IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
+        });
+        return result === true;
+    } catch (error) {
+        logger.debug('Editor context menu origin check failed:', error);
+        return false;
+    }
+}
+
+/**
  * Registers context menu filter
  * This is called BEFORE the context menu opens
  */
 export function registerContextMenuFilter(): void {
     joplin.workspace.filterEditorContextMenu(async (menuItems) => {
-        const globalItems: MenuItem[] = [];
-
-        // Always show "Add External Link" if enabled (not context-sensitive)
-        if (settingsCache.showAddExternalLink) {
-            globalItems.push({
-                commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
-                label: 'Add External Link',
-            });
-        }
-
-        // Always show "Add Link to Note" if enabled (not context-sensitive)
-        if (settingsCache.showAddLinkToNote) {
-            globalItems.push({
-                commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
-                label: 'Add Link to Note',
-            });
-        }
-
         try {
+            // Skip all plugin menu items when the context menu did not originate from the editor
+            // (for example, right-clicking in the markdown viewer pane).
+            const editorOrigin = await isEditorContextMenuOrigin();
+            if (!editorOrigin) {
+                return menuItems;
+            }
+
+            const globalItems: MenuItem[] = [];
+
+            // Always show "Add External Link" if enabled (not context-sensitive)
+            if (settingsCache.showAddExternalLink) {
+                globalItems.push({
+                    commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
+                    label: 'Add External Link',
+                });
+            }
+
+            // Always show "Add Link to Note" if enabled (not context-sensitive)
+            if (settingsCache.showAddLinkToNote) {
+                globalItems.push({
+                    commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
+                    label: 'Add Link to Note',
+                });
+            }
+
             const shouldBuildContextSensitiveItems =
                 settingsCache.showOpenLink ||
                 settingsCache.showOpenNoteNewWindow ||
@@ -301,16 +327,8 @@ export function registerContextMenuFilter(): void {
             };
         } catch (error) {
             logger.error('Error in context menu filter:', error);
-            // Return original menu on error to avoid breaking context menu
-            // but still show global (non-context-sensitive) items when possible.
-            if (globalItems.length === 0) {
-                return menuItems;
-            }
-
-            const separator: MenuItem = { type: 'separator' };
-            return {
-                items: [...menuItems.items, separator, ...globalItems],
-            };
+            // Return original menu on error to avoid breaking context menu.
+            return menuItems;
         }
     });
 }
