@@ -23,8 +23,7 @@ const SETTINGS_CONFIG = {
         key: `${SECTION_ID}.showOpenLink`,
         defaultValue: true,
         label: 'Show "Open Link" in context menu',
-        description:
-            'Display option to open external URLs in browser, open Joplin resources in default app, or open selected Note',
+        description: 'Display option to open external URLs in browser or open email links in your default mail app',
     },
     showAddExternalLink: {
         key: `${SECTION_ID}.showAddExternalLink`,
@@ -41,26 +40,14 @@ const SETTINGS_CONFIG = {
     showCopyPath: {
         key: `${SECTION_ID}.showCopyPath`,
         defaultValue: true,
-        label: 'Show "Copy Path" in context menu',
-        description: 'Display option to copy URL or resource file path to clipboard',
-    },
-    showRevealFile: {
-        key: `${SECTION_ID}.showRevealFile`,
-        defaultValue: true,
-        label: 'Show "Reveal File" in context menu',
-        description: 'Display option to reveal Joplin resource files in file explorer',
+        label: 'Show "Copy URL/Email" in context menu',
+        description: 'Display option to copy URL or email address to clipboard',
     },
     showCopyCode: {
         key: `${SECTION_ID}.showCopyCode`,
         defaultValue: true,
         label: 'Show "Copy Code" in context menu',
         description: 'Display option to copy code from inline code or code blocks to clipboard',
-    },
-    showCopyOcrText: {
-        key: `${SECTION_ID}.showCopyOcrText`,
-        defaultValue: true,
-        label: 'Show "Copy OCR Text" in context menu',
-        description: 'Display option to copy OCR text from image resources when available',
     },
     showToggleTask: {
         key: `${SECTION_ID}.showToggleTask`,

@@ -31,22 +31,6 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
 }
 
 /**
- * Checks if a resource has OCR text available
- * @param id - The resource ID
- * @returns true if OCR text is available, false otherwise
- */
-async function hasOcrText(id: string): Promise<boolean> {
-    try {
-        const resource = await joplin.data.get(['resources', id], {
-            fields: ['ocr_text'],
-        });
-        return !!resource.ocr_text;
-    } catch {
-        return false;
-    }
-}
-
-/**
  * Checks if the current context menu invocation originated from the markdown editor.
  * Returns false for markdown viewer and other non-editor surfaces.
  */
@@ -99,9 +83,7 @@ export function registerContextMenuFilter(): void {
                 settingsCache.showOpenNoteNewWindow ||
                 settingsCache.showPinToTabs ||
                 settingsCache.showCopyPath ||
-                settingsCache.showRevealFile ||
                 settingsCache.showCopyCode ||
-                settingsCache.showCopyOcrText ||
                 settingsCache.showToggleTask ||
                 settingsCache.showGoToFootnote ||
                 settingsCache.showGoToHeading ||
@@ -136,27 +118,27 @@ export function registerContextMenuFilter(): void {
             for (const context of contexts) {
                 // Handle different context types
                 if (context.contextType === 'link') {
-                    // For Joplin resources, check if it's a note or an actual resource
+                    // For Joplin links, check if it's a note or an actual resource
                     let idType: 'note' | 'resource' | null = null;
-                    let hasOcr = false;
-                    if (context.type === LinkType.JoplinResource) {
+                    if (
+                        context.type === LinkType.JoplinResource &&
+                        (settingsCache.showOpenNoteNewWindow || settingsCache.showPinToTabs)
+                    ) {
                         const resourceId = extractJoplinResourceId(context.url);
                         idType = await getJoplinIdType(resourceId);
-                        // Only check for OCR if it's a resource (not a note)
-                        if (idType === 'resource' && settingsCache.showCopyOcrText) {
-                            hasOcr = await hasOcrText(resourceId);
-                        }
                     }
 
                     const isNote = idType === 'note';
 
-                    // Show "Open Link" for all link types except internal anchors
-                    // (internal anchors are handled by "Go to heading" instead)
-                    if (settingsCache.showOpenLink && context.type !== LinkType.InternalAnchor) {
+                    // Show "Open Link" for external links and emails only.
+                    if (
+                        settingsCache.showOpenLink &&
+                        (context.type === LinkType.ExternalUrl || context.type === LinkType.Email)
+                    ) {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.OPEN_LINK,
                             commandArgs: [context],
-                            label: getLabelForOpenLink(context, isNote),
+                            label: getLabelForOpenLink(context),
                         });
                     }
 
@@ -179,32 +161,7 @@ export function registerContextMenuFilter(): void {
                         });
                     }
 
-                    // Only show resource-specific options for actual resources (not notes)
-                    if (context.type === LinkType.JoplinResource && idType === 'resource') {
-                        if (settingsCache.showCopyPath) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.COPY_PATH,
-                                commandArgs: [context],
-                                label: 'Copy Resource Path',
-                            });
-                        }
-
-                        if (settingsCache.showRevealFile) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.REVEAL_FILE,
-                                commandArgs: [context],
-                                label: 'Reveal File in Folder',
-                            });
-                        }
-
-                        if (hasOcr) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.COPY_OCR_TEXT,
-                                commandArgs: [context],
-                                label: 'Copy OCR Text',
-                            });
-                        }
-                    } else if (
+                    if (
                         (context.type === LinkType.ExternalUrl || context.type === LinkType.Email) &&
                         settingsCache.showCopyPath
                     ) {
@@ -336,16 +293,13 @@ export function registerContextMenuFilter(): void {
 /**
  * Generates context-aware label for "Open Link" command
  * @param linkContext - The link context
- * @param isNote - Whether the Joplin resource is a note (only applicable for JoplinResource type)
  */
-function getLabelForOpenLink(linkContext: LinkContext, isNote: boolean = false): string {
+function getLabelForOpenLink(linkContext: LinkContext): string {
     switch (linkContext.type) {
         case LinkType.ExternalUrl:
             return 'Open Link in Browser';
         case LinkType.Email:
             return 'Send Email';
-        case LinkType.JoplinResource:
-            return isNote ? 'Open Note' : 'Open Resource';
         default:
             return 'Open Link';
     }

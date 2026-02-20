@@ -96,15 +96,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 15 boolean settings (all default `true`):
+- 13 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
     - `showAddLinkToNote` - Display option to link to another note at the cursor
-    - `showCopyPath` - Show "Copy Path" in context menu
-    - `showRevealFile` - Show "Reveal File" in context menu
+    - `showCopyPath` - Show "Copy URL/Email" in context menu
     - `showCopyCode` - Show "Copy Code" in context menu
-    - `showCopyOcrText` - Show "Copy OCR Text" in context menu
     - `showToggleTask` - Show task toggle options in context menu
     - `showGoToFootnote` - Show "Go to footnote" in context menu
     - `showGoToHeading` - Show "Go to heading" in context menu
@@ -119,19 +117,17 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + checkbox)
-- Distinguishes between note links and resource links using `isJoplinNote()` helper
-- Resource-specific options (Copy Path, Reveal File) only shown for actual resources
+- Distinguishes between note links and resource links using `getJoplinIdType()` helper
+- Note-specific options are limited to "Open Note as Pinned Tab" and "Open Note in New Window"
 - Checks settings before adding menu items
 - Adds separator if ≥1 menu item will be shown, and between context-sensitive and non-context sensitive menu items
 
 **src/commands.ts**
 
 - Command handlers for:
-    - Open Link (external URLs → browser, resources → default app)
-    - Copy Path (URLs → clipboard, resources → file path)
-    - Reveal File (resources only → file explorer)
+    - Open Link (external URLs → browser, emails → default mail app)
+    - Copy URL/Email (URLs/emails → clipboard)
     - Copy Code (code blocks → clipboard)
-    - Copy OCR Text (image resources → clipboard)
     - Toggle Checkbox (single checkbox `[ ]` ↔ `[x]`)
     - Check All Tasks (bulk check unchecked tasks in selection)
     - Uncheck All Tasks (bulk uncheck checked tasks in selection)
@@ -383,11 +379,11 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
 
 **Menu Behavior:**
 
-- **Note links**: Show "Open Note" only (no Copy Path or Reveal File)
-- **Resource links**: Show "Open Resource", "Copy Resource Path", "Reveal File in Folder"
+- **Note links**: Show note-specific actions only ("Open Note as Pinned Tab", "Open Note in New Window")
+- **Resource links**: No plugin-specific open/copy/reveal items (Joplin native menu handles these)
 - **Invalid IDs**: Treated as neither (no menu items shown)
 
-This prevents errors when trying to get file paths for notes (which don't have physical files in the resources directory) and ensures robust handling of invalid IDs.
+This ensures note-specific actions are only shown for real notes, avoids redundant resource options, and keeps handling robust for invalid IDs.
 
 ### 5. Footnote Detection
 
