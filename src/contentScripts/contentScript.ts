@@ -7,7 +7,10 @@ import { detectContextAtPosition } from './contextDetection';
  * Command name for getting context at cursor
  */
 export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
+export const IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND = 'contextUtils-isEditorContextMenuOrigin';
 
+// Time window to consider context menu events as originating from the editor, in milliseconds
+const EDITOR_CONTEXT_MENU_EVENT_GRACE_MS = 400;
 /**
  * Command names for replacing a range of text in the editor
  */
@@ -48,6 +51,16 @@ export default () => {
             }
 
             const view: EditorView = codeMirrorWrapper.editor as EditorView;
+            let lastEditorContextMenuAt = 0;
+
+            // Track right-clicks in the editor so menu construction can ignore viewer-origin events.
+            view.dom.addEventListener(
+                'contextmenu',
+                () => {
+                    lastEditorContextMenuAt = Date.now();
+                },
+                true
+            );
 
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens
@@ -62,6 +75,10 @@ export default () => {
                 const context = detectContextAtPosition(view, pos);
                 logger.debug('Context detected at cursor:', context);
                 return context;
+            });
+
+            codeMirrorWrapper.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {
+                return Date.now() - lastEditorContextMenuAt <= EDITOR_CONTEXT_MENU_EVENT_GRACE_MS;
             });
 
             // Register command to replace a range of text in the editor
