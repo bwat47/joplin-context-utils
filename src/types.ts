@@ -214,7 +214,6 @@ export const COMMAND_IDS = {
     GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
     GO_TO_HEADING: 'contextUtils.goToHeading',
     PIN_TO_TABS: 'contextUtils.pinToTabs',
-    OPEN_NOTE_NEW_WINDOW: 'contextUtils.openNoteNewWindow',
     FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
     FETCH_ALL_LINK_TITLES: 'contextUtils.fetchAllLinkTitles',
     OPEN_ALL_LINKS_IN_SELECTION: 'contextUtils.openAllLinksInSelection',
