@@ -28,8 +28,6 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Open Note as Pinned Tab** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
 
-**Open Note in New Window** - Allows you to right click a link to another joplin note and open it in a new window.
-
 **Open All Links** - Opens all detected HTTP(S) links in the current text selection, in selection order.
 
 **Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL).

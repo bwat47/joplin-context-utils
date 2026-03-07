@@ -73,12 +73,6 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Note as Pinned Tab" in context menu',
         description: 'Display option to open notes as a pinned tab (requires Note Tabs plugin)',
     },
-    showOpenNoteNewWindow: {
-        key: `${SECTION_ID}.showOpenNoteNewWindow`,
-        defaultValue: true,
-        label: 'Show "Open Note in New Window" in context menu',
-        description: 'Display option to open notes in a new window',
-    },
     showFetchLinkTitle: {
         key: `${SECTION_ID}.showFetchLinkTitle`,
         defaultValue: true,

@@ -96,7 +96,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 13 boolean settings (all default `true`):
+- 12 boolean settings (all default `true`):
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -107,7 +107,6 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showGoToFootnote` - Show "Go to footnote" in context menu
     - `showGoToHeading` - Show "Go to heading" in context menu
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
-    - `showOpenNoteNewWindow` - Show "Open Note in New Window" in context menu
     - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
@@ -118,7 +117,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + checkbox)
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
-- Note-specific options are limited to "Open Note as Pinned Tab" and "Open Note in New Window"
+- Note-specific options are limited to "Open Note as Pinned Tab"
 - Checks settings before adding menu items
 - Adds separator if ≥1 menu item will be shown, and between context-sensitive and non-context sensitive menu items
 
@@ -134,7 +133,6 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Go to Footnote (scrolls to footnote definition)
     - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
     - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
-    - Open Note in New Window (opens note in a new Joplin window)
     - Fetch Link Title (fetches web page title for single HTTP(S) link)
     - Fetch All Link Titles (batch fetches titles for all HTTP(S) links in selection)
     - Open All Links (batch opens all HTTP(S) links in selection in order)
@@ -379,7 +377,7 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
 
 **Menu Behavior:**
 
-- **Note links**: Show note-specific actions only ("Open Note as Pinned Tab", "Open Note in New Window")
+- **Note links**: Show note-specific action only ("Open Note as Pinned Tab")
 - **Resource links**: No plugin-specific open/copy/reveal items (Joplin native menu handles these)
 - **Invalid IDs**: Treated as neither (no menu items shown)
 

@@ -52,12 +52,14 @@ export default () => {
 
             const view: EditorView = codeMirrorWrapper.editor as EditorView;
             let lastEditorContextMenuAt = 0;
+            let editorContextMenuOriginPending = false;
 
             // Track right-clicks in the editor so menu construction can ignore viewer-origin events.
             view.dom.addEventListener(
                 'contextmenu',
                 () => {
                     lastEditorContextMenuAt = Date.now();
+                    editorContextMenuOriginPending = true;
                 },
                 true
             );
@@ -78,7 +80,16 @@ export default () => {
             });
 
             codeMirrorWrapper.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {
-                return Date.now() - lastEditorContextMenuAt <= EDITOR_CONTEXT_MENU_EVENT_GRACE_MS;
+                const isEditorOrigin =
+                    editorContextMenuOriginPending &&
+                    Date.now() - lastEditorContextMenuAt <= EDITOR_CONTEXT_MENU_EVENT_GRACE_MS;
+
+                // Consume origin marker so each editor contextmenu event can only authorize one menu invocation.
+                if (editorContextMenuOriginPending) {
+                    editorContextMenuOriginPending = false;
+                }
+
+                return isEditorOrigin;
             });
 
             // Register command to replace a range of text in the editor

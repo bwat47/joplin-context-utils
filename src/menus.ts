@@ -80,7 +80,6 @@ export function registerContextMenuFilter(): void {
 
             const shouldBuildContextSensitiveItems =
                 settingsCache.showOpenLink ||
-                settingsCache.showOpenNoteNewWindow ||
                 settingsCache.showPinToTabs ||
                 settingsCache.showCopyPath ||
                 settingsCache.showCopyCode ||
@@ -122,7 +121,7 @@ export function registerContextMenuFilter(): void {
                     let idType: 'note' | 'resource' | null = null;
                     if (
                         context.type === LinkType.JoplinResource &&
-                        (settingsCache.showOpenNoteNewWindow || settingsCache.showPinToTabs)
+                        settingsCache.showPinToTabs
                     ) {
                         const resourceId = extractJoplinResourceId(context.url);
                         idType = await getJoplinIdType(resourceId);
@@ -139,15 +138,6 @@ export function registerContextMenuFilter(): void {
                             commandName: COMMAND_IDS.OPEN_LINK,
                             commandArgs: [context],
                             label: getLabelForOpenLink(context),
-                        });
-                    }
-
-                    // Show "Open Note in New Window" for notes
-                    if (isNote && settingsCache.showOpenNoteNewWindow) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.OPEN_NOTE_NEW_WINDOW,
-                            commandArgs: [context],
-                            label: 'Open Note in New Window',
                         });
                     }
 
