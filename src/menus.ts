@@ -1,8 +1,7 @@
 import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
-import { MenuItem } from 'api/types';
+import { MenuItem, ContextMenuItemType } from 'api/types';
 import { logger } from './logger';
-import { extractJoplinResourceId } from './utils/urlUtils';
 import {
     GET_CONTEXT_AT_CURSOR_COMMAND,
     IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
@@ -10,25 +9,6 @@ import {
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
-
-/**
- * Determines the type of a Joplin ID (note, resource, or invalid)
- * Uses Promise.any to return as soon as one lookup succeeds
- * @param id - The 32-character hex ID
- * @returns 'note', 'resource', or null if neither exists
- */
-async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> {
-    try {
-        const { type } = await Promise.any([
-            joplin.data.get(['notes', id], { fields: ['id'] }).then(() => ({ type: 'note' as const })),
-            joplin.data.get(['resources', id], { fields: ['id'] }).then(() => ({ type: 'resource' as const })),
-        ]);
-        return type;
-    } catch {
-        // AggregateError: all promises rejected (ID doesn't exist as note or resource)
-        return null;
-    }
-}
 
 /**
  * Checks if the current context menu invocation originated from the markdown editor.
@@ -117,17 +97,9 @@ export function registerContextMenuFilter(): void {
             for (const context of contexts) {
                 // Handle different context types
                 if (context.contextType === 'link') {
-                    // For Joplin links, check if it's a note or an actual resource
-                    let idType: 'note' | 'resource' | null = null;
-                    if (
+                    const isNote =
                         context.type === LinkType.JoplinResource &&
-                        settingsCache.showPinToTabs
-                    ) {
-                        const resourceId = extractJoplinResourceId(context.url);
-                        idType = await getJoplinIdType(resourceId);
-                    }
-
-                    const isNote = idType === 'note';
+                        menuItems.context?.itemType === ContextMenuItemType.NoteLink;
 
                     // Show "Open Link" for external links and emails only.
                     if (
