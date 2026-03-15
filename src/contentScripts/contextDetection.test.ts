@@ -24,7 +24,9 @@ describe('contextDetection', () => {
     };
 
     const getLinkSelection = (contexts: ReturnType<typeof detectContextAtPosition>) => {
-        return contexts.find((context) => context.contextType === 'linkSelection');
+        return contexts.find((context) => context.contextType === 'linkSelection') as
+            | Extract<EditorContext, { contextType: 'linkSelection' }>
+            | undefined;
     };
 
     const getContext = <T extends EditorContext['contextType']>(
