@@ -5,6 +5,10 @@ describe('linkTitleUtils', () => {
         it('removes square brackets from titles', () => {
             expect(sanitizeLinkTitle('Joplin [Docs]')).toBe('Joplin Docs');
         });
+
+        it('replaces line breaks with spaces', () => {
+            expect(sanitizeLinkTitle('Joplin\nDocs\r\nGuide')).toBe('Joplin Docs Guide');
+        });
     });
 
     describe('extractDomain', () => {

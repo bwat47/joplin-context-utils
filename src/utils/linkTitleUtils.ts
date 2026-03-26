@@ -7,10 +7,10 @@ const JIRA_ISSUE_KEY_REGEX = /\/(?:browse|issues)\/([A-Z][A-Z0-9]+-\d+)(?:\/|$)/
 
 /**
  * Sanitizes a title for use in markdown link text.
- * Removes square brackets which would break markdown link syntax.
+ * Removes square brackets and collapses line breaks which would break markdown link syntax.
  */
 export function sanitizeLinkTitle(title: string): string {
-    return title.replace(/[\[\]]/g, '');
+    return title.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').replace(/[\[\]]/g, '').trim();
 }
 
 function extractJiraIssueKey(url: string): string | null {

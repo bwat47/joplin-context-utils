@@ -171,7 +171,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Title fetching utilities:
     - `fetchLinkTitle` - Fetches page title from URL with 10s timeout, returns `{ title, isFallback }`
-    - `sanitizeLinkTitle` - Removes square brackets from titles (would break markdown syntax)
+    - `sanitizeLinkTitle` - Removes square brackets and normalizes line breaks in titles for safe markdown link text
     - `extractDomain` - Extracts domain from URL for fallback title
 
 ### Utilities
