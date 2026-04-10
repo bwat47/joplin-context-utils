@@ -13,6 +13,13 @@ export function sanitizeLinkTitle(title: string): string {
     return title.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').replace(/[\[\]]/g, '').trim();
 }
 
+/**
+ * Escapes characters in markdown link text that would break surrounding syntax.
+ */
+export function escapeMarkdownLinkText(title: string): string {
+    return title.replace(/\|/g, '\\|');
+}
+
 function extractJiraIssueKey(url: string): string | null {
     try {
         const parsed = new URL(url);

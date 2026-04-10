@@ -1,4 +1,4 @@
-import { sanitizeLinkTitle, extractDomain, buildTitleAttributeToken } from './linkTitleUtils';
+import { sanitizeLinkTitle, escapeMarkdownLinkText, extractDomain, buildTitleAttributeToken } from './linkTitleUtils';
 
 describe('linkTitleUtils', () => {
     describe('sanitizeLinkTitle', () => {
@@ -8,6 +8,12 @@ describe('linkTitleUtils', () => {
 
         it('replaces line breaks with spaces', () => {
             expect(sanitizeLinkTitle('Joplin\nDocs\r\nGuide')).toBe('Joplin Docs Guide');
+        });
+    });
+
+    describe('escapeMarkdownLinkText', () => {
+        it('escapes pipes used in markdown tables', () => {
+            expect(escapeMarkdownLinkText('Docs | API')).toBe('Docs \\| API');
         });
     });
 
