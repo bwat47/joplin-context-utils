@@ -1,5 +1,5 @@
 import { EditorView } from '@codemirror/view';
-import type { CodeMirrorWrapper } from '../types';
+import type { CodeMirrorControl } from 'api/types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
 
@@ -43,14 +43,14 @@ function validateRange(from: number, to: number, context: string): boolean {
  */
 export default () => {
     return {
-        plugin: (codeMirrorWrapper: CodeMirrorWrapper) => {
+        plugin: (editorControl: CodeMirrorControl) => {
             // Check CM6 availability
-            if (!codeMirrorWrapper.cm6) {
+            if (!editorControl.cm6) {
                 logger.warn('CodeMirror 6 not available');
                 return;
             }
 
-            const view: EditorView = codeMirrorWrapper.editor as EditorView;
+            const view: EditorView = editorControl.editor as EditorView;
             let lastEditorContextMenuAt = 0;
             let editorContextMenuOriginPending = false;
 
@@ -66,7 +66,7 @@ export default () => {
 
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens
-            codeMirrorWrapper.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
+            editorControl.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
                 // Force view to sync/measure before reading cursor position
                 // This works around a timing issue on Linux where the view might not
                 // have synced with the cursor position update from the right-click event
@@ -79,7 +79,7 @@ export default () => {
                 return context;
             });
 
-            codeMirrorWrapper.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {
+            editorControl.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {
                 const isEditorOrigin =
                     editorContextMenuOriginPending &&
                     Date.now() - lastEditorContextMenuAt <= EDITOR_CONTEXT_MENU_EVENT_GRACE_MS;
@@ -94,7 +94,7 @@ export default () => {
 
             // Register command to replace a range of text in the editor
             // Used for checkbox toggling and other text replacement operations
-            codeMirrorWrapper.registerCommand(
+            editorControl.registerCommand(
                 REPLACE_RANGE_COMMAND,
                 (newText: string, from: number, to: number, expectedText?: string) => {
                     if (!validateRange(from, to, 'replaceRange')) {
@@ -145,7 +145,7 @@ export default () => {
 
             // Register command to batch replace multiple ranges
             // Used for bulk checkbox toggling
-            codeMirrorWrapper.registerCommand(
+            editorControl.registerCommand(
                 BATCH_REPLACE_COMMAND,
                 (replacements: Array<{ from: number; to: number; text: string; expectedText?: string }>) => {
                     // Validate all ranges before proceeding
@@ -192,7 +192,7 @@ export default () => {
             );
 
             // Register command to scroll to a specific position
-            codeMirrorWrapper.registerCommand(SCROLL_TO_POSITION_COMMAND, (pos: number) => {
+            editorControl.registerCommand(SCROLL_TO_POSITION_COMMAND, (pos: number) => {
                 if (typeof pos !== 'number' || !Number.isFinite(pos)) {
                     logger.error('scrollToPosition: pos must be a finite number');
                     return;

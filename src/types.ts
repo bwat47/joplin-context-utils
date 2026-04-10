@@ -182,24 +182,6 @@ export type EditorContext =
     | LinkSelectionContext;
 
 /**
- * Content script context provided by Joplin
- * (kept for type compatibility, but postMessage no longer used in pull architecture)
- */
-export interface ContentScriptContext {
-    contentScriptId: string;
-}
-
-/**
- * CodeMirror wrapper provided by Joplin content script environment
- */
-export interface CodeMirrorWrapper {
-    cm6: boolean;
-    editor: unknown; // EditorView from @codemirror/view, but typed as unknown to avoid importing in main context
-    addExtension: (extension: unknown) => void;
-    registerCommand: (name: string, callback: (...args: unknown[]) => unknown) => void;
-}
-
-/**
  * Command IDs - must be globally unique
  */
 export const COMMAND_IDS = {
