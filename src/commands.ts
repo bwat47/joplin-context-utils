@@ -19,6 +19,7 @@ import {
 } from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
 import { fetchLinkTitle, buildTitleAttributeToken, escapeMarkdownLinkText } from './utils/linkTitleUtils';
+import { settingsCache } from './settings';
 
 /**
  * Registers all context menu commands
@@ -402,7 +403,9 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
         throw new Error('Fetch link title only works for non-image HTTP(S) links');
     }
 
-    const { title, isFallback } = await fetchLinkTitle(linkContext.url);
+    const { title, isFallback } = await fetchLinkTitle(linkContext.url, {
+        linkPreviewApiKey: settingsCache.linkPreviewApiKey,
+    });
     const linkText = escapeMarkdownLinkText(title);
 
     // Build the new markdown link, updating title attribute if present
@@ -443,7 +446,9 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
     const results = await Promise.all(
         ctx.links.map(async (link) => ({
             link,
-            result: await fetchLinkTitle(link.url),
+            result: await fetchLinkTitle(link.url, {
+                linkPreviewApiKey: settingsCache.linkPreviewApiKey,
+            }),
         }))
     );
 

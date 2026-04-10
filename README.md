@@ -33,6 +33,7 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 **Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL).
 
 - Note that this results in an outbound request to fetch the web page title.
+- If a `linkpreview.net` API key is configured in plugin settings, the plugin tries `linkpreview.net` first and falls back to direct page fetching if needed.
 - There's special handling for JIRA links to set the link text to the JIRA issue number (since JIRA issues just set the page title to "Jira"). There's currently no special handling for any other link types.
 
 > [!note]
@@ -41,8 +42,8 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 ## Settings
 
 - Each context menu option can be enabled or disabled in the Plugin settings.
-
 - Enable/Disable toast messages.
+- Optional secure `linkpreview.net` API key setting for link title fetching.
 
 ## Misc Notes
 

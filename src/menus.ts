@@ -3,10 +3,7 @@ import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
-import {
-    GET_CONTEXT_AT_CURSOR_COMMAND,
-    IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
-} from './contentScripts/contentScript';
+import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
@@ -119,10 +116,7 @@ export function registerContextMenuFilter(): void {
                 if (context.contextType === 'link') {
                     // For Joplin links, check if it's a note or an actual resource
                     let idType: 'note' | 'resource' | null = null;
-                    if (
-                        context.type === LinkType.JoplinResource &&
-                        settingsCache.showPinToTabs
-                    ) {
+                    if (context.type === LinkType.JoplinResource && settingsCache.showPinToTabs) {
                         const resourceId = extractJoplinResourceId(context.url);
                         idType = await getJoplinIdType(resourceId);
                     }
