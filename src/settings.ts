@@ -115,30 +115,25 @@ const SETTINGS_CONFIG = {
     },
 } as const satisfies Record<string, SettingConfigEntry<string | boolean>>;
 
-export interface SettingsCache {
-    showToastMessages: boolean;
-    showOpenLink: boolean;
-    showAddExternalLink: boolean;
-    showAddLinkToNote: boolean;
-    showCopyPath: boolean;
-    showCopyCode: boolean;
-    showToggleTask: boolean;
-    showGoToFootnote: boolean;
-    showGoToHeading: boolean;
-    showPinToTabs: boolean;
-    showFetchLinkTitle: boolean;
-    showOpenAllLinksInSelection: boolean;
-    linkPreviewApiKey: string;
+type WidenSettingValue<T extends string | boolean> = T extends boolean ? boolean : T extends string ? string : never;
+type SettingKey = keyof typeof SETTINGS_CONFIG;
+
+export type SettingsCache = {
+    -readonly [K in SettingKey]: WidenSettingValue<(typeof SETTINGS_CONFIG)[K]['defaultValue']>;
+};
+
+function createSettingsCacheFromDefaults(): SettingsCache {
+    return Object.fromEntries(
+        Object.entries(SETTINGS_CONFIG).map(([key, config]) => [key, config.defaultValue])
+    ) as SettingsCache;
 }
 
 /**
  * Module-level settings cache for synchronous access
  */
-export const settingsCache = Object.fromEntries(
-    Object.entries(SETTINGS_CONFIG).map(([key, config]) => [key, config.defaultValue])
-) as unknown as SettingsCache;
+export const settingsCache = createSettingsCacheFromDefaults();
 
-async function updateSettingCacheValue<K extends keyof SettingsCache>(key: K): Promise<void> {
+async function updateSettingCacheValue<K extends SettingKey>(key: K): Promise<void> {
     const config = SETTINGS_CONFIG[key];
     settingsCache[key] = (await joplin.settings.value(config.key)) as SettingsCache[K];
 }
@@ -147,7 +142,7 @@ async function updateSettingCacheValue<K extends keyof SettingsCache>(key: K): P
  * Updates the settings cache by reading all values from Joplin settings
  */
 async function updateSettingsCache(): Promise<void> {
-    for (const key of Object.keys(SETTINGS_CONFIG) as Array<keyof SettingsCache>) {
+    for (const key of Object.keys(SETTINGS_CONFIG) as SettingKey[]) {
         await updateSettingCacheValue(key);
     }
 }
