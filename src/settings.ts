@@ -9,7 +9,6 @@
 
 import joplin from 'api';
 import { SettingItem, SettingItemType } from 'api/types';
-import { logger } from './logger';
 
 const SECTION_ID = 'contextUtils';
 type SettingConfigEntry<T extends string | boolean> = {
@@ -151,7 +150,6 @@ async function updateSettingsCache(): Promise<void> {
     for (const key of Object.keys(SETTINGS_CONFIG) as Array<keyof SettingsCache>) {
         await updateSettingCacheValue(key);
     }
-    logger.debug('Settings cache updated:', settingsCache);
 }
 
 /**
@@ -169,8 +167,6 @@ export async function initializeSettingsCache(): Promise<void> {
             await updateSettingsCache();
         }
     });
-
-    logger.debug('Settings cache initialized');
 }
 
 export async function registerSettings(): Promise<void> {
