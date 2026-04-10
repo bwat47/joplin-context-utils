@@ -4,13 +4,22 @@
 
 const FETCH_TIMEOUT_MS = 5000;
 const JIRA_ISSUE_KEY_REGEX = /\/(?:browse|issues)\/([A-Z][A-Z0-9]+-\d+)(?:\/|$)/i;
+const LINK_PREVIEW_API_URL = 'https://api.linkpreview.net/';
+
+export interface FetchLinkTitleOptions {
+    linkPreviewApiKey?: string;
+}
 
 /**
  * Sanitizes a title for use in markdown link text.
  * Removes square brackets and collapses line breaks which would break markdown link syntax.
  */
 export function sanitizeLinkTitle(title: string): string {
-    return title.replace(/[\r\n]+/g, ' ').replace(/\s{2,}/g, ' ').replace(/[\[\]]/g, '').trim();
+    return title
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/\s{2,}/g, ' ')
+        .replace(/[\[\]]/g, '')
+        .trim();
 }
 
 /**
@@ -97,6 +106,62 @@ export function extractDomain(url: string): string {
     }
 }
 
+async function fetchWithTimeout(input: string, init: RequestInit): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+    try {
+        return await fetch(input, {
+            ...init,
+            signal: controller.signal,
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+async function fetchTitleViaLinkPreview(url: string, apiKey: string): Promise<string | null> {
+    const response = await fetchWithTimeout(`${LINK_PREVIEW_API_URL}?q=${encodeURIComponent(url)}`, {
+        headers: {
+            'X-Linkpreview-Api-Key': apiKey,
+        },
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    const data = (await response.json()) as { title?: unknown } | null;
+    const rawTitle = typeof data?.title === 'string' ? data.title.trim() : '';
+
+    if (!rawTitle) {
+        return null;
+    }
+
+    return sanitizeLinkTitle(rawTitle);
+}
+
+async function fetchTitleDirectly(url: string): Promise<string | null> {
+    const response = await fetchWithTimeout(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        redirect: 'follow',
+    });
+
+    if (!response.ok) {
+        return null;
+    }
+
+    const html = await response.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const rawTitle = doc.querySelector('title')?.textContent?.trim();
+
+    if (!rawTitle) {
+        return null;
+    }
+
+    return sanitizeLinkTitle(rawTitle);
+}
+
 /**
  * Fetches the title of a web page.
  * Uses global fetch with timeout handling.
@@ -104,40 +169,35 @@ export function extractDomain(url: string): string {
  * @param url - The URL to fetch the title from
  * @returns Object with title (fetched or domain fallback) and whether it's a fallback
  */
-export async function fetchLinkTitle(url: string): Promise<{ title: string; isFallback: boolean }> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
+export async function fetchLinkTitle(
+    url: string,
+    options: FetchLinkTitleOptions = {}
+): Promise<{ title: string; isFallback: boolean }> {
     const jiraIssueKey = extractJiraIssueKey(url);
     if (jiraIssueKey) {
-        clearTimeout(timeoutId);
         return { title: jiraIssueKey, isFallback: false };
     }
 
-    try {
-        const response = await fetch(url, {
-            headers: { 'User-Agent': 'Mozilla/5.0' },
-            redirect: 'follow',
-            signal: controller.signal,
-        });
-
-        if (!response.ok) {
-            return { title: extractDomain(url), isFallback: true };
+    const linkPreviewApiKey = options.linkPreviewApiKey?.trim();
+    if (linkPreviewApiKey) {
+        try {
+            const linkPreviewTitle = await fetchTitleViaLinkPreview(url, linkPreviewApiKey);
+            if (linkPreviewTitle) {
+                return { title: linkPreviewTitle, isFallback: false };
+            }
+        } catch {
+            // Fall through to direct fetch if the provider request fails.
         }
-
-        const html = await response.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const rawTitle = doc.querySelector('title')?.textContent?.trim();
-
-        if (!rawTitle) {
-            return { title: extractDomain(url), isFallback: true };
-        }
-
-        return { title: sanitizeLinkTitle(rawTitle), isFallback: false };
-    } catch {
-        // Network error, timeout, or abort
-        return { title: extractDomain(url), isFallback: true };
-    } finally {
-        clearTimeout(timeoutId);
     }
+
+    try {
+        const directTitle = await fetchTitleDirectly(url);
+        if (directTitle) {
+            return { title: directTitle, isFallback: false };
+        }
+    } catch {
+        // Network error, timeout, malformed response, or abort
+    }
+
+    return { title: extractDomain(url), isFallback: true };
 }

@@ -95,8 +95,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
-- Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, label, description)
-- 12 boolean settings (all default `true`):
+- Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
+- 12 boolean settings (all default `true`) plus 1 secure string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -109,6 +109,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
     - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
+    - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -170,7 +171,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/utils/linkTitleUtils.ts**
 
 - Title fetching utilities:
-    - `fetchLinkTitle` - Fetches page title from URL with 10s timeout, returns `{ title, isFallback }`
+    - `fetchLinkTitle` - Preserves Jira special handling, optionally tries `linkpreview.net` first, falls back to direct page fetch, then domain fallback
     - `sanitizeLinkTitle` - Removes square brackets and normalizes line breaks in titles for safe markdown link text
     - `extractDomain` - Extracts domain from URL for fallback title
 
@@ -422,7 +423,7 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 
 ### Settings Best Practices
 
-- All settings default to `true`
+- Menu/toggle settings default to `true`; `linkPreviewApiKey` defaults to an empty string
 - **Use `settingsCache` for synchronous access** (avoids async overhead)
 - Cache is automatically updated via `joplin.settings.onChange`
 - Settings changes apply immediately (no restart needed)
