@@ -42,6 +42,10 @@ describe('linkTitleUtils', () => {
         it('escapes pipes used in markdown tables', () => {
             expect(escapeMarkdownLinkText('Docs | API')).toBe('Docs \\| API');
         });
+
+        it('escapes backslashes so literal backslashes survive markdown parsing', () => {
+            expect(escapeMarkdownLinkText('Path\\To\\Docs')).toBe('Path\\\\To\\\\Docs');
+        });
     });
 
     describe('extractDomain', () => {

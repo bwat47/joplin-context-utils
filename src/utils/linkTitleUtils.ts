@@ -26,7 +26,7 @@ export function sanitizeLinkTitle(title: string): string {
  * Escapes characters in markdown link text that would break surrounding syntax.
  */
 export function escapeMarkdownLinkText(title: string): string {
-    return title.replace(/\|/g, '\\|');
+    return title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
 function extractJiraIssueKey(url: string): string | null {
