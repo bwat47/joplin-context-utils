@@ -398,10 +398,6 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
     const links: LinkInfo[] = [];
     const tree = syntaxTree(view.state);
     const seenRanges = new Set<string>(); // Deduplicate by position
-    const markdownLinkRanges: Array<{ from: number; to: number }> = [];
-
-    const isInsideMarkdownLink = (nodeFrom: number, nodeTo: number): boolean =>
-        markdownLinkRanges.some((range) => nodeFrom >= range.from && nodeTo <= range.to);
 
     tree.iterate({
         from: from,
@@ -414,7 +410,6 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                 if (node.node.parent?.type.name === 'Image') {
                     return false;
                 }
-                markdownLinkRanges.push({ from: node.from, to: node.to });
                 const extracted = extractUrl(node.node, view);
                 if (extracted) {
                     const classified = classifyUrl(extracted.url);
@@ -447,9 +442,6 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                     return;
                 }
                 if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
-                    return;
-                }
-                if (isInsideMarkdownLink(node.from, node.to)) {
                     return;
                 }
                 const urlText = view.state.doc.sliceString(node.from, node.to);
