@@ -70,9 +70,31 @@ describe('contextDetection', () => {
         expect(linkSelection?.links[0].expectedText).toBe(doc);
     });
 
+    it('does not count a URL-shaped markdown link label as a second selection link', () => {
+        const doc = '[https://google.com](https://google.com)';
+        const view = createViewWithSelection(doc, 0, doc.length);
+        const contexts = detectContextAtPosition(view, 0);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection).toBeDefined();
+        expect(linkSelection?.links).toHaveLength(1);
+        expect(linkSelection?.links[0].url).toBe('https://google.com');
+        expect(linkSelection?.links[0].expectedText).toBe(doc);
+    });
+
     it('excludes reference-style links from selection', () => {
         const doc = '[Ref][r]\n\n[r]: https://joplinapp.org';
         const view = createViewWithSelection(doc, 0, '[Ref][r]'.length);
+        const contexts = detectContextAtPosition(view, 0);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection).toBeUndefined();
+    });
+
+    it('does not count a URL-shaped reference link label as a selection link', () => {
+        const doc = '[https://google.com][ref]\n\n[ref]: https://google.com';
+        const selectedText = '[https://google.com][ref]';
+        const view = createViewWithSelection(doc, 0, selectedText.length);
         const contexts = detectContextAtPosition(view, 0);
         const linkSelection = getLinkSelection(contexts);
 

@@ -30,14 +30,19 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
     let urlFrom = 0;
     let urlTo = 0;
     let linkTitleToken: string | undefined;
+    let isDestination = false;
 
-    // Traverse children to find URL and LinkTitle nodes
+    // Traverse children to find URL and LinkTitle nodes in the inline destination.
+    // With GFM enabled, URL-looking link labels can also be URL nodes, e.g.
+    // [https://example.com][ref]. Only URL nodes after "(" are destinations.
     do {
-        if (cursor.name === 'URL') {
+        if (cursor.name === 'LinkMark' && view.state.doc.sliceString(cursor.from, cursor.to) === '(') {
+            isDestination = true;
+        } else if (isDestination && cursor.name === 'URL') {
             url = view.state.doc.sliceString(cursor.from, cursor.to);
             urlFrom = cursor.from;
             urlTo = cursor.to;
-        } else if (cursor.name === 'LinkTitle') {
+        } else if (isDestination && cursor.name === 'LinkTitle') {
             // LinkTitle includes the quotes/parentheses; preserve verbatim
             linkTitleToken = view.state.doc.sliceString(cursor.from, cursor.to);
         }

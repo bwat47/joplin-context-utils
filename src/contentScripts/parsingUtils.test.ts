@@ -185,6 +185,23 @@ describe('parsingUtils', () => {
                     linkTitleToken: '(Docs Title)',
                 });
             });
+
+            it('should not extract URL-shaped reference link labels as inline URLs', () => {
+                const text = '[https://google.com][ref]\n\n[ref]: https://google.com';
+                const { state } = createView(text);
+                const tree = syntaxTree(state);
+                let extracted = null;
+
+                tree.iterate({
+                    enter: (node) => {
+                        if (node.name === 'Link') {
+                            extracted = extractUrl(node.node, { state } as any);
+                        }
+                    },
+                });
+
+                expect(extracted).toBeNull();
+            });
         });
 
         describe('extractReferenceLabel', () => {
