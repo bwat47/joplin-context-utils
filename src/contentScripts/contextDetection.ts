@@ -408,7 +408,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
             // Handle markdown links [text](url)
             if (type.name === 'Link') {
                 if (node.node.parent?.type.name === 'Image') {
-                    return;
+                    return false;
                 }
                 const extracted = extractUrl(node.node, view);
                 if (extracted) {
@@ -433,6 +433,7 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
                     }
                 }
                 // Skip reference links (no extracted URL)
+                return false;
             }
             // Handle bare URLs
             else if (type.name === 'URL' || type.name === 'Autolink') {
