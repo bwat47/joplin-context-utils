@@ -188,7 +188,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Detects the outermost block quote at the cursor
 - `getQuoteAtPosition(view, pos)` returns quote text with leading `>` markers removed from every quoted line
 - Nested quote markers are normalized away while preserving inner markdown source such as links, code, headings, lists, and fenced blocks
-- Leading alert markers matching `[!TEXT]` are removed from copied quote text
+- Leading alert markers matching `[!TEXT]` are removed from copied quote text; an inline title (e.g. `[!NOTE] Custom Title`) is preserved
 
 **src/utils/headingLinkFormatting.ts**
 

@@ -46,14 +46,25 @@ function trimBlankEdgeLines(lines: string[]): string[] {
     return lines.slice(from, to);
 }
 
-const ALERT_MARKER_PATTERN = /^\[![^\]]+\]$/;
+// Matches a leading alert marker (e.g. `[!NOTE]`) optionally followed by a
+// title (e.g. `[!NOTE] Custom Title`). Capture group 1 holds the title text.
+const ALERT_MARKER_PATTERN = /^\[![^\]]+\]\s*(.*)$/;
 
 function stripLeadingAlertMarker(lines: string[]): string[] {
-    if (lines.length === 0 || !ALERT_MARKER_PATTERN.test(lines[0].trim())) {
+    if (lines.length === 0) {
         return lines;
     }
 
-    return trimBlankEdgeLines(lines.slice(1));
+    const match = lines[0].trim().match(ALERT_MARKER_PATTERN);
+    if (!match) {
+        return lines;
+    }
+
+    const title = match[1].trim();
+    // Preserve any title text after the marker; otherwise drop the marker line.
+    const remaining = title ? [title, ...lines.slice(1)] : lines.slice(1);
+
+    return trimBlankEdgeLines(remaining);
 }
 
 function normalizeQuoteText(source: string): string {

@@ -77,6 +77,18 @@ describe('quoteExtraction', () => {
         expect(quoteAt(doc, 'Custom')?.text).toBe('Custom marker text');
     });
 
+    it('preserves the title when an alert marker has one', () => {
+        const doc = '> [!NOTE] Custom Title\n> Body of the note that follows the title.';
+
+        expect(quoteAt(doc, 'Body')?.text).toBe('Custom Title\nBody of the note that follows the title.');
+    });
+
+    it('keeps an alert title even when it is the only quote content', () => {
+        const doc = '> [!WARNING] Watch out here';
+
+        expect(quoteAt(doc, 'Watch')?.text).toBe('Watch out here');
+    });
+
     it('preserves GitHub alert-like text when it is not the leading line', () => {
         const doc = '> First line\n> [!NOTE]\n> Still part of the quote';
 
