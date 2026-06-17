@@ -280,4 +280,39 @@ describe('contextDetection', () => {
         expect(quoteContext).toBeDefined();
         expect(quoteContext?.quoteText).toBe('Visit [Joplin](https://joplinapp.org)');
     });
+
+    it('detects a checkbox on a task line inside a quote', () => {
+        const doc = '> - [ ] task in quote';
+        const pos = doc.indexOf('task');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const checkboxContext = getContext(contexts, 'checkbox');
+
+        expect(checkboxContext).toBeDefined();
+        expect(checkboxContext?.checked).toBe(false);
+        expect(checkboxContext?.lineText).toBe('> - [ ] task in quote');
+    });
+
+    it('detects a checked checkbox inside a nested quote', () => {
+        const doc = '> > - [x] done in nested quote';
+        const pos = doc.indexOf('done');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const checkboxContext = getContext(contexts, 'checkbox');
+
+        expect(checkboxContext).toBeDefined();
+        expect(checkboxContext?.checked).toBe(true);
+    });
+
+    it('detects task selection for task lines inside a quote', () => {
+        const doc = '> - [ ] first\n> - [x] second';
+        const view = createViewWithSelection(doc, 0, doc.length);
+        const contexts = detectContextAtPosition(view, 0);
+        const taskSelection = getContext(contexts, 'taskSelection');
+
+        expect(taskSelection).toBeDefined();
+        expect(taskSelection?.tasks).toHaveLength(2);
+        expect(taskSelection?.checkedCount).toBe(1);
+        expect(taskSelection?.uncheckedCount).toBe(1);
+    });
 });
