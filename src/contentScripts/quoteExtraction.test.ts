@@ -70,9 +70,7 @@ describe('quoteExtraction', () => {
     it('removes extended alert markers case-insensitively', () => {
         const doc = '> [!danger]\n> Critical warning about something that could cause serious harm.';
 
-        expect(quoteAt(doc, 'Critical')?.text).toBe(
-            'Critical warning about something that could cause serious harm.'
-        );
+        expect(quoteAt(doc, 'Critical')?.text).toBe('Critical warning about something that could cause serious harm.');
     });
 
     it('removes custom leading alert markers from copied text', () => {
