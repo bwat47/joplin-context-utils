@@ -35,6 +35,10 @@ describe('quoteExtraction', () => {
         expect(quoteAt('> [x](url) and `code`', 'code')?.text).toBe('[x](url) and `code`');
     });
 
+    it('includes lazy continuation lines without a quote marker', () => {
+        expect(quoteAt('> line one\nline two', 'line two')?.text).toBe('line one\nline two');
+    });
+
     it('normalizes nested quotes by removing all quote markers', () => {
         expect(quoteAt('> outer\n> > inner', 'inner')?.text).toBe('outer\ninner');
     });
