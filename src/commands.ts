@@ -9,6 +9,7 @@ import {
     FootnoteContext,
     LinkSelectionContext,
     HeadingContext,
+    QuoteContext,
 } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
@@ -223,6 +224,19 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
+        name: COMMAND_IDS.COPY_QUOTE,
+        label: 'Copy Quote',
+        execute: async (quoteContext: QuoteContext) => {
+            try {
+                await handleCopyQuote(quoteContext);
+            } catch (error) {
+                logger.error('Failed to copy quote:', error);
+                await showToast('Failed to copy quote', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
         name: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
         label: 'Open All Links',
         execute: async (linkSelectionContext: LinkSelectionContext) => {
@@ -313,6 +327,16 @@ async function handleCopyHeadingLinkExternal(headingContext: HeadingContext): Pr
     await joplin.clipboard.writeText(link);
     await showToast('Heading link copied to clipboard', ToastType.Success);
     logger.debug('Copied external heading link:', link);
+}
+
+/**
+ * "Copy Quote" handler
+ * Copies block quote content without leading quote markers.
+ */
+async function handleCopyQuote(quoteContext: QuoteContext): Promise<void> {
+    await joplin.clipboard.writeText(quoteContext.quoteText);
+    await showToast('Quote copied to clipboard', ToastType.Success);
+    logger.debug('Copied quote to clipboard');
 }
 
 /**

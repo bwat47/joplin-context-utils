@@ -85,7 +85,8 @@ export function registerContextMenuFilter(): void {
                 settingsCache.showGoToHeading ||
                 settingsCache.showFetchLinkTitle ||
                 settingsCache.showOpenAllLinksInSelection ||
-                settingsCache.showCopyHeadingLink;
+                settingsCache.showCopyHeadingLink ||
+                settingsCache.showCopyQuote;
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
@@ -236,6 +237,14 @@ export function registerContextMenuFilter(): void {
                             commandName: COMMAND_IDS.COPY_HEADING_LINK_EXTERNAL,
                             commandArgs: [context],
                             label: 'Copy Heading Link (external)',
+                        });
+                    }
+                } else if (context.contextType === 'quote') {
+                    if (settingsCache.showCopyQuote) {
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.COPY_QUOTE,
+                            commandArgs: [context],
+                            label: 'Copy Quote',
                         });
                     }
                 } else if (context.contextType === 'linkSelection') {
