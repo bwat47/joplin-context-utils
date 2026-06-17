@@ -24,6 +24,10 @@ Context Utils is a Joplin plugin that adds context menu options in the markdown 
 
 **Copy Code** - Copy code from inline code or code block to clipboard.
 
+**Copy Heading Link** - Display options to copy a markdown link to the heading at the cursor (internal anchor or external note link)
+
+**Copy Quote** - Display option to copy block quote contents without quote markers
+
 **Check/Uncheck Task** / **Check/Uncheck All Tasks** - Toggle task on selected line or Toggle all tasks in selection.
 
 **Open Note as Pinned Tab** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
