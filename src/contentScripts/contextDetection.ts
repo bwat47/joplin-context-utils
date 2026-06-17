@@ -28,6 +28,14 @@ import {
 } from './parsingUtils';
 
 /**
+ * Matches a task list checkbox at the start of a line.
+ * Allows optional leading blockquote markers (e.g. `> - [ ] Task`, including
+ * nested `> > `) and indentation before the list marker.
+ * Group 1: the full prefix up to the checkbox. Group 2: the checkbox state char.
+ */
+const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
+
+/**
  * Detects context at cursor position using CodeMirror 6 syntax tree
  * Can detect links, images, inline code, code blocks, or task selections
  * Returns an array of contexts to support multiple contexts at the same position
@@ -369,7 +377,8 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
     const lineText = line.text;
 
     // Match task list checkbox: "  - [ ] Task" or "    * [x] Done"
-    const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+    // (also matches checkboxes inside block quotes, e.g. "> - [ ] Task")
+    const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
     if (!checkboxMatch) {
         return null;
     }
@@ -415,8 +424,8 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
                 if (lastTask && doc.lineAt(lastTask.from).number === line.number) return;
 
                 const lineText = line.text;
-                // Strict Regex: Matches "- [ ] " or "* [x] "
-                const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+                // Strict Regex: Matches "- [ ] " or "* [x] " (incl. inside block quotes)
+                const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
 
                 if (checkboxMatch) {
                     const checked = checkboxMatch[2] === 'x';

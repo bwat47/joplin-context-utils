@@ -367,15 +367,20 @@ tree.iterate({
     },
 });
 
+// Shared pattern used by single-line and selection detection.
+// Matches: "  - [ ] Task", "    * [x] Done", "> - [ ] Quoted",
+// and nested block quotes like "> > - [x] Done".
+const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
+
 // Step 2: Only if in task list, match checkbox pattern
-// Matches: "  - [ ] Task" or "    * [x] Done"
-const checkboxMatch = lineText.match(/^(\s*[-*+]\s+)\[([x ])\]/);
+const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
 ```
 
 Features:
 
 - Supports list markers: `-`, `*`, `+`
 - Supports indentation (nested task lists)
+- Supports task lists inside block quotes, including nested quote markers (`> - [ ] Task`, `> > - [x] Task`)
 - Checkbox states: lowercase `x` (checked) or space (unchecked)
 - Detects anywhere on the task line (not just on the checkbox)
 - Prevents false positives by only checking `Task` nodes (not plain text in code blocks)
