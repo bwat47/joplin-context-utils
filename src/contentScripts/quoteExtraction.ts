@@ -46,9 +46,19 @@ function trimBlankEdgeLines(lines: string[]): string[] {
     return lines.slice(from, to);
 }
 
+const ALERT_MARKER_PATTERN = /^\[![^\]]+\]$/;
+
+function stripLeadingAlertMarker(lines: string[]): string[] {
+    if (lines.length === 0 || !ALERT_MARKER_PATTERN.test(lines[0].trim())) {
+        return lines;
+    }
+
+    return trimBlankEdgeLines(lines.slice(1));
+}
+
 function normalizeQuoteText(source: string): string {
     const lines = source.split(/\r?\n/).map(stripQuoteMarkers);
-    return trimBlankEdgeLines(lines).join('\n');
+    return stripLeadingAlertMarker(trimBlankEdgeLines(lines)).join('\n');
 }
 
 export function getQuoteAtPosition(view: EditorView, pos: number): ExtractedQuote | null {
