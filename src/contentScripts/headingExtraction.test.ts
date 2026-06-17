@@ -60,9 +60,22 @@ describe('headingExtraction', () => {
         expect(result).toEqual({ text: 'Use the render method', anchor: 'use-the-render-method' });
     });
 
-    it('uses link label text and ignores the URL', () => {
+    it('uses link label text and ignores the markdown-link URL destination', () => {
         const result = headingAt('# See [the docs](https://example.com)', 'docs');
         expect(result).toEqual({ text: 'See the docs', anchor: 'see-the-docs' });
+    });
+
+    it('keeps bare URLs / emails as visible heading text', () => {
+        const result = headingAt('## 6. Resources `test` mailto:bwat47@gmail.com', 'Resources');
+        expect(result).toEqual({
+            text: '6. Resources test mailto:bwat47@gmail.com',
+            anchor: '6-resources-test-mailtobwat47gmailcom',
+        });
+    });
+
+    it('keeps autolink target text (without angle brackets)', () => {
+        const result = headingAt('# Visit <https://example.com>', 'Visit');
+        expect(result).toEqual({ text: 'Visit https://example.com', anchor: 'visit-httpsexamplecom' });
     });
 
     it('strips emphasis marks', () => {

@@ -66,13 +66,19 @@ function extractInlineText(node: SyntaxNode, doc: string): string {
             out += doc.slice(lastPos, from);
         }
 
+        // A URL node is a hidden link destination only inside a Link/Image
+        // (e.g. [text](url) / ![alt](url)). A bare URL, email, or autolink target
+        // is visible heading text, so it must be kept (matches Joplin's heading IDs).
+        const parentName = cursor.node.parent?.name;
+        const isLinkDestination = name === 'URL' && (parentName === 'Link' || parentName === 'Image');
+
         if (
             name.endsWith('Mark') ||
             name === 'HeaderMark' ||
             name === 'Image' ||
-            name === 'URL' ||
             name === 'LinkLabel' ||
-            name === 'LinkTitle'
+            name === 'LinkTitle' ||
+            isLinkDestination
         ) {
             lastPos = to;
             continue;
@@ -89,7 +95,7 @@ function extractInlineText(node: SyntaxNode, doc: string): string {
             continue;
         }
 
-        if (name === 'Text' || name === 'CodeText') {
+        if (name === 'Text' || name === 'CodeText' || name === 'URL') {
             out += doc.slice(from, to);
             lastPos = to;
             continue;
