@@ -8,6 +8,7 @@ import {
     LinkType,
     FootnoteContext,
     LinkSelectionContext,
+    HeadingContext,
 } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
@@ -19,6 +20,7 @@ import {
 } from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
 import { fetchLinkTitle, buildTitleAttributeToken, escapeMarkdownLinkText } from './utils/linkTitleUtils';
+import { formatInternalHeadingLink, formatExternalHeadingLink } from './utils/headingLinkFormatting';
 import { settingsCache } from './settings';
 
 /**
@@ -195,6 +197,32 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
+        name: COMMAND_IDS.COPY_HEADING_LINK_INTERNAL,
+        label: 'Copy Heading Link (internal)',
+        execute: async (headingContext: HeadingContext) => {
+            try {
+                await handleCopyHeadingLinkInternal(headingContext);
+            } catch (error) {
+                logger.error('Failed to copy heading link:', error);
+                await showToast('Failed to copy heading link', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.COPY_HEADING_LINK_EXTERNAL,
+        label: 'Copy Heading Link (external)',
+        execute: async (headingContext: HeadingContext) => {
+            try {
+                await handleCopyHeadingLinkExternal(headingContext);
+            } catch (error) {
+                logger.error('Failed to copy heading link:', error);
+                await showToast('Failed to copy heading link', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
         name: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
         label: 'Open All Links',
         execute: async (linkSelectionContext: LinkSelectionContext) => {
@@ -253,6 +281,38 @@ async function handleCopyCode(codeContext: CodeContext): Promise<void> {
     await joplin.clipboard.writeText(codeContext.code);
     await showToast('Code copied to clipboard', ToastType.Success);
     logger.debug('Copied code to clipboard');
+}
+
+/**
+ * "Copy Heading Link (internal)" handler
+ * Copies a markdown link to the heading's in-note anchor: [Heading](#anchor)
+ */
+async function handleCopyHeadingLinkInternal(headingContext: HeadingContext): Promise<void> {
+    const link = formatInternalHeadingLink(headingContext.headingText, headingContext.headingAnchor);
+    await joplin.clipboard.writeText(link);
+    await showToast('Heading link copied to clipboard', ToastType.Success);
+    logger.debug('Copied internal heading link:', link);
+}
+
+/**
+ * "Copy Heading Link (external)" handler
+ * Copies a markdown link to the heading in the current note: [Heading @ Note](:/noteId#anchor)
+ */
+async function handleCopyHeadingLinkExternal(headingContext: HeadingContext): Promise<void> {
+    const note = await joplin.workspace.selectedNote();
+    if (!note) {
+        throw new Error('No note is currently selected');
+    }
+
+    const link = formatExternalHeadingLink(
+        headingContext.headingText,
+        note.title,
+        note.id,
+        headingContext.headingAnchor
+    );
+    await joplin.clipboard.writeText(link);
+    await showToast('Heading link copied to clipboard', ToastType.Success);
+    logger.debug('Copied external heading link:', link);
 }
 
 /**

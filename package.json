@@ -47,6 +47,9 @@
         "webpack": "^5.102.1",
         "webpack-cli": "^6.0.1"
     },
+    "dependencies": {
+        "@joplin/fork-uslug": "^2.0.6"
+    },
     "overrides": {
         "js-yaml": "^4.2.0"
     }

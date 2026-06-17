@@ -10,8 +10,10 @@ import {
     FootnoteContext,
     LinkSelectionContext,
     LinkInfo,
+    HeadingContext,
     LinkType,
 } from '../types';
+import { getHeadingAtPosition } from './headingExtraction';
 import {
     parseInlineCode,
     parseCodeBlock,
@@ -74,7 +76,38 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
         contexts.push(checkboxContext);
     }
 
+    // Always check if we're on a heading (secondary context)
+    // This allows showing heading link options alongside e.g. inline code in a heading
+    const headingContext = detectHeadingContext(view, pos);
+    if (headingContext) {
+        contexts.push(headingContext);
+    }
+
     return contexts;
+}
+
+/**
+ * Detects heading context at the cursor position.
+ * Returns a HeadingContext with the heading text and unique anchor if the
+ * cursor is on a heading, null otherwise.
+ *
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position
+ */
+function detectHeadingContext(view: EditorView, pos: number): HeadingContext | null {
+    const heading = getHeadingAtPosition(view, pos);
+    if (!heading) {
+        return null;
+    }
+
+    const line = view.state.doc.lineAt(pos);
+    return {
+        contextType: 'heading',
+        headingText: heading.text,
+        headingAnchor: heading.anchor,
+        from: line.from,
+        to: line.to,
+    };
 }
 
 /**
