@@ -84,7 +84,8 @@ export function registerContextMenuFilter(): void {
                 settingsCache.showGoToFootnote ||
                 settingsCache.showGoToHeading ||
                 settingsCache.showFetchLinkTitle ||
-                settingsCache.showOpenAllLinksInSelection;
+                settingsCache.showOpenAllLinksInSelection ||
+                settingsCache.showCopyHeadingLink;
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
@@ -222,6 +223,19 @@ export function registerContextMenuFilter(): void {
                             commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
                             commandArgs: [context],
                             label: 'Go to Footnote',
+                        });
+                    }
+                } else if (context.contextType === 'heading') {
+                    if (settingsCache.showCopyHeadingLink) {
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.COPY_HEADING_LINK_INTERNAL,
+                            commandArgs: [context],
+                            label: 'Copy Heading Link (internal)',
+                        });
+                        contextSensitiveItems.push({
+                            commandName: COMMAND_IDS.COPY_HEADING_LINK_EXTERNAL,
+                            commandArgs: [context],
+                            label: 'Copy Heading Link (external)',
                         });
                     }
                 } else if (context.contextType === 'linkSelection') {

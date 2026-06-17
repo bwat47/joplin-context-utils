@@ -120,6 +120,24 @@ export interface FootnoteContext {
 }
 
 /**
+ * Represents a detected markdown heading at the cursor
+ */
+export interface HeadingContext {
+    /** Discriminator for union type */
+    contextType: 'heading';
+
+    /** The normalized heading text (formatting marks stripped) */
+    headingText: string;
+
+    /** The unique anchor/slug for the heading (matches Joplin's rendered heading ID) */
+    headingAnchor: string;
+
+    /** Position information for the heading node */
+    from: number;
+    to: number;
+}
+
+/**
  * Represents information about a single link in a selection (for batch operations)
  */
 export interface LinkInfo {
@@ -179,7 +197,8 @@ export type EditorContext =
     | CheckboxContext
     | TaskSelectionContext
     | FootnoteContext
-    | LinkSelectionContext;
+    | LinkSelectionContext
+    | HeadingContext;
 
 /**
  * Command IDs - must be globally unique
@@ -199,6 +218,8 @@ export const COMMAND_IDS = {
     FETCH_LINK_TITLE: 'contextUtils.fetchLinkTitle',
     FETCH_ALL_LINK_TITLES: 'contextUtils.fetchAllLinkTitles',
     OPEN_ALL_LINKS_IN_SELECTION: 'contextUtils.openAllLinksInSelection',
+    COPY_HEADING_LINK_INTERNAL: 'contextUtils.copyHeadingLinkInternal',
+    COPY_HEADING_LINK_EXTERNAL: 'contextUtils.copyHeadingLinkExternal',
 } as const;
 
 /**

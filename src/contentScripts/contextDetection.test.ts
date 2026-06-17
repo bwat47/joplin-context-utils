@@ -201,4 +201,41 @@ describe('contextDetection', () => {
         expect(linkContext?.type).toBe('external-url');
         expect(linkContext?.isImage).toBe(true);
     });
+
+    it('detects heading context on a heading line', () => {
+        const doc = '# My Heading';
+        const pos = doc.indexOf('Heading');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const headingContext = getContext(contexts, 'heading');
+
+        expect(headingContext).toBeDefined();
+        expect(headingContext?.headingText).toBe('My Heading');
+        expect(headingContext?.headingAnchor).toBe('my-heading');
+        expect(contexts).toHaveLength(1);
+    });
+
+    it('detects both code AND heading for inline code inside a heading', () => {
+        const doc = '# Use `render` here';
+        const pos = doc.indexOf('render');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+
+        const codeContext = getContext(contexts, 'code');
+        const headingContext = getContext(contexts, 'heading');
+
+        expect(codeContext).toBeDefined();
+        expect(codeContext?.code).toBe('render');
+        expect(headingContext).toBeDefined();
+        expect(headingContext?.headingAnchor).toBe('use-render-here');
+    });
+
+    it('does not detect a heading context on a non-heading line', () => {
+        const doc = '# Heading\n\nA plain paragraph';
+        const pos = doc.indexOf('plain');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+
+        expect(getContext(contexts, 'heading')).toBeUndefined();
+    });
 });

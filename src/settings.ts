@@ -98,6 +98,14 @@ const SETTINGS_CONFIG = {
         label: 'Show "Fetch Link Title" in context menu',
         description: 'Display option to fetch and insert the title of HTTP(S) links',
     },
+    showCopyHeadingLink: {
+        key: `${SECTION_ID}.showCopyHeadingLink`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Copy Heading Link" in context menu',
+        description:
+            'Display options to copy a markdown link to the heading at the cursor (internal anchor or external note link)',
+    },
     showOpenAllLinksInSelection: {
         key: `${SECTION_ID}.showOpenAllLinksInSelection`,
         defaultValue: true,
