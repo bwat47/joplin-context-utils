@@ -106,6 +106,13 @@ const SETTINGS_CONFIG = {
         description:
             'Display options to copy a markdown link to the heading at the cursor (internal anchor or external note link)',
     },
+    showCopyQuote: {
+        key: `${SECTION_ID}.showCopyQuote`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Copy Quote" in context menu',
+        description: 'Display option to copy block quote contents without quote markers',
+    },
     showOpenAllLinksInSelection: {
         key: `${SECTION_ID}.showOpenAllLinksInSelection`,
         defaultValue: true,

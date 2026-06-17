@@ -138,6 +138,21 @@ export interface HeadingContext {
 }
 
 /**
+ * Represents a detected markdown block quote at the cursor
+ */
+export interface QuoteContext {
+    /** Discriminator for union type */
+    contextType: 'quote';
+
+    /** The quote content with quote markers removed */
+    quoteText: string;
+
+    /** Position information for the block quote node */
+    from: number;
+    to: number;
+}
+
+/**
  * Represents information about a single link in a selection (for batch operations)
  */
 export interface LinkInfo {
@@ -198,7 +213,8 @@ export type EditorContext =
     | TaskSelectionContext
     | FootnoteContext
     | LinkSelectionContext
-    | HeadingContext;
+    | HeadingContext
+    | QuoteContext;
 
 /**
  * Command IDs - must be globally unique
@@ -220,6 +236,7 @@ export const COMMAND_IDS = {
     OPEN_ALL_LINKS_IN_SELECTION: 'contextUtils.openAllLinksInSelection',
     COPY_HEADING_LINK_INTERNAL: 'contextUtils.copyHeadingLinkInternal',
     COPY_HEADING_LINK_EXTERNAL: 'contextUtils.copyHeadingLinkExternal',
+    COPY_QUOTE: 'contextUtils.copyQuote',
 } as const;
 
 /**

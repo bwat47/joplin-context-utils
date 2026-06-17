@@ -11,9 +11,11 @@ import {
     LinkSelectionContext,
     LinkInfo,
     HeadingContext,
+    QuoteContext,
     LinkType,
 } from '../types';
 import { getHeadingAtPosition } from './headingExtraction';
+import { getQuoteAtPosition } from './quoteExtraction';
 import {
     parseInlineCode,
     parseCodeBlock,
@@ -83,6 +85,13 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
         contexts.push(headingContext);
     }
 
+    // Always check if we're in a block quote (secondary context)
+    // This allows showing quote actions alongside e.g. inline code or links in a quote
+    const quoteContext = detectQuoteContext(view, pos);
+    if (quoteContext) {
+        contexts.push(quoteContext);
+    }
+
     return contexts;
 }
 
@@ -107,6 +116,28 @@ function detectHeadingContext(view: EditorView, pos: number): HeadingContext | n
         headingAnchor: heading.anchor,
         from: line.from,
         to: line.to,
+    };
+}
+
+/**
+ * Detects block quote context at the cursor position.
+ * Returns a QuoteContext with quote markers removed if the cursor is inside a
+ * block quote, null otherwise.
+ *
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position
+ */
+function detectQuoteContext(view: EditorView, pos: number): QuoteContext | null {
+    const quote = getQuoteAtPosition(view, pos);
+    if (!quote) {
+        return null;
+    }
+
+    return {
+        contextType: 'quote',
+        quoteText: quote.text,
+        from: quote.from,
+        to: quote.to,
     };
 }
 

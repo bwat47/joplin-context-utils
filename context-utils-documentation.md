@@ -23,6 +23,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Link selections (multiple selected HTTP(S) links for batch open/title operations)
 - Footnotes (`[^1]` reference)
 - Headings (`# Heading` / Setext) for copying internal/external heading links
+- Block quotes (`> Quote`) for copying quote contents
 
 ## Architecture
 
@@ -86,7 +87,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/types.ts**
 
 - Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext | LinkSelectionContext | HeadingContext`
+- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext`
 - `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
 - `TaskInfo` interface for individual tasks in selections
 - `LinkInfo` interface for individual links in selections
@@ -97,7 +98,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 13 boolean settings (all default `true`) plus 1 secure string setting:
+- 14 boolean settings (all default `true`) plus 1 secure string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -110,6 +111,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
     - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
     - `showCopyHeadingLink` - Show "Copy Heading Link" (internal/external) in context menu
+    - `showCopyQuote` - Show "Copy Quote" in context menu
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
@@ -141,6 +143,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Open All Links (batch opens all HTTP(S) links in selection in order)
     - Copy Heading Link (internal) (copies `[Heading](#anchor)` to clipboard)
     - Copy Heading Link (external) (copies `[Heading @ Note](:/noteId#anchor)`; resolves note via `joplin.workspace.selectedNote()`)
+    - Copy Quote (copies block quote contents without quote markers)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**
@@ -157,9 +160,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Multi-context detection logic (returns array of contexts)
 - Delegates parsing to `parsingUtils.ts`
-- Detection priority: Code > Links > Images > Footnotes (checkboxes and headings run alongside as secondary contexts)
+- Detection priority: Code > Links > Images > Footnotes (checkboxes, headings, and block quotes run alongside as secondary contexts)
 - Uses text scanning for footnotes (syntax tree doesn't detect them)
 - Heading detection delegated to `headingExtraction.ts` (also a secondary context, so it coexists with code/links in a heading)
+- Block quote detection delegated to `quoteExtraction.ts` (also a secondary context, so it coexists with code/links/headings inside quotes)
 
 **src/contentScripts/parsingUtils.ts**
 
@@ -178,6 +182,12 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Detects the heading at the cursor and generates its anchor/slug
 - `getHeadingAtPosition(view, pos)` walks the whole syntax tree to build the ordered anchor list (so duplicate slugs get `-2`, `-3`, ... suffixes) and returns the heading under the cursor
 - Slugify (`@joplin/fork-uslug`), duplicate handling, and inline-text extraction are kept in sync with the [joplin-heading-navigator](https://github.com/bwat47/joplin-heading-navigator/blob/main/src/headingExtractor.ts) plugin so anchors match Joplin's rendered heading IDs
+
+**src/contentScripts/quoteExtraction.ts**
+
+- Detects the outermost block quote at the cursor
+- `getQuoteAtPosition(view, pos)` returns quote text with leading `>` markers removed from every quoted line
+- Nested quote markers are normalized away while preserving inner markdown source such as links, code, headings, lists, and fenced blocks
 
 **src/utils/headingLinkFormatting.ts**
 
@@ -212,7 +222,15 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 ### 1. Discriminated Unions
 
 ```typescript
-type EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext;
+type EditorContext =
+    | LinkContext
+    | CodeContext
+    | CheckboxContext
+    | TaskSelectionContext
+    | FootnoteContext
+    | LinkSelectionContext
+    | HeadingContext
+    | QuoteContext;
 
 interface LinkContext {
     contextType: 'link'; // Discriminator
@@ -257,6 +275,21 @@ interface FootnoteContext {
 interface LinkSelectionContext {
     contextType: 'linkSelection'; // Discriminator
     links: LinkInfo[];
+    from: number;
+    to: number;
+}
+
+interface HeadingContext {
+    contextType: 'heading'; // Discriminator
+    headingText: string;
+    headingAnchor: string;
+    from: number;
+    to: number;
+}
+
+interface QuoteContext {
+    contextType: 'quote'; // Discriminator
+    quoteText: string;
     from: number;
     to: number;
 }

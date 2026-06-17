@@ -238,4 +238,46 @@ describe('contextDetection', () => {
 
         expect(getContext(contexts, 'heading')).toBeUndefined();
     });
+
+    it('detects quote context on a quote line', () => {
+        const doc = '> Quoted text';
+        const pos = doc.indexOf('Quoted');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const quoteContext = getContext(contexts, 'quote');
+
+        expect(quoteContext).toBeDefined();
+        expect(quoteContext?.quoteText).toBe('Quoted text');
+        expect(contexts).toHaveLength(1);
+    });
+
+    it('detects both code AND quote for inline code inside a quote', () => {
+        const doc = '> Use `render` here';
+        const pos = doc.indexOf('render');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+
+        const codeContext = getContext(contexts, 'code');
+        const quoteContext = getContext(contexts, 'quote');
+
+        expect(codeContext).toBeDefined();
+        expect(codeContext?.code).toBe('render');
+        expect(quoteContext).toBeDefined();
+        expect(quoteContext?.quoteText).toBe('Use `render` here');
+    });
+
+    it('detects both link AND quote for a link inside a quote', () => {
+        const doc = '> Visit [Joplin](https://joplinapp.org)';
+        const pos = doc.indexOf('Joplin');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+
+        const linkContext = getContext(contexts, 'link');
+        const quoteContext = getContext(contexts, 'quote');
+
+        expect(linkContext).toBeDefined();
+        expect(linkContext?.url).toBe('https://joplinapp.org');
+        expect(quoteContext).toBeDefined();
+        expect(quoteContext?.quoteText).toBe('Visit [Joplin](https://joplinapp.org)');
+    });
 });
