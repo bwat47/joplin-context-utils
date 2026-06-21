@@ -1,4 +1,5 @@
 import { EditorView } from '@codemirror/view';
+import { EditorSelection } from '@codemirror/state';
 import type { CodeMirrorControl } from 'api/types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
@@ -36,6 +37,41 @@ function validateRange(from: number, to: number, context: string): boolean {
         return false;
     }
     return true;
+}
+
+/**
+ * Maps a document position through a set of replacements so it lands in the
+ * equivalent spot after the changes are applied.
+ *
+ * Unlike CodeMirror's default change mapping (which collapses any position that
+ * falls inside a replaced range to the range boundary), this preserves the
+ * position's relative offset within its replaced range. That keeps the caret /
+ * selection in place when a whole line is rewritten in-place (e.g. toggling a
+ * checkbox marker while the user has a partial selection on that line).
+ *
+ * @param pos - Position in the original document
+ * @param sorted - Replacements sorted ascending by `from` (must not overlap)
+ */
+function mapPositionThroughReplacements(
+    pos: number,
+    sorted: Array<{ from: number; to: number; text: string }>
+): number {
+    let delta = 0;
+    for (const r of sorted) {
+        if (pos < r.from) {
+            // Position precedes this (and every subsequent) replacement.
+            break;
+        }
+        if (pos <= r.to) {
+            // Position is inside this replaced range: keep its relative offset,
+            // clamped to the new text length.
+            const offset = Math.min(pos - r.from, r.text.length);
+            return r.from + delta + offset;
+        }
+        // Position is past this replacement: accumulate its net length change.
+        delta += r.text.length - (r.to - r.from);
+    }
+    return pos + delta;
 }
 
 /**
@@ -178,10 +214,25 @@ export default () => {
                         insert: r.text,
                     }));
 
+                    // Remap the existing selection through the replacements so a
+                    // partial selection / caret on a rewritten line is preserved
+                    // instead of being collapsed to the line boundary.
+                    const sorted = [...replacements].sort((a, b) => a.from - b.from);
+                    const previousSelection = view.state.selection;
+                    const mappedSelection = EditorSelection.create(
+                        previousSelection.ranges.map((range) =>
+                            EditorSelection.range(
+                                mapPositionThroughReplacements(range.anchor, sorted),
+                                mapPositionThroughReplacements(range.head, sorted)
+                            )
+                        ),
+                        previousSelection.mainIndex
+                    );
+
                     try {
                         // ATOMICITY: All changes applied in one transaction
                         // CodeMirror automatically handles the offset shifting
-                        view.dispatch({ changes });
+                        view.dispatch({ changes, selection: mappedSelection });
                         logger.debug(`Batch replaced ${changes.length} ranges`);
                         return true;
                     } catch (error) {
