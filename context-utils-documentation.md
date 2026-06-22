@@ -24,6 +24,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Footnotes (`[^1]` reference)
 - Headings (`# Heading` / Setext) for copying internal/external heading links
 - Block quotes (`> Quote`) for copying quote contents
+- Contextual Copy command for copying the innermost copy-capable context at the cursor
 
 ## Architecture
 
@@ -98,7 +99,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 14 boolean settings (all default `true`) plus 1 secure string setting:
+- 14 boolean settings (all default `true`) plus 1 enum string setting and 1 secure string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -112,6 +113,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
     - `showCopyHeadingLink` - Show "Copy Heading Link" (internal/external) in context menu
     - `showCopyQuote` - Show "Copy Quote" in context menu
+    - `defaultHeadingCopyMode` - Heading link format used by Contextual Copy (`internal` or `external`; defaults to `internal`)
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
@@ -120,6 +122,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
 - Registers `Toggle Task` in the application Edit menu with `Ctrl+Shift+Space`
+- Registers `Contextual Copy` in the application Edit menu with `CmdOrCtrl+Shift+X`
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + task)
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
@@ -143,6 +146,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Copy Heading Link (internal) (copies `[Heading](#anchor)` to clipboard)
     - Copy Heading Link (external) (copies `[Heading @ Note](:/noteId#anchor)`; resolves note via `joplin.workspace.selectedNote()`)
     - Copy Quote (copies block quote contents without quote markers)
+    - Contextual Copy (pulls contexts at cursor and copies the first copy-capable target by priority: code → external/email link → heading → quote)
 - All commands show toast notifications (if enabled)
 
 **src/contentScripts/contentScript.ts**
