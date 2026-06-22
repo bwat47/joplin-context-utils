@@ -8,7 +8,9 @@ import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
+const CONTEXTUAL_COPY_EDIT_MENU_ITEM_ID = 'contextUtilsContextualCopyEditMenuItem';
 const TOGGLE_TASK_ACCELERATOR = 'CmdOrCtrl+Shift+Space';
+const CONTEXTUAL_COPY_ACCELERATOR = 'CmdOrCtrl+Shift+X';
 
 /**
  * Determines the type of a Joplin ID (note, resource, or invalid)
@@ -281,6 +283,15 @@ export function registerContextMenuFilter(): void {
 }
 
 export async function registerApplicationMenuItems(): Promise<void> {
+    await joplin.views.menuItems.create(
+        CONTEXTUAL_COPY_EDIT_MENU_ITEM_ID,
+        COMMAND_IDS.CONTEXTUAL_COPY,
+        MenuItemLocation.Edit,
+        {
+            accelerator: CONTEXTUAL_COPY_ACCELERATOR,
+        }
+    );
+
     await joplin.views.menuItems.create(
         TOGGLE_TASK_EDIT_MENU_ITEM_ID,
         COMMAND_IDS.TOGGLE_CHECKBOX,

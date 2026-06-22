@@ -202,6 +202,7 @@ export const COMMAND_IDS = {
     ADD_LINK_TO_NOTE: 'contextUtils.addLinkToNote',
     COPY_PATH: 'contextUtils.copyPath',
     COPY_CODE: 'contextUtils.copyCode',
+    CONTEXTUAL_COPY: 'contextUtils.contextualCopy',
     TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
     GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
     GO_TO_HEADING: 'contextUtils.goToHeading',

@@ -25,6 +25,7 @@ import { getTaskTogglePlan } from './utils/taskToggleUtils';
 import { fetchLinkTitle, buildTitleAttributeToken, escapeMarkdownLinkText } from './utils/linkTitleUtils';
 import { formatInternalHeadingLink, formatExternalHeadingLink } from './utils/headingLinkFormatting';
 import { settingsCache } from './settings';
+import { resolveContextualCopyTarget } from './utils/contextualCopyResolver';
 
 /**
  * Registers all context menu commands
@@ -91,6 +92,19 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to copy code:', error);
                 await showToast('Failed to copy code', ToastType.Error);
+            }
+        },
+    });
+
+    await joplin.commands.register({
+        name: COMMAND_IDS.CONTEXTUAL_COPY,
+        label: 'Contextual Copy',
+        execute: async () => {
+            try {
+                await handleContextualCopy();
+            } catch (error) {
+                logger.error('Failed to contextual copy:', error);
+                await showToast('Failed to contextual copy', ToastType.Error);
             }
         },
     });
@@ -315,6 +329,35 @@ async function handleCopyQuote(quoteContext: QuoteContext): Promise<void> {
     logger.debug('Copied quote to clipboard');
 }
 
+async function handleContextualCopy(): Promise<void> {
+    const contexts = await getCurrentEditorContexts();
+    const target = resolveContextualCopyTarget(contexts);
+
+    if (!target) {
+        await showToast('No contextual copy target found', ToastType.Info);
+        return;
+    }
+
+    switch (target.kind) {
+        case 'code':
+            await handleCopyCode(target.context);
+            break;
+        case 'link':
+            await handleCopyPath(target.context);
+            break;
+        case 'heading':
+            if (settingsCache.defaultHeadingCopyMode === 'external') {
+                await handleCopyHeadingLinkExternal(target.context);
+            } else {
+                await handleCopyHeadingLinkInternal(target.context);
+            }
+            break;
+        case 'quote':
+            await handleCopyQuote(target.context);
+            break;
+    }
+}
+
 /**
  * "Toggle Tasks" handler
  * Checks unchecked tasks, or unchecks checked tasks when all affected tasks are checked.
@@ -357,15 +400,19 @@ async function handleToggleTasks(taskContext?: TaskContext): Promise<void> {
 }
 
 async function getCurrentTaskContext(): Promise<TaskContext | null> {
+    const contexts = await getCurrentEditorContexts();
+    return contexts.find((context): context is TaskContext => context.contextType === 'task') ?? null;
+}
+
+async function getCurrentEditorContexts(): Promise<EditorContext[]> {
     try {
         const contextsResult = await joplin.commands.execute('editor.execCommand', {
             name: GET_CONTEXT_AT_CURSOR_COMMAND,
         });
-        const contexts = (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
-        return contexts.find((context): context is TaskContext => context.contextType === 'task') ?? null;
+        return (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
     } catch (error) {
-        logger.debug('Failed to get task context at cursor:', error);
-        return null;
+        logger.debug('Failed to get contexts at cursor:', error);
+        return [];
     }
 }
 

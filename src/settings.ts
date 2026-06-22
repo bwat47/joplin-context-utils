@@ -18,6 +18,8 @@ type SettingConfigEntry<T extends string | boolean> = {
     label: string;
     description: string;
     secure?: boolean;
+    isEnum?: boolean;
+    options?: Record<string, string>;
 };
 
 const SETTINGS_CONFIG = {
@@ -99,6 +101,18 @@ const SETTINGS_CONFIG = {
         type: SettingItemType.Bool,
         label: 'Show "Copy Quote" in context menu',
         description: 'Display option to copy block quote contents without quote markers',
+    },
+    defaultHeadingCopyMode: {
+        key: `${SECTION_ID}.defaultHeadingCopyMode`,
+        defaultValue: 'internal',
+        type: SettingItemType.String,
+        label: 'Default heading copy mode',
+        description: 'Choose which heading link format Contextual Copy uses when the cursor is on a heading',
+        isEnum: true,
+        options: {
+            internal: 'Internal anchor link',
+            external: 'External note link',
+        },
     },
     showToggleTask: {
         key: `${SECTION_ID}.showToggleTask`,
@@ -195,6 +209,8 @@ export async function registerSettings(): Promise<void> {
             label: config.label,
             description: config.description,
             secure: 'secure' in config ? config.secure : undefined,
+            isEnum: 'isEnum' in config ? config.isEnum : undefined,
+            options: 'options' in config ? config.options : undefined,
         };
     }
 
