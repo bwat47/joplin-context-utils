@@ -19,7 +19,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Inline code (`` `code` ``)
 - Code blocks (` ` ```)
 - Task list checkboxes (`- [ ]` / `- [x]`)
-- Task selections (multiple selected checkboxes)
+- Task contexts (single task or multiple selected checkboxes)
 - Link selections (multiple selected HTTP(S) links for batch open/title operations)
 - Footnotes (`[^1]` reference)
 - Headings (`# Heading` / Setext) for copying internal/external heading links
@@ -87,11 +87,11 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/types.ts**
 
 - Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext | CheckboxContext | TaskSelectionContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext`
+- `EditorContext = LinkContext | CodeContext | TaskContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext`
 - `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
-- `TaskInfo` interface for individual tasks in selections
+- `TaskInfo` interface for individual tasks in task contexts
 - `LinkInfo` interface for individual links in selections
-- Command IDs (including checkbox, footnote, fetch title, and batch open commands)
+- Command IDs (including task toggle, footnote, fetch title, and batch open commands)
 - `EditorRange` for text replacement operations
 
 **src/settings.ts**
@@ -119,8 +119,9 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
+- Registers `Toggle Task` in the application Edit menu with `Ctrl+Shift+Space`
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
-- Supports multiple contexts at same position (e.g., code + checkbox)
+- Supports multiple contexts at same position (e.g., code + task)
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
 - Note-specific options are limited to "Open Note as Pinned Tab"
 - Checks settings before adding menu items
@@ -132,9 +133,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Open Link (external URLs → browser, emails → default mail app)
     - Copy URL/Email (URLs/emails → clipboard)
     - Copy Code (code blocks → clipboard)
-    - Toggle Checkbox (single checkbox `[ ]` ↔ `[x]`)
-    - Check All Tasks (bulk check unchecked tasks in selection)
-    - Uncheck All Tasks (bulk uncheck checked tasks in selection)
+    - Toggle Task (single task, selected tasks, or multiple cursors/selections)
     - Go to Footnote (scrolls to footnote definition)
     - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
     - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
@@ -152,7 +151,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Registers commands:
     - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
-    - `contextUtils-replaceRange` - text replacement for checkbox toggling
+    - `contextUtils-replaceRange` - single-range text replacement for link-title updates
     - `contextUtils-batchReplace` - atomic batch replacement for bulk operations
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
 
@@ -160,7 +159,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Multi-context detection logic (returns array of contexts)
 - Delegates parsing to `parsingUtils.ts`
-- Detection priority: Code > Links > Images > Footnotes (checkboxes, headings, and block quotes run alongside as secondary contexts)
+- Detection priority: Code > Links > Images > Footnotes (tasks, headings, and block quotes run alongside as secondary contexts)
 - Uses text scanning for footnotes (syntax tree doesn't detect them)
 - Heading detection delegated to `headingExtraction.ts` (also a secondary context, so it coexists with code/links in a heading)
 - Block quote detection delegated to `quoteExtraction.ts` (also a secondary context, so it coexists with code/links/headings inside quotes)
@@ -226,8 +225,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 type EditorContext =
     | LinkContext
     | CodeContext
-    | CheckboxContext
-    | TaskSelectionContext
+    | TaskContext
     | FootnoteContext
     | LinkSelectionContext
     | HeadingContext
@@ -248,16 +246,8 @@ interface CodeContext {
     to: number;
 }
 
-interface CheckboxContext {
-    contextType: 'checkbox'; // Discriminator
-    checked: boolean;
-    lineText: string;
-    from: number;
-    to: number;
-}
-
-interface TaskSelectionContext {
-    contextType: 'taskSelection'; // Discriminator
+interface TaskContext {
+    contextType: 'task'; // Discriminator
     tasks: TaskInfo[];
     checkedCount: number;
     uncheckedCount: number;
@@ -340,15 +330,15 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
 - **Fenced code blocks**: Syntax tree to extract `CodeText` children, with regex fallback
 - **Indented code blocks**: Syntax tree to collect multiple `CodeText` children (one per line)
 
-### 3. Checkbox Detection and Toggling
+### 3. Task Detection and Toggling
 
 **Detection Strategy:**
 
-1. **Selection check** - If there's a text selection, check for tasks first (returns single `TaskSelectionContext`)
+1. **Selection check** - If any CodeMirror selection range contains tasks, aggregate them first (returns single `TaskContext`)
 2. **Primary context** - Detect code/links/images via syntax tree (Priority: Code > Links > Images)
-3. **Secondary context** - Check if on a checkbox line (runs alongside primary, enables multi-context support)
+3. **Secondary context** - Check if on a task line (runs alongside primary, enables multi-context support)
 
-**Checkbox Detection:**
+**Task Detection:**
 Two-step validation to prevent false positives:
 
 1. **Syntax tree check** - Verify cursor is inside `Task` node
@@ -385,13 +375,20 @@ Features:
 - Detects anywhere on the task line (not just on the checkbox)
 - Prevents false positives by only checking `Task` nodes (not plain text in code blocks)
 
-**Task Selection Detection:**
+**Task Context Detection:**
 
-1. Iterates syntax tree once for entire selection range (O(N))
-2. Validates `Task` nodes directly during traversal
-3. Deduplicates tasks (handles multiple Task nodes per line)
-4. Counts checked vs unchecked tasks
-5. Returns `TaskSelectionContext` if tasks found
+1. Scans all CodeMirror selection ranges for task toggling
+2. Empty cursor ranges collect the task line under that cursor
+3. Non-empty ranges iterate the syntax tree for tasks intersecting the selection
+4. Deduplicates tasks by line position and sorts them in document order
+5. Counts checked vs unchecked tasks and returns one unified `TaskContext`
+
+**Task Toggle Behavior:**
+
+1. A single command (`contextUtils.toggleCheckbox`) handles both single tasks and selected tasks
+2. If any affected task is unchecked, only unchecked tasks are checked
+3. If all affected tasks are checked, checked tasks are unchecked
+4. Mixed multi-cursor or multi-selection task sets do not invert checked tasks; they check unchecked tasks and leave checked tasks unchanged
 
 **Link Selection Detection:**
 
@@ -399,18 +396,16 @@ Features:
 2. Only includes external HTTP(S) URLs (excludes Joplin resources, emails, anchors)
 3. Excludes reference-style links (no inline URL to replace)
 4. Returns `LinkSelectionContext` if external links found
-5. Both task and link selections can be returned together (if selection contains both)
+5. Link batch detection remains scoped to the main selection range; multi-cursor aggregation currently applies only to task toggling
+6. Both task and link selections can be returned together (if the main selection contains links and any range contains tasks)
 
 **Text Replacement:**
-Uses two commands for atomic operations:
+Uses single-range and batch replacement commands:
 
-1. `contextUtils-replaceRange`: For single checkbox toggling
-    - Accepts `expectedText` for **optimistic concurrency control**
-    - Verifies content hasn't changed before replacing
-2. `contextUtils-batchReplace`: For bulk operations
-    - Accepts array of replacements with `expectedText`
-    - **Atomic Transaction**: Applies all changes in a single CodeMirror transaction (one undo step)
-    - Aborts entire batch if any line doesn't match expectation
+- `contextUtils-replaceRange` handles single link-title updates with `expectedText`
+- `contextUtils-batchReplace` handles task and batch link operations
+- Batch replacement applies all changes in a single CodeMirror transaction (one undo step)
+- Batch replacement aborts if any line doesn't match expectation
 
 ### 4. Note vs Resource Distinction
 

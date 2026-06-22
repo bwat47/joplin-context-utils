@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
-import { registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
+import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
 import { registerSettings, initializeSettingsCache } from './settings';
 import { logger } from './logger';
 
@@ -33,6 +33,10 @@ joplin.plugins.register({
             // 5. Register context menu filter
             registerContextMenuFilter();
             logger.debug('Context menu filter registered');
+
+            // 6. Register application menu items
+            await registerApplicationMenuItems();
+            logger.debug('Application menu items registered');
 
             logger.debug('Context Utils plugin started successfully');
         } catch (error) {

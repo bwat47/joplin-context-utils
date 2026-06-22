@@ -1,12 +1,14 @@
 import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
-import { MenuItem } from 'api/types';
+import { MenuItem, MenuItemLocation } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
+const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
+const TOGGLE_TASK_ACCELERATOR = 'CmdOrCtrl+Shift+Space';
 
 /**
  * Determines the type of a Joplin ID (note, resource, or invalid)
@@ -90,7 +92,7 @@ export function registerContextMenuFilter(): void {
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
-            // May return multiple contexts (e.g., code + checkbox)
+            // May return multiple contexts (e.g., code + task)
             let contexts: EditorContext[] = [];
             if (shouldBuildContextSensitiveItems) {
                 try {
@@ -190,33 +192,14 @@ export function registerContextMenuFilter(): void {
                             label: 'Copy Code',
                         });
                     }
-                } else if (context.contextType === 'checkbox') {
-                    // Check setting and build menu items for task checkboxes
+                } else if (context.contextType === 'task') {
+                    // Check setting and build menu item for tasks
                     if (settingsCache.showToggleTask) {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
-                            label: context.checked ? 'Uncheck Task' : 'Check Task',
+                            label: getLabelForTaskToggle(context),
                         });
-                    }
-                } else if (context.contextType === 'taskSelection') {
-                    // Check setting and build menu items for task selection
-                    if (settingsCache.showToggleTask) {
-                        if (context.uncheckedCount > 0) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.CHECK_ALL_TASKS,
-                                commandArgs: [context],
-                                label: `Check All Tasks (${context.uncheckedCount})`,
-                            });
-                        }
-
-                        if (context.checkedCount > 0) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
-                                commandArgs: [context],
-                                label: `Uncheck All Tasks (${context.checkedCount})`,
-                            });
-                        }
                     }
                 } else if (context.contextType === 'footnote') {
                     if (settingsCache.showGoToFootnote) {
@@ -297,6 +280,17 @@ export function registerContextMenuFilter(): void {
     });
 }
 
+export async function registerApplicationMenuItems(): Promise<void> {
+    await joplin.views.menuItems.create(
+        TOGGLE_TASK_EDIT_MENU_ITEM_ID,
+        COMMAND_IDS.TOGGLE_CHECKBOX,
+        MenuItemLocation.Edit,
+        {
+            accelerator: TOGGLE_TASK_ACCELERATOR,
+        }
+    );
+}
+
 /**
  * Generates context-aware label for "Open Link" command
  * @param linkContext - The link context
@@ -310,6 +304,14 @@ function getLabelForOpenLink(linkContext: LinkContext): string {
         default:
             return 'Open Link';
     }
+}
+
+function getLabelForTaskToggle(context: Extract<EditorContext, { contextType: 'task' }>): string {
+    if (context.tasks.length !== 1) {
+        return 'Toggle Tasks';
+    }
+
+    return context.uncheckedCount > 0 ? 'Check Task' : 'Uncheck Task';
 }
 
 export { CONTENT_SCRIPT_ID };

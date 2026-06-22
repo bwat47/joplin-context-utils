@@ -48,24 +48,6 @@ export interface CodeContext {
 }
 
 /**
- * Represents a detected task list checkbox
- */
-export interface CheckboxContext {
-    /** Discriminator for union type */
-    contextType: 'checkbox';
-
-    /** Whether the checkbox is currently checked */
-    checked: boolean;
-
-    /** The full line text containing the checkbox */
-    lineText: string;
-
-    /** Position information for the checkbox line */
-    from: number;
-    to: number;
-}
-
-/**
  * Represents information about a single task in a selection
  */
 export interface TaskInfo {
@@ -81,13 +63,13 @@ export interface TaskInfo {
 }
 
 /**
- * Represents multiple task list checkboxes in a selection
+ * Represents one or more task list items that can be toggled together
  */
-export interface TaskSelectionContext {
+export interface TaskContext {
     /** Discriminator for union type */
-    contextType: 'taskSelection';
+    contextType: 'task';
 
-    /** Array of tasks found in the selection */
+    /** Array of tasks found at the cursor or within the selection */
     tasks: TaskInfo[];
 
     /** Number of checked tasks */
@@ -95,10 +77,6 @@ export interface TaskSelectionContext {
 
     /** Number of unchecked tasks */
     uncheckedCount: number;
-
-    /** Position information for the entire selection */
-    from: number;
-    to: number;
 }
 
 /**
@@ -209,8 +187,7 @@ export enum LinkType {
 export type EditorContext =
     | LinkContext
     | CodeContext
-    | CheckboxContext
-    | TaskSelectionContext
+    | TaskContext
     | FootnoteContext
     | LinkSelectionContext
     | HeadingContext
@@ -226,8 +203,6 @@ export const COMMAND_IDS = {
     COPY_PATH: 'contextUtils.copyPath',
     COPY_CODE: 'contextUtils.copyCode',
     TOGGLE_CHECKBOX: 'contextUtils.toggleCheckbox',
-    CHECK_ALL_TASKS: 'contextUtils.checkAllTasks',
-    UNCHECK_ALL_TASKS: 'contextUtils.uncheckAllTasks',
     GO_TO_FOOTNOTE: 'contextUtils.goToFootnote',
     GO_TO_HEADING: 'contextUtils.goToHeading',
     PIN_TO_TABS: 'contextUtils.pinToTabs',

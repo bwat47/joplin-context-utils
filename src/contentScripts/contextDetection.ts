@@ -3,8 +3,7 @@ import { EditorView } from '@codemirror/view';
 import {
     LinkContext,
     CodeContext,
-    CheckboxContext,
-    TaskSelectionContext,
+    TaskContext,
     TaskInfo,
     EditorContext,
     FootnoteContext,
@@ -37,7 +36,7 @@ const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
- * Can detect links, images, inline code, code blocks, or task selections
+ * Can detect links, images, inline code, code blocks, or tasks
  * Returns an array of contexts to support multiple contexts at the same position
  * (e.g., inline code within a task list item)
  *
@@ -47,15 +46,14 @@ const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
  */
 export function detectContextAtPosition(view: EditorView, pos: number): EditorContext[] {
     const selection = view.state.selection.main;
+    const taskContext = detectTasksInSelectionRanges(view);
 
     // Check if there's a selection (not just cursor)
     if (selection.from !== selection.to) {
         const selectionContexts: EditorContext[] = [];
 
-        // Check for tasks in selection
-        const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
-        if (taskSelection) {
-            selectionContexts.push(taskSelection);
+        if (taskContext) {
+            selectionContexts.push(taskContext);
         }
 
         // Check for links in selection (for batch title fetching)
@@ -79,11 +77,10 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
         contexts.push(primaryContext);
     }
 
-    // Then, always check if we're on a checkbox line
-    // This allows showing both checkbox AND primary context menu items
-    const checkboxContext = detectCheckboxContext(view, pos);
-    if (checkboxContext) {
-        contexts.push(checkboxContext);
+    // Then, always check if we're on a task line
+    // This allows showing both task AND primary context menu items
+    if (taskContext) {
+        contexts.push(taskContext);
     }
 
     // Always check if we're on a heading (secondary context)
@@ -151,7 +148,7 @@ function detectQuoteContext(view: EditorView, pos: number): QuoteContext | null 
 
 /**
  * Detects primary context (code, links, images) via syntax tree traversal
- * Does NOT include checkbox detection (that's handled separately)
+ * Does NOT include task detection (that's handled separately)
  *
  * @param view - CodeMirror 6 EditorView instance
  * @param pos - Cursor position to check
@@ -343,15 +340,15 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
 }
 
 /**
- * Detects checkbox context at the current line
+ * Detects task context at the current line
  * This is separate from primary context detection to allow showing both
  * Uses syntax tree to verify we're in a Task node
  *
  * @param view - CodeMirror EditorView
  * @param pos - Cursor position
- * @returns CheckboxContext if on a task list line, null otherwise
+ * @returns TaskInfo if on a task list line, null otherwise
  */
-function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext | null {
+function detectTaskAtPosition(view: EditorView, pos: number): TaskInfo | null {
     const tree = syntaxTree(view.state);
     let isInTaskList = false;
 
@@ -385,32 +382,47 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
 
     const checked = checkboxMatch[2] === 'x';
     return {
-        contextType: 'checkbox',
-        checked,
         lineText,
+        checked,
         from: line.from,
         to: line.to,
     };
 }
 
 /**
- * Detects task list checkboxes within a text selection
- * Scans all lines in the selection range for task list items
+ * Detects task list checkboxes across all CodeMirror selection ranges.
+ * Cursor ranges detect their current task line; non-empty ranges scan selected task lines.
  * Uses syntax tree to verify each line is in a Task node
  *
  * @param view - CodeMirror EditorView
- * @param from - Start of selection
- * @param to - End of selection
- * @returns TaskSelectionContext if tasks found, null otherwise
+ * @returns TaskContext if tasks found, null otherwise
  */
-function detectTasksInSelection(view: EditorView, from: number, to: number): TaskSelectionContext | null {
+function detectTasksInSelectionRanges(view: EditorView): TaskContext | null {
+    const tasks = new Map<number, TaskInfo>();
+
+    for (const range of view.state.selection.ranges) {
+        const rangeTasks =
+            range.from === range.to
+                ? [detectTaskAtPosition(view, range.head)].filter((task): task is TaskInfo => task !== null)
+                : collectTasksInRange(view, range.from, range.to);
+
+        for (const task of rangeTasks) {
+            tasks.set(task.from, task);
+        }
+    }
+
+    const sortedTasks = [...tasks.values()].sort((a, b) => a.from - b.from);
+    if (sortedTasks.length === 0) return null;
+
+    return buildTaskContext(sortedTasks);
+}
+
+function collectTasksInRange(view: EditorView, from: number, to: number): TaskInfo[] {
     const tasks: TaskInfo[] = [];
-    let checkedCount = 0;
-    let uncheckedCount = 0;
     const doc = view.state.doc;
     const tree = syntaxTree(view.state);
 
-    // OPTIMIZATION: Iterate the tree ONCE for the entire selection range
+    // OPTIMIZATION: Iterate the tree ONCE for this selected range
     tree.iterate({
         from: from,
         to: to,
@@ -435,24 +447,24 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
                         from: line.from,
                         to: line.to,
                     });
-
-                    if (checked) checkedCount++;
-                    else uncheckedCount++;
                 }
                 // Do NOT return false here, so we continue to traverse children (nested lists)
             }
         },
     });
 
-    if (tasks.length === 0) return null;
+    return tasks;
+}
+
+function buildTaskContext(tasks: TaskInfo[]): TaskContext {
+    const checkedCount = tasks.filter((task) => task.checked).length;
+    const uncheckedCount = tasks.length - checkedCount;
 
     return {
-        contextType: 'taskSelection',
+        contextType: 'task',
         tasks,
         checkedCount,
         uncheckedCount,
-        from,
-        to,
     };
 }
 
