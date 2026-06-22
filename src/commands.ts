@@ -346,15 +346,10 @@ async function handleContextualCopy(): Promise<void> {
             await handleCopyPath(target.context);
             break;
         case 'heading':
-            try {
-                if (settingsCache.defaultHeadingCopyMode === 'external') {
-                    await handleCopyHeadingLinkExternal(target.context);
-                } else {
-                    await handleCopyHeadingLinkInternal(target.context);
-                }
-            } catch (error) {
-                logger.error('Failed to copy heading link:', error);
-                await showToast('Failed to copy heading link', ToastType.Error);
+            if (settingsCache.defaultHeadingCopyMode === 'external') {
+                await handleCopyHeadingLinkExternal(target.context);
+            } else {
+                await handleCopyHeadingLinkInternal(target.context);
             }
             break;
         case 'quote':
