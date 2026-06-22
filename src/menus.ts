@@ -90,7 +90,7 @@ export function registerContextMenuFilter(): void {
 
             // Get contexts directly from editor (pull architecture)
             // This is guaranteed to match the current cursor position
-            // May return multiple contexts (e.g., code + checkbox)
+            // May return multiple contexts (e.g., code + task)
             let contexts: EditorContext[] = [];
             if (shouldBuildContextSensitiveItems) {
                 try {
@@ -190,33 +190,14 @@ export function registerContextMenuFilter(): void {
                             label: 'Copy Code',
                         });
                     }
-                } else if (context.contextType === 'checkbox') {
-                    // Check setting and build menu items for task checkboxes
+                } else if (context.contextType === 'task') {
+                    // Check setting and build menu item for tasks
                     if (settingsCache.showToggleTask) {
                         contextSensitiveItems.push({
                             commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
                             commandArgs: [context],
-                            label: context.checked ? 'Uncheck Task' : 'Check Task',
+                            label: getLabelForTaskToggle(context),
                         });
-                    }
-                } else if (context.contextType === 'taskSelection') {
-                    // Check setting and build menu items for task selection
-                    if (settingsCache.showToggleTask) {
-                        if (context.uncheckedCount > 0) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.CHECK_ALL_TASKS,
-                                commandArgs: [context],
-                                label: `Check All Tasks (${context.uncheckedCount})`,
-                            });
-                        }
-
-                        if (context.checkedCount > 0) {
-                            contextSensitiveItems.push({
-                                commandName: COMMAND_IDS.UNCHECK_ALL_TASKS,
-                                commandArgs: [context],
-                                label: `Uncheck All Tasks (${context.checkedCount})`,
-                            });
-                        }
                     }
                 } else if (context.contextType === 'footnote') {
                     if (settingsCache.showGoToFootnote) {
@@ -310,6 +291,14 @@ function getLabelForOpenLink(linkContext: LinkContext): string {
         default:
             return 'Open Link';
     }
+}
+
+function getLabelForTaskToggle(context: Extract<EditorContext, { contextType: 'task' }>): string {
+    if (context.tasks.length !== 1) {
+        return 'Toggle Tasks';
+    }
+
+    return context.uncheckedCount > 0 ? 'Check Task' : 'Uncheck Task';
 }
 
 export { CONTENT_SCRIPT_ID };

@@ -129,7 +129,7 @@ export default () => {
             });
 
             // Register command to replace a range of text in the editor
-            // Used for checkbox toggling and other text replacement operations
+            // Used for single-range text replacement operations
             editorControl.registerCommand(
                 REPLACE_RANGE_COMMAND,
                 (newText: string, from: number, to: number, expectedText?: string) => {
@@ -180,7 +180,7 @@ export default () => {
             );
 
             // Register command to batch replace multiple ranges
-            // Used for bulk checkbox toggling
+            // Used for atomic multi-range text replacement operations
             editorControl.registerCommand(
                 BATCH_REPLACE_COMMAND,
                 (replacements: Array<{ from: number; to: number; text: string; expectedText?: string }>) => {

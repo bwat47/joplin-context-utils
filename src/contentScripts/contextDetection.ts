@@ -3,8 +3,7 @@ import { EditorView } from '@codemirror/view';
 import {
     LinkContext,
     CodeContext,
-    CheckboxContext,
-    TaskSelectionContext,
+    TaskContext,
     TaskInfo,
     EditorContext,
     FootnoteContext,
@@ -37,7 +36,7 @@ const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
- * Can detect links, images, inline code, code blocks, or task selections
+ * Can detect links, images, inline code, code blocks, or tasks
  * Returns an array of contexts to support multiple contexts at the same position
  * (e.g., inline code within a task list item)
  *
@@ -53,9 +52,9 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
         const selectionContexts: EditorContext[] = [];
 
         // Check for tasks in selection
-        const taskSelection = detectTasksInSelection(view, selection.from, selection.to);
-        if (taskSelection) {
-            selectionContexts.push(taskSelection);
+        const taskContext = detectTasksInSelection(view, selection.from, selection.to);
+        if (taskContext) {
+            selectionContexts.push(taskContext);
         }
 
         // Check for links in selection (for batch title fetching)
@@ -79,11 +78,11 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
         contexts.push(primaryContext);
     }
 
-    // Then, always check if we're on a checkbox line
-    // This allows showing both checkbox AND primary context menu items
-    const checkboxContext = detectCheckboxContext(view, pos);
-    if (checkboxContext) {
-        contexts.push(checkboxContext);
+    // Then, always check if we're on a task line
+    // This allows showing both task AND primary context menu items
+    const taskContext = detectTaskContext(view, pos);
+    if (taskContext) {
+        contexts.push(taskContext);
     }
 
     // Always check if we're on a heading (secondary context)
@@ -151,7 +150,7 @@ function detectQuoteContext(view: EditorView, pos: number): QuoteContext | null 
 
 /**
  * Detects primary context (code, links, images) via syntax tree traversal
- * Does NOT include checkbox detection (that's handled separately)
+ * Does NOT include task detection (that's handled separately)
  *
  * @param view - CodeMirror 6 EditorView instance
  * @param pos - Cursor position to check
@@ -343,15 +342,15 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
 }
 
 /**
- * Detects checkbox context at the current line
+ * Detects task context at the current line
  * This is separate from primary context detection to allow showing both
  * Uses syntax tree to verify we're in a Task node
  *
  * @param view - CodeMirror EditorView
  * @param pos - Cursor position
- * @returns CheckboxContext if on a task list line, null otherwise
+ * @returns TaskContext if on a task list line, null otherwise
  */
-function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext | null {
+function detectTaskContext(view: EditorView, pos: number): TaskContext | null {
     const tree = syntaxTree(view.state);
     let isInTaskList = false;
 
@@ -384,13 +383,14 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
     }
 
     const checked = checkboxMatch[2] === 'x';
-    return {
-        contextType: 'checkbox',
-        checked,
+    const task: TaskInfo = {
         lineText,
+        checked,
         from: line.from,
         to: line.to,
     };
+
+    return buildTaskContext([task], line.from, line.to);
 }
 
 /**
@@ -401,12 +401,10 @@ function detectCheckboxContext(view: EditorView, pos: number): CheckboxContext |
  * @param view - CodeMirror EditorView
  * @param from - Start of selection
  * @param to - End of selection
- * @returns TaskSelectionContext if tasks found, null otherwise
+ * @returns TaskContext if tasks found, null otherwise
  */
-function detectTasksInSelection(view: EditorView, from: number, to: number): TaskSelectionContext | null {
+function detectTasksInSelection(view: EditorView, from: number, to: number): TaskContext | null {
     const tasks: TaskInfo[] = [];
-    let checkedCount = 0;
-    let uncheckedCount = 0;
     const doc = view.state.doc;
     const tree = syntaxTree(view.state);
 
@@ -435,9 +433,6 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
                         from: line.from,
                         to: line.to,
                     });
-
-                    if (checked) checkedCount++;
-                    else uncheckedCount++;
                 }
                 // Do NOT return false here, so we continue to traverse children (nested lists)
             }
@@ -446,8 +441,15 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
 
     if (tasks.length === 0) return null;
 
+    return buildTaskContext(tasks, from, to);
+}
+
+function buildTaskContext(tasks: TaskInfo[], from: number, to: number): TaskContext {
+    const checkedCount = tasks.filter((task) => task.checked).length;
+    const uncheckedCount = tasks.length - checkedCount;
+
     return {
-        contextType: 'taskSelection',
+        contextType: 'task',
         tasks,
         checkedCount,
         uncheckedCount,
