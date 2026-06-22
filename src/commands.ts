@@ -1,6 +1,7 @@
 import joplin from 'api';
 import {
     COMMAND_IDS,
+    EditorContext,
     LinkContext,
     CodeContext,
     TaskContext,
@@ -14,6 +15,7 @@ import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import {
+    GET_CONTEXT_AT_CURSOR_COMMAND,
     REPLACE_RANGE_COMMAND,
     BATCH_REPLACE_COMMAND,
     SCROLL_TO_POSITION_COMMAND,
@@ -95,8 +97,8 @@ export async function registerCommands(): Promise<void> {
 
     await joplin.commands.register({
         name: COMMAND_IDS.TOGGLE_CHECKBOX,
-        label: 'Toggle Tasks',
-        execute: async (taskContext: TaskContext) => {
+        label: 'Toggle Task',
+        execute: async (taskContext?: TaskContext) => {
             try {
                 await handleToggleTasks(taskContext);
             } catch (error) {
@@ -317,8 +319,14 @@ async function handleCopyQuote(quoteContext: QuoteContext): Promise<void> {
  * "Toggle Tasks" handler
  * Checks unchecked tasks, or unchecks checked tasks when all affected tasks are checked.
  */
-async function handleToggleTasks(taskContext: TaskContext): Promise<void> {
-    const { targetChecked, tasksToUpdate } = getTaskTogglePlan(taskContext.tasks);
+async function handleToggleTasks(taskContext?: TaskContext): Promise<void> {
+    const resolvedTaskContext = taskContext ?? (await getCurrentTaskContext());
+    if (!resolvedTaskContext) {
+        await showToast('No task found', ToastType.Info);
+        return;
+    }
+
+    const { targetChecked, tasksToUpdate } = getTaskTogglePlan(resolvedTaskContext.tasks);
 
     if (tasksToUpdate.length === 0) return;
 
@@ -345,6 +353,19 @@ async function handleToggleTasks(taskContext: TaskContext): Promise<void> {
     } else {
         await showToast('Content changed; update aborted', ToastType.Error);
         logger.warn('Batch update aborted due to content mismatch');
+    }
+}
+
+async function getCurrentTaskContext(): Promise<TaskContext | null> {
+    try {
+        const contextsResult = await joplin.commands.execute('editor.execCommand', {
+            name: GET_CONTEXT_AT_CURSOR_COMMAND,
+        });
+        const contexts = (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
+        return contexts.find((context): context is TaskContext => context.contextType === 'task') ?? null;
+    } catch (error) {
+        logger.debug('Failed to get task context at cursor:', error);
+        return null;
     }
 }
 

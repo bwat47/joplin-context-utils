@@ -1,12 +1,14 @@
 import joplin from 'api';
 import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
-import { MenuItem } from 'api/types';
+import { MenuItem, MenuItemLocation } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
+const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
+const TOGGLE_TASK_ACCELERATOR = 'CmdOrCtrl+Shift+Space';
 
 /**
  * Determines the type of a Joplin ID (note, resource, or invalid)
@@ -276,6 +278,17 @@ export function registerContextMenuFilter(): void {
             return menuItems;
         }
     });
+}
+
+export async function registerApplicationMenuItems(): Promise<void> {
+    await joplin.views.menuItems.create(
+        TOGGLE_TASK_EDIT_MENU_ITEM_ID,
+        COMMAND_IDS.TOGGLE_CHECKBOX,
+        MenuItemLocation.Edit,
+        {
+            accelerator: TOGGLE_TASK_ACCELERATOR,
+        }
+    );
 }
 
 /**

@@ -119,6 +119,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/menus.ts**
 
 - Context menu filter (`joplin.workspace.filterEditorContextMenu`)
+- Registers `Toggle Task` in the application Edit menu with `Ctrl+Shift+Space`
 - Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
 - Supports multiple contexts at same position (e.g., code + task)
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
@@ -132,7 +133,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Open Link (external URLs → browser, emails → default mail app)
     - Copy URL/Email (URLs/emails → clipboard)
     - Copy Code (code blocks → clipboard)
-    - Toggle Tasks (single task or selected tasks)
+    - Toggle Task (single task, selected tasks, or multiple cursors/selections)
     - Go to Footnote (scrolls to footnote definition)
     - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
     - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
