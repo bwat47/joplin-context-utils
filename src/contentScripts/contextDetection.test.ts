@@ -212,8 +212,6 @@ describe('contextDetection', () => {
         expect(taskContext?.tasks).toHaveLength(2);
         expect(taskContext?.checkedCount).toBe(1);
         expect(taskContext?.uncheckedCount).toBe(1);
-        expect(taskContext?.from).toBe(firstFrom);
-        expect(taskContext?.to).toBe(secondTo);
     });
 
     it('aggregates task context from mixed cursor and selection ranges', () => {

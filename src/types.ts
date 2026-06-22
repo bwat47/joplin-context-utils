@@ -77,10 +77,6 @@ export interface TaskContext {
 
     /** Number of unchecked tasks */
     uncheckedCount: number;
-
-    /** Position information for the entire selection */
-    from: number;
-    to: number;
 }
 
 /**

@@ -459,16 +459,12 @@ function collectTasksInRange(view: EditorView, from: number, to: number): TaskIn
 function buildTaskContext(tasks: TaskInfo[]): TaskContext {
     const checkedCount = tasks.filter((task) => task.checked).length;
     const uncheckedCount = tasks.length - checkedCount;
-    const from = Math.min(...tasks.map((task) => task.from));
-    const to = Math.max(...tasks.map((task) => task.to));
 
     return {
         contextType: 'task',
         tasks,
         checkedCount,
         uncheckedCount,
-        from,
-        to,
     };
 }
 
