@@ -333,7 +333,7 @@ function extractUrlFromLinkNode(node: SyntaxNode, view: EditorView): string | nu
 
 **Detection Strategy:**
 
-1. **Selection check** - If there's a text selection, check for tasks first (returns single `TaskContext`)
+1. **Selection check** - If any CodeMirror selection range contains tasks, aggregate them first (returns single `TaskContext`)
 2. **Primary context** - Detect code/links/images via syntax tree (Priority: Code > Links > Images)
 3. **Secondary context** - Check if on a task line (runs alongside primary, enables multi-context support)
 
@@ -376,18 +376,18 @@ Features:
 
 **Task Context Detection:**
 
-1. For selections, iterates syntax tree once for entire selection range (O(N))
-2. Validates `Task` nodes directly during traversal
-3. Deduplicates tasks (handles multiple Task nodes per line)
-4. Counts checked vs unchecked tasks
-5. Returns unified `TaskContext` for a single cursor task or selected tasks
+1. Scans all CodeMirror selection ranges for task toggling
+2. Empty cursor ranges collect the task line under that cursor
+3. Non-empty ranges iterate the syntax tree for tasks intersecting the selection
+4. Deduplicates tasks by line position and sorts them in document order
+5. Counts checked vs unchecked tasks and returns one unified `TaskContext`
 
 **Task Toggle Behavior:**
 
 1. A single command (`contextUtils.toggleCheckbox`) handles both single tasks and selected tasks
 2. If any affected task is unchecked, only unchecked tasks are checked
 3. If all affected tasks are checked, checked tasks are unchecked
-4. Mixed selections do not invert checked tasks; they check the unchecked tasks and leave checked tasks unchanged
+4. Mixed multi-cursor or multi-selection task sets do not invert checked tasks; they check unchecked tasks and leave checked tasks unchanged
 
 **Link Selection Detection:**
 
@@ -395,7 +395,8 @@ Features:
 2. Only includes external HTTP(S) URLs (excludes Joplin resources, emails, anchors)
 3. Excludes reference-style links (no inline URL to replace)
 4. Returns `LinkSelectionContext` if external links found
-5. Both task and link selections can be returned together (if selection contains both)
+5. Link batch detection remains scoped to the main selection range; multi-cursor aggregation currently applies only to task toggling
+6. Both task and link selections can be returned together (if the main selection contains links and any range contains tasks)
 
 **Text Replacement:**
 Uses single-range and batch replacement commands:

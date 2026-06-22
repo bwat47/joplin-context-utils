@@ -11,6 +11,24 @@ describe('contextDetection', () => {
             doc,
             selection: EditorSelection.single(from, to),
             extensions: [
+                EditorState.allowMultipleSelections.of(true),
+                markdown({
+                    extensions: [GFM],
+                }),
+            ],
+        });
+        return { state } as any;
+    };
+
+    const createViewWithRanges = (doc: string, ranges: Array<[number, number]>, mainIndex = 0) => {
+        const state = EditorState.create({
+            doc,
+            selection: EditorSelection.create(
+                ranges.map(([anchor, head]) => EditorSelection.range(anchor, head)),
+                mainIndex
+            ),
+            extensions: [
+                EditorState.allowMultipleSelections.of(true),
                 markdown({
                     extensions: [GFM],
                 }),
@@ -156,6 +174,100 @@ describe('contextDetection', () => {
         expect(taskContext).toBeDefined();
         expect(taskContext?.tasks).toHaveLength(2);
         expect(taskContext?.checkedCount).toBe(1);
+        expect(taskContext?.uncheckedCount).toBe(1);
+    });
+
+    it('aggregates task context from multiple cursors on task lines', () => {
+        const doc = '- [ ] Task one\n- [x] Task two\nPlain text';
+        const firstTaskPos = doc.indexOf('Task one');
+        const secondTaskPos = doc.indexOf('Task two');
+        const view = createViewWithRanges(doc, [
+            [firstTaskPos, firstTaskPos],
+            [secondTaskPos, secondTaskPos],
+        ]);
+        const contexts = detectContextAtPosition(view, firstTaskPos);
+        const taskContext = getContext(contexts, 'task');
+
+        expect(taskContext).toBeDefined();
+        expect(taskContext?.tasks).toHaveLength(2);
+        expect(taskContext?.checkedCount).toBe(1);
+        expect(taskContext?.uncheckedCount).toBe(1);
+        expect(taskContext?.tasks.map((task) => task.lineText)).toEqual(['- [ ] Task one', '- [x] Task two']);
+    });
+
+    it('aggregates task context from multiple selected ranges', () => {
+        const doc = '- [ ] First\nPlain text\n- [x] Second';
+        const firstFrom = 0;
+        const firstTo = '- [ ] First'.length;
+        const secondFrom = doc.indexOf('- [x]');
+        const secondTo = doc.length;
+        const view = createViewWithRanges(doc, [
+            [firstFrom, firstTo],
+            [secondFrom, secondTo],
+        ]);
+        const contexts = detectContextAtPosition(view, firstFrom);
+        const taskContext = getContext(contexts, 'task');
+
+        expect(taskContext).toBeDefined();
+        expect(taskContext?.tasks).toHaveLength(2);
+        expect(taskContext?.checkedCount).toBe(1);
+        expect(taskContext?.uncheckedCount).toBe(1);
+        expect(taskContext?.from).toBe(firstFrom);
+        expect(taskContext?.to).toBe(secondTo);
+    });
+
+    it('aggregates task context from mixed cursor and selection ranges', () => {
+        const doc = '- [ ] Cursor task\nPlain text\n- [x] Selected task';
+        const cursorPos = doc.indexOf('Cursor');
+        const selectionFrom = doc.indexOf('- [x]');
+        const selectionTo = doc.length;
+        const view = createViewWithRanges(doc, [
+            [cursorPos, cursorPos],
+            [selectionFrom, selectionTo],
+        ]);
+        const contexts = detectContextAtPosition(view, cursorPos);
+        const taskContext = getContext(contexts, 'task');
+
+        expect(taskContext).toBeDefined();
+        expect(taskContext?.tasks).toHaveLength(2);
+        expect(taskContext?.checkedCount).toBe(1);
+        expect(taskContext?.uncheckedCount).toBe(1);
+    });
+
+    it('deduplicates multiple cursors on the same task line', () => {
+        const doc = '- [ ] Same task';
+        const firstCursor = doc.indexOf('[');
+        const secondCursor = doc.indexOf('task');
+        const view = createViewWithRanges(doc, [
+            [firstCursor, firstCursor],
+            [secondCursor, secondCursor],
+        ]);
+        const contexts = detectContextAtPosition(view, firstCursor);
+        const taskContext = getContext(contexts, 'task');
+
+        expect(taskContext).toBeDefined();
+        expect(taskContext?.tasks).toHaveLength(1);
+        expect(taskContext?.uncheckedCount).toBe(1);
+        expect(taskContext?.tasks[0].lineText).toBe(doc);
+    });
+
+    it('detects main cursor code and task context from another cursor', () => {
+        const doc = 'Use `render` here\n- [ ] Task item';
+        const codePos = doc.indexOf('render');
+        const taskPos = doc.indexOf('Task item');
+        const view = createViewWithRanges(doc, [
+            [codePos, codePos],
+            [taskPos, taskPos],
+        ]);
+        const contexts = detectContextAtPosition(view, codePos);
+
+        const codeContext = getContext(contexts, 'code');
+        const taskContext = getContext(contexts, 'task');
+
+        expect(codeContext).toBeDefined();
+        expect(codeContext?.code).toBe('render');
+        expect(taskContext).toBeDefined();
+        expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.uncheckedCount).toBe(1);
     });
 

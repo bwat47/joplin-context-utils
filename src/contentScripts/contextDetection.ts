@@ -46,13 +46,12 @@ const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
  */
 export function detectContextAtPosition(view: EditorView, pos: number): EditorContext[] {
     const selection = view.state.selection.main;
+    const taskContext = detectTasksInSelectionRanges(view);
 
     // Check if there's a selection (not just cursor)
     if (selection.from !== selection.to) {
         const selectionContexts: EditorContext[] = [];
 
-        // Check for tasks in selection
-        const taskContext = detectTasksInSelection(view, selection.from, selection.to);
         if (taskContext) {
             selectionContexts.push(taskContext);
         }
@@ -80,7 +79,6 @@ export function detectContextAtPosition(view: EditorView, pos: number): EditorCo
 
     // Then, always check if we're on a task line
     // This allows showing both task AND primary context menu items
-    const taskContext = detectTaskContext(view, pos);
     if (taskContext) {
         contexts.push(taskContext);
     }
@@ -348,9 +346,9 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
  *
  * @param view - CodeMirror EditorView
  * @param pos - Cursor position
- * @returns TaskContext if on a task list line, null otherwise
+ * @returns TaskInfo if on a task list line, null otherwise
  */
-function detectTaskContext(view: EditorView, pos: number): TaskContext | null {
+function detectTaskAtPosition(view: EditorView, pos: number): TaskInfo | null {
     const tree = syntaxTree(view.state);
     let isInTaskList = false;
 
@@ -383,32 +381,48 @@ function detectTaskContext(view: EditorView, pos: number): TaskContext | null {
     }
 
     const checked = checkboxMatch[2] === 'x';
-    const task: TaskInfo = {
+    return {
         lineText,
         checked,
         from: line.from,
         to: line.to,
     };
-
-    return buildTaskContext([task], line.from, line.to);
 }
 
 /**
- * Detects task list checkboxes within a text selection
- * Scans all lines in the selection range for task list items
+ * Detects task list checkboxes across all CodeMirror selection ranges.
+ * Cursor ranges detect their current task line; non-empty ranges scan selected task lines.
  * Uses syntax tree to verify each line is in a Task node
  *
  * @param view - CodeMirror EditorView
- * @param from - Start of selection
- * @param to - End of selection
  * @returns TaskContext if tasks found, null otherwise
  */
-function detectTasksInSelection(view: EditorView, from: number, to: number): TaskContext | null {
+function detectTasksInSelectionRanges(view: EditorView): TaskContext | null {
+    const tasks = new Map<number, TaskInfo>();
+
+    for (const range of view.state.selection.ranges) {
+        const rangeTasks =
+            range.from === range.to
+                ? [detectTaskAtPosition(view, range.head)].filter((task): task is TaskInfo => task !== null)
+                : collectTasksInRange(view, range.from, range.to);
+
+        for (const task of rangeTasks) {
+            tasks.set(task.from, task);
+        }
+    }
+
+    const sortedTasks = [...tasks.values()].sort((a, b) => a.from - b.from);
+    if (sortedTasks.length === 0) return null;
+
+    return buildTaskContext(sortedTasks);
+}
+
+function collectTasksInRange(view: EditorView, from: number, to: number): TaskInfo[] {
     const tasks: TaskInfo[] = [];
     const doc = view.state.doc;
     const tree = syntaxTree(view.state);
 
-    // OPTIMIZATION: Iterate the tree ONCE for the entire selection range
+    // OPTIMIZATION: Iterate the tree ONCE for this selected range
     tree.iterate({
         from: from,
         to: to,
@@ -439,14 +453,14 @@ function detectTasksInSelection(view: EditorView, from: number, to: number): Tas
         },
     });
 
-    if (tasks.length === 0) return null;
-
-    return buildTaskContext(tasks, from, to);
+    return tasks;
 }
 
-function buildTaskContext(tasks: TaskInfo[], from: number, to: number): TaskContext {
+function buildTaskContext(tasks: TaskInfo[]): TaskContext {
     const checkedCount = tasks.filter((task) => task.checked).length;
     const uncheckedCount = tasks.length - checkedCount;
+    const from = Math.min(...tasks.map((task) => task.from));
+    const to = Math.max(...tasks.map((task) => task.to));
 
     return {
         contextType: 'task',
