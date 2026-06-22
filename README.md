@@ -26,10 +26,6 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 
 - **Add Link to Note** - Insert a link to another note at the cursor
 
-- **Go to Footnote** - Scroll editor to defintion associated with the selected Footnote reference.
-
-- **Go to Heading** - Scroll editor to specified heading when right clicking on internal anchor link (e.g. `[Test](#test)`)
-
 - **Copy URL/Copy Email** - Copy URL to clipboard, or copy email address from mailto: link.
 
 - **Copy Code** - Copy code from inline code or code block to clipboard.
@@ -41,11 +37,14 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 - **Toggle Task(s)** - Toggle task on selected line or Toggle all tasks in selection(s).
     - can be assigned a keyboard shortcut (uses `CmdOrCtrl+Shift+Space` by default).
 
+- **Go to Footnote** - Scroll editor to defintion associated with the selected Footnote reference.
+
+- **Go to Heading** - Scroll editor to specified heading when right clicking on internal anchor link (e.g. `[Test](#test)`)
 - **Open Note as Pinned Tab** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
 
 ## Contextual Copy
 
-A "Contextual Copy" command is provided that will copy the innermost copyable context as the current cursor position. For example:
+A "Contextual Copy" command is provided that will copy the innermost copyable context at the current cursor position. For example:
 
 - Cursor inside block quote > copies contents of the block quote
 - Cursor inside a http(s) URL > copies link
