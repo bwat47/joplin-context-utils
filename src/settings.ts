@@ -35,6 +35,28 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Link" in context menu',
         description: 'Display option to open external URLs in browser or open email links in your default mail app',
     },
+    showFetchLinkTitle: {
+        key: `${SECTION_ID}.showFetchLinkTitle`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Fetch Link Title" in context menu',
+        description: 'Display option to fetch and insert the title of HTTP(S) links',
+    },
+    linkPreviewApiKey: {
+        key: `${SECTION_ID}.linkPreviewApiKey`,
+        defaultValue: '',
+        type: SettingItemType.String,
+        secure: true,
+        label: 'linkpreview.net API key',
+        description: 'Optional. If set, linkpreview.net is tried first when fetching link titles.',
+    },
+    showOpenAllLinksInSelection: {
+        key: `${SECTION_ID}.showOpenAllLinksInSelection`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Open All Links" in context menu',
+        description: 'Display option to open all HTTP(S) links found in the current selection',
+    },
     showAddExternalLink: {
         key: `${SECTION_ID}.showAddExternalLink`,
         defaultValue: true,
@@ -63,6 +85,21 @@ const SETTINGS_CONFIG = {
         label: 'Show "Copy Code" in context menu',
         description: 'Display option to copy code from inline code or code blocks to clipboard',
     },
+    showCopyHeadingLink: {
+        key: `${SECTION_ID}.showCopyHeadingLink`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Copy Heading Link" in context menu',
+        description:
+            'Display options to copy a markdown link to the heading at the cursor (internal anchor or external note link)',
+    },
+    showCopyQuote: {
+        key: `${SECTION_ID}.showCopyQuote`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Copy Quote" in context menu',
+        description: 'Display option to copy block quote contents without quote markers',
+    },
     showToggleTask: {
         key: `${SECTION_ID}.showToggleTask`,
         defaultValue: true,
@@ -90,43 +127,6 @@ const SETTINGS_CONFIG = {
         type: SettingItemType.Bool,
         label: 'Show "Open Note as Pinned Tab" in context menu',
         description: 'Display option to open notes as a pinned tab (requires Note Tabs plugin)',
-    },
-    showFetchLinkTitle: {
-        key: `${SECTION_ID}.showFetchLinkTitle`,
-        defaultValue: true,
-        type: SettingItemType.Bool,
-        label: 'Show "Fetch Link Title" in context menu',
-        description: 'Display option to fetch and insert the title of HTTP(S) links',
-    },
-    showCopyHeadingLink: {
-        key: `${SECTION_ID}.showCopyHeadingLink`,
-        defaultValue: true,
-        type: SettingItemType.Bool,
-        label: 'Show "Copy Heading Link" in context menu',
-        description:
-            'Display options to copy a markdown link to the heading at the cursor (internal anchor or external note link)',
-    },
-    showCopyQuote: {
-        key: `${SECTION_ID}.showCopyQuote`,
-        defaultValue: true,
-        type: SettingItemType.Bool,
-        label: 'Show "Copy Quote" in context menu',
-        description: 'Display option to copy block quote contents without quote markers',
-    },
-    showOpenAllLinksInSelection: {
-        key: `${SECTION_ID}.showOpenAllLinksInSelection`,
-        defaultValue: true,
-        type: SettingItemType.Bool,
-        label: 'Show "Open All Links" in context menu',
-        description: 'Display option to open all HTTP(S) links found in the current selection',
-    },
-    linkPreviewApiKey: {
-        key: `${SECTION_ID}.linkPreviewApiKey`,
-        defaultValue: '',
-        type: SettingItemType.String,
-        secure: true,
-        label: 'linkpreview.net API key',
-        description: 'Optional. If set, linkpreview.net is tried first when fetching link titles.',
     },
 } as const satisfies Record<string, SettingConfigEntry<string | boolean>>;
 
