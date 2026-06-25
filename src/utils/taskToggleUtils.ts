@@ -18,3 +18,16 @@ export function getTaskTogglePlan(tasks: TaskInfo[]): TaskTogglePlan {
         tasksToUpdate: tasks.filter((task) => task.checked !== targetChecked),
     };
 }
+
+/**
+ * Generates the context menu label for the unified task toggle action.
+ */
+export function getTaskToggleMenuLabel(tasks: TaskInfo[]): string {
+    const { targetChecked, tasksToUpdate } = getTaskTogglePlan(tasks);
+
+    if (tasks.length !== 1) {
+        return `Toggle Tasks (${tasksToUpdate.length})`;
+    }
+
+    return targetChecked ? 'Check Task' : 'Uncheck Task';
+}

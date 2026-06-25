@@ -1,5 +1,5 @@
 import { TaskInfo } from '../types';
-import { getTaskTogglePlan } from './taskToggleUtils';
+import { getTaskToggleMenuLabel, getTaskTogglePlan } from './taskToggleUtils';
 
 function task(checked: boolean): TaskInfo {
     const lineText = checked ? '- [x] Task' : '- [ ] Task';
@@ -35,5 +35,27 @@ describe('getTaskTogglePlan', () => {
 
         expect(plan.targetChecked).toBe(true);
         expect(plan.tasksToUpdate).toEqual([uncheckedTask]);
+    });
+});
+
+describe('getTaskToggleMenuLabel', () => {
+    it('labels a single unchecked task as checkable', () => {
+        expect(getTaskToggleMenuLabel([task(false)])).toBe('Check Task');
+    });
+
+    it('labels a single checked task as uncheckable', () => {
+        expect(getTaskToggleMenuLabel([task(true)])).toBe('Uncheck Task');
+    });
+
+    it('shows the toggled count for unchecked-only selections', () => {
+        expect(getTaskToggleMenuLabel([task(false), task(false)])).toBe('Toggle Tasks (2)');
+    });
+
+    it('shows the toggled count for checked-only selections', () => {
+        expect(getTaskToggleMenuLabel([task(true), task(true)])).toBe('Toggle Tasks (2)');
+    });
+
+    it('shows only the tasks that will change for mixed selections', () => {
+        expect(getTaskToggleMenuLabel([task(true), task(false), task(false)])).toBe('Toggle Tasks (2)');
     });
 });

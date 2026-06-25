@@ -3,6 +3,7 @@ import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
 import { MenuItem, MenuItemLocation } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
+import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
@@ -318,11 +319,7 @@ function getLabelForOpenLink(linkContext: LinkContext): string {
 }
 
 function getLabelForTaskToggle(context: Extract<EditorContext, { contextType: 'task' }>): string {
-    if (context.tasks.length !== 1) {
-        return 'Toggle Tasks';
-    }
-
-    return context.uncheckedCount > 0 ? 'Check Task' : 'Uncheck Task';
+    return getTaskToggleMenuLabel(context.tasks);
 }
 
 export { CONTENT_SCRIPT_ID };
