@@ -17,10 +17,33 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 - **Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL).
     - Note that this results in an outbound request to fetch the web page title.
     - If a `linkpreview.net` API key is configured in plugin settings, the plugin tries `linkpreview.net` first and falls back to direct page fetching if needed.
-    - There's special handling for JIRA links to set the link text to the JIRA issue number (since JIRA issues just set the page title to "Jira"). There's currently no special handling for any other link types.
+    - **Custom link title rules** let you derive the link text directly from the URL (no page fetch). See below. Jira links are handled by a default rule.
 
 > [!note]
 > Open All Links and Fetch Link Title/Fetch All Link Titles do not support reference-style links or links inside embeds.
+
+### Custom link title rules
+
+The **Custom link title rules (JSON)** setting holds a JSON array of rules. When a rule's regex matches a link's URL, "Fetch Link Title" uses that rule's `title` template as the link text instead of fetching the page. Rules are tried in order; the first matching rule that produces a non-empty title is used. If no rule produces a title, the normal fetch behavior applies.
+
+Each rule is an object:
+
+| Field     | Required | Description                                                                                |
+| --------- | -------- | ------------------------------------------------------------------------------------------ |
+| `pattern` | yes      | Regex source tested against the full URL.                                                  |
+| `title`   | yes      | Template for the link text. `$1`–`$9` insert capture groups; `$&` inserts the whole match. |
+| `flags`   | no       | Regex flags, e.g. `"i"` for case-insensitive.                                              |
+
+Example — title a helpdesk ticket link from its `track=` query parameter so that `https://helpdesk.example.com/ticket.php?track=7QF-MZP-9KD2` becomes `7QF-MZP-9KD2`:
+
+```json
+[{ "pattern": "^https?://helpdesk\\.example\\.com/.*[?&]track=([^&#]+)", "title": "$1", "flags": "i" }]
+```
+
+The default value ships a rule for Jira issue links (e.g. `…/browse/PROJ-123` → `PROJ-123`), you can edit or remove it.
+
+> [!note]
+> Joplin settings are a single-line field, so the value must be minified (one line) JSON. Rules use your own regular expressions, so a pathological pattern could make fetching hang — keep patterns simple and anchored.
 
 - **Add External Link** - Insert a hyperlink at the cursor
 
@@ -58,6 +81,7 @@ This can be assigned a keyboard shortcut and uses `CmdOrCtrl+Shift+X` by default
 - Each context menu option can be enabled or disabled in the Plugin settings.
 - Enable/Disable toast messages.
 - Optional secure `linkpreview.net` API key setting for link title fetching.
+- Custom link title rules (JSON) for deriving link text from the URL (see [Custom link title rules](#custom-link-title-rules)).
 - Default heading format for Contextual Copy (internal or external).
 
 ## Misc Notes

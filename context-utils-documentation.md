@@ -116,6 +116,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `defaultHeadingCopyMode` - Heading link format used by Contextual Copy (`internal` or `external`; defaults to `internal`)
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
+    - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -203,7 +204,9 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/utils/linkTitleUtils.ts**
 
 - Title fetching utilities:
-    - `fetchLinkTitle` - Preserves Jira special handling, optionally tries `linkpreview.net` first, falls back to direct page fetch, then domain fallback
+    - `fetchLinkTitle` - Applies custom link title rules first, then optionally tries `linkpreview.net`, falls back to direct page fetch, then domain fallback
+    - `parseLinkTitleRules` - Parses/validates/compiles the `linkTitleRules` JSON string; logs and skips invalid JSON or individual rules (never throws)
+    - `applyLinkTitleRules` - Returns the first matching rule whose title template produces a non-empty result (`$1`–`$9`, `$&`), or null
     - `sanitizeLinkTitle` - Removes square brackets and normalizes line breaks in titles for safe markdown link text
     - `extractDomain` - Extracts domain from URL for fallback title
 

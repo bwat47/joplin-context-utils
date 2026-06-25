@@ -2,12 +2,37 @@
  * Utilities for fetching and processing link titles from web pages.
  */
 
+import { logger } from '../logger';
+
 const FETCH_TIMEOUT_MS = 5000;
-const JIRA_ISSUE_KEY_REGEX = /\/(?:browse|issues)\/([A-Z][A-Z0-9]+-\d+)(?:\/|$)/i;
 const LINK_PREVIEW_API_URL = 'https://api.linkpreview.net/';
 
 export interface FetchLinkTitleOptions {
     linkPreviewApiKey?: string;
+    /** Raw JSON string of custom link title rules (see {@link LinkTitleRule}). */
+    linkTitleRules?: string;
+}
+
+/**
+ * A user-defined rule for deriving a link title directly from a URL,
+ * without fetching the page. Rules are stored as a JSON array in settings.
+ *
+ * @example
+ * // Extract the `track` query param value:
+ * { pattern: 'helpdesk\\.example\\.com/.*[?&]track=([^&]+)', title: '$1' }
+ */
+export interface LinkTitleRule {
+    /** Regex source, tested against the full URL. */
+    pattern: string;
+    /** Title template; `$1`..`$9` = capture groups, `$&` = the whole match. */
+    title: string;
+    /** Optional regex flags (e.g. `"i"` for case-insensitive). */
+    flags?: string;
+}
+
+interface CompiledLinkTitleRule {
+    regex: RegExp;
+    title: string;
 }
 
 /**
@@ -29,30 +54,113 @@ export function escapeMarkdownLinkText(title: string): string {
     return title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
-function extractJiraIssueKey(url: string): string | null {
-    try {
-        const parsed = new URL(url);
-        const hostname = parsed.hostname.toLowerCase();
+/**
+ * Single-entry cache for compiled rules. The rules string is a stable setting
+ * value, so we compile once and reuse the result across every fetchLinkTitle
+ * call (including once-per-link batch fetches). As a side benefit, warnings for
+ * a malformed config are logged once per settings change rather than per link.
+ */
+let rulesCache: { raw: string; compiled: CompiledLinkTitleRule[] } | null = null;
 
-        if (hostname !== 'atlassian.net' && !hostname.endsWith('.atlassian.net')) {
-            return null;
-        }
-
-        const match = parsed.pathname.match(JIRA_ISSUE_KEY_REGEX);
-        if (!match) {
-            if (parsed.pathname.startsWith('/issues')) {
-                const selectedIssue = parsed.searchParams.get('selectedIssue');
-                if (selectedIssue) {
-                    return selectedIssue.toUpperCase();
-                }
-            }
-            return null;
-        }
-
-        return match[1].toUpperCase();
-    } catch {
-        return null;
+/**
+ * Parses, validates, and compiles the custom link title rules from their raw
+ * JSON string form. Never throws: invalid JSON or invalid individual rules are
+ * logged and skipped so a bad config can't break link fetching. Results are
+ * memoized on the raw string, so repeated calls with the same config are cheap.
+ *
+ * @param json - Raw JSON string (a JSON array of {@link LinkTitleRule})
+ * @returns Compiled rules in declaration order (may be empty)
+ */
+export function parseLinkTitleRules(json: string): CompiledLinkTitleRule[] {
+    if (rulesCache && rulesCache.raw === json) {
+        return rulesCache.compiled;
     }
+
+    const compiled = compileLinkTitleRules(json);
+    rulesCache = { raw: json, compiled };
+    return compiled;
+}
+
+function compileLinkTitleRules(json: string): CompiledLinkTitleRule[] {
+    if (!json || !json.trim()) {
+        return [];
+    }
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(json);
+    } catch (error) {
+        logger.warn('Ignoring custom link title rules: invalid JSON.', error);
+        return [];
+    }
+
+    if (!Array.isArray(parsed)) {
+        logger.warn('Ignoring custom link title rules: expected a JSON array.');
+        return [];
+    }
+
+    const compiled: CompiledLinkTitleRule[] = [];
+    for (const entry of parsed) {
+        if (
+            typeof entry !== 'object' ||
+            entry === null ||
+            typeof (entry as LinkTitleRule).pattern !== 'string' ||
+            typeof (entry as LinkTitleRule).title !== 'string'
+        ) {
+            logger.warn('Skipping custom link title rule: missing string "pattern"/"title".', entry);
+            continue;
+        }
+
+        const { pattern, title, flags } = entry as LinkTitleRule;
+        if (flags !== undefined && typeof flags !== 'string') {
+            logger.warn('Skipping custom link title rule: "flags" must be a string.', entry);
+            continue;
+        }
+
+        try {
+            compiled.push({ regex: new RegExp(pattern, flags ?? ''), title });
+        } catch (error) {
+            logger.warn(`Skipping custom link title rule with invalid regex: ${pattern}`, error);
+        }
+    }
+
+    return compiled;
+}
+
+/**
+ * Builds a title from a template by substituting capture-group placeholders
+ * (`$1`..`$9` and `$&` for the whole match) from a regex match result.
+ */
+function applyTitleTemplate(template: string, match: RegExpExecArray): string {
+    return template.replace(/\$(&|\d)/g, (_, token: string) => {
+        if (token === '&') {
+            return match[0];
+        }
+        return match[Number(token)] ?? '';
+    });
+}
+
+/**
+ * Applies the compiled rules to a URL, returning the title from the first rule
+ * that matches, or null if none match.
+ */
+export function applyLinkTitleRules(url: string, rules: CompiledLinkTitleRule[]): string | null {
+    for (const rule of rules) {
+        // Cached regexes may carry lastIndex state from a prior URL when the
+        // user supplied a g/y flag; reset so each URL is matched from the start.
+        rule.regex.lastIndex = 0;
+        const match = rule.regex.exec(url);
+        if (!match) {
+            continue;
+        }
+
+        const title = sanitizeLinkTitle(applyTitleTemplate(rule.title, match));
+        if (title) {
+            return title;
+        }
+    }
+
+    return null;
 }
 
 function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
@@ -173,9 +281,10 @@ export async function fetchLinkTitle(
     url: string,
     options: FetchLinkTitleOptions = {}
 ): Promise<{ title: string; isFallback: boolean }> {
-    const jiraIssueKey = extractJiraIssueKey(url);
-    if (jiraIssueKey) {
-        return { title: jiraIssueKey, isFallback: false };
+    const rules = parseLinkTitleRules(options.linkTitleRules ?? '');
+    const ruleTitle = applyLinkTitleRules(url, rules);
+    if (ruleTitle) {
+        return { title: ruleTitle, isFallback: false };
     }
 
     const linkPreviewApiKey = options.linkPreviewApiKey?.trim();
