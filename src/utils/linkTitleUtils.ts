@@ -55,14 +55,33 @@ export function escapeMarkdownLinkText(title: string): string {
 }
 
 /**
+ * Single-entry cache for compiled rules. The rules string is a stable setting
+ * value, so we compile once and reuse the result across every fetchLinkTitle
+ * call (including once-per-link batch fetches). As a side benefit, warnings for
+ * a malformed config are logged once per settings change rather than per link.
+ */
+let rulesCache: { raw: string; compiled: CompiledLinkTitleRule[] } | null = null;
+
+/**
  * Parses, validates, and compiles the custom link title rules from their raw
  * JSON string form. Never throws: invalid JSON or invalid individual rules are
- * logged and skipped so a bad config can't break link fetching.
+ * logged and skipped so a bad config can't break link fetching. Results are
+ * memoized on the raw string, so repeated calls with the same config are cheap.
  *
  * @param json - Raw JSON string (a JSON array of {@link LinkTitleRule})
  * @returns Compiled rules in declaration order (may be empty)
  */
 export function parseLinkTitleRules(json: string): CompiledLinkTitleRule[] {
+    if (rulesCache && rulesCache.raw === json) {
+        return rulesCache.compiled;
+    }
+
+    const compiled = compileLinkTitleRules(json);
+    rulesCache = { raw: json, compiled };
+    return compiled;
+}
+
+function compileLinkTitleRules(json: string): CompiledLinkTitleRule[] {
     if (!json || !json.trim()) {
         return [];
     }
@@ -127,6 +146,9 @@ function applyTitleTemplate(template: string, match: RegExpExecArray): string {
  */
 export function applyLinkTitleRules(url: string, rules: CompiledLinkTitleRule[]): string | null {
     for (const rule of rules) {
+        // Cached regexes may carry lastIndex state from a prior URL when the
+        // user supplied a g/y flag; reset so each URL is matched from the start.
+        rule.regex.lastIndex = 0;
         const match = rule.regex.exec(url);
         if (!match) {
             continue;

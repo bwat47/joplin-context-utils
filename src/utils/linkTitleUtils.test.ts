@@ -320,5 +320,18 @@ describe('linkTitleUtils', () => {
             const rules = parseLinkTitleRules(JSON.stringify([{ pattern: 'nope', title: 'x' }]));
             expect(applyLinkTitleRules('https://example.com', rules)).toBeNull();
         });
+
+        it('matches consistently across URLs for a cached rule with the g flag', () => {
+            // Cached compiled rules are reused across calls; a g-flagged regex
+            // carries lastIndex state, so applyLinkTitleRules must reset it.
+            const rulesJson = JSON.stringify([{ pattern: 'id=(\\d+)', title: '$1', flags: 'g' }]);
+            const rules = parseLinkTitleRules(rulesJson);
+            // Same cached instance is returned on repeated parses.
+            expect(parseLinkTitleRules(rulesJson)).toBe(rules);
+
+            expect(applyLinkTitleRules('https://x.com/?id=1', rules)).toBe('1');
+            expect(applyLinkTitleRules('https://x.com/?id=2', rules)).toBe('2');
+            expect(applyLinkTitleRules('https://x.com/?id=3', rules)).toBe('3');
+        });
     });
 });
