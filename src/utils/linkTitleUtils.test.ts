@@ -211,7 +211,9 @@ describe('linkTitleUtils', () => {
         });
 
         it('applies a custom query-param rule ahead of any fetch', async () => {
-            const rules = JSON.stringify([{ pattern: 'helpdesk\\.example\\.com/.*[?&]track=([^&]+)', title: '$1' }]);
+            const rules = JSON.stringify([
+                { pattern: '^https?://helpdesk\\.example\\.com/.*[?&]track=([^&#]+)', title: '$1', flags: 'i' },
+            ]);
 
             const result = await fetchLinkTitle('https://helpdesk.example.com/ticket.php?track=7QF-MZP-9KD2', {
                 linkTitleRules: rules,

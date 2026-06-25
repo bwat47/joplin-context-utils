@@ -37,7 +37,7 @@ Each rule is an object:
 Example — title a helpdesk ticket link from its `track=` query parameter so that `https://helpdesk.example.com/ticket.php?track=7QF-MZP-9KD2` becomes `7QF-MZP-9KD2`:
 
 ```json
-[{ "pattern": "helpdesk\\.example\\.com/.*[?&]track=([^&]+)", "title": "$1" }]
+[{ "pattern": "^https?://helpdesk\\.example\\.com/.*[?&]track=([^&#]+)", "title": "$1", "flags": "i" }]
 ```
 
 The default value ships a rule for Jira issue links (e.g. `…/browse/PROJ-123` → `PROJ-123`), you can edit or remove it.
