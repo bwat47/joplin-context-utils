@@ -13,13 +13,13 @@ const mockFetch = jest.fn();
 // Mirrors the seeded `linkTitleRules` default value in src/settings.ts.
 const DEFAULT_JIRA_RULES = JSON.stringify([
     {
-        pattern: '^https?://([a-z0-9-]+\\.)*atlassian\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\d+)',
-        title: '$2',
+        pattern: '^https?://(?:[a-z0-9-]+\\.)*atlassian\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\d+)',
+        title: '$1',
         flags: 'i',
     },
     {
-        pattern: '^https?://([a-z0-9-]+\\.)*atlassian\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\d+)',
-        title: '$2',
+        pattern: '^https?://(?:[a-z0-9-]+\\.)*atlassian\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\d+)',
+        title: '$1',
         flags: 'i',
     },
 ]);
