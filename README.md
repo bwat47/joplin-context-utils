@@ -24,7 +24,7 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 
 ### Custom link title rules
 
-The **Custom link title rules (JSON)** setting holds a JSON array of rules. When a rule's regex matches a link's URL, "Fetch Link Title" uses that rule's `title` template as the link text instead of fetching the page. Rules are tried in order; the first match wins, and the first matching rule that produces a non-empty title is used. If no rule matches, the normal fetch behavior applies.
+The **Custom link title rules (JSON)** setting holds a JSON array of rules. When a rule's regex matches a link's URL, "Fetch Link Title" uses that rule's `title` template as the link text instead of fetching the page. Rules are tried in order; the first matching rule that produces a non-empty title is used. If no rule produces a title, the normal fetch behavior applies.
 
 Each rule is an object:
 

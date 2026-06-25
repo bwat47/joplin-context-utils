@@ -206,7 +206,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Title fetching utilities:
     - `fetchLinkTitle` - Applies custom link title rules first, then optionally tries `linkpreview.net`, falls back to direct page fetch, then domain fallback
     - `parseLinkTitleRules` - Parses/validates/compiles the `linkTitleRules` JSON string; logs and skips invalid JSON or individual rules (never throws)
-    - `applyLinkTitleRules` - Returns the first matching rule's title template result (`$1`–`$9`, `$&`), or null
+    - `applyLinkTitleRules` - Returns the first matching rule whose title template produces a non-empty result (`$1`–`$9`, `$&`), or null
     - `sanitizeLinkTitle` - Removes square brackets and normalizes line breaks in titles for safe markdown link text
     - `extractDomain` - Extracts domain from URL for fallback title
 
