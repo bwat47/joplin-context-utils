@@ -52,6 +52,15 @@ const SETTINGS_CONFIG = {
         label: 'linkpreview.net API key',
         description: 'Optional. If set, linkpreview.net is tried first when fetching link titles.',
     },
+    linkTitleRules: {
+        key: `${SECTION_ID}.linkTitleRules`,
+        defaultValue:
+            '[{"pattern":"atlassian\\\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\\\d+)","title":"$1","flags":"i"},{"pattern":"atlassian\\\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\\\d+)","title":"$1","flags":"i"}]',
+        type: SettingItemType.String,
+        label: 'Custom link title rules (JSON)',
+        description:
+            'JSON array of {pattern, title, flags?} rules. When a rule\'s regex matches a link URL, "Fetch Link Title" uses its title template ($1..$9 capture groups, $& whole match) instead of fetching the page. The default rule handles Jira issue links. See the README for details.',
+    },
     showOpenAllLinksInSelection: {
         key: `${SECTION_ID}.showOpenAllLinksInSelection`,
         defaultValue: true,

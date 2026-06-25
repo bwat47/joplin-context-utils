@@ -4,9 +4,17 @@ import {
     extractDomain,
     buildTitleAttributeToken,
     fetchLinkTitle,
+    parseLinkTitleRules,
+    applyLinkTitleRules,
 } from './linkTitleUtils';
 
 const mockFetch = jest.fn();
+
+// Mirrors the seeded `linkTitleRules` default value in src/settings.ts.
+const DEFAULT_JIRA_RULES = JSON.stringify([
+    { pattern: 'atlassian\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\d+)', title: '$1', flags: 'i' },
+    { pattern: 'atlassian\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\d+)', title: '$1', flags: 'i' },
+]);
 
 function createJsonResponse(ok: boolean, data: unknown): Response {
     return {
@@ -171,13 +179,123 @@ describe('linkTitleUtils', () => {
             );
         });
 
-        it('preserves Jira special handling ahead of provider lookup', async () => {
+        it('applies the seeded Jira rule ahead of provider lookup', async () => {
             const result = await fetchLinkTitle('https://team.atlassian.net/browse/PROJ-123', {
                 linkPreviewApiKey: 'test-key',
+                linkTitleRules: DEFAULT_JIRA_RULES,
             });
 
             expect(result).toEqual({ title: 'PROJ-123', isFallback: false });
             expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('applies a custom query-param rule ahead of any fetch', async () => {
+            const rules = JSON.stringify([{ pattern: 'helpdesk\\.example\\.com/.*[?&]track=([^&]+)', title: '$1' }]);
+
+            const result = await fetchLinkTitle('https://helpdesk.example.com/ticket.php?track=7QF-MZP-9KD2', {
+                linkTitleRules: rules,
+            });
+
+            expect(result).toEqual({ title: '7QF-MZP-9KD2', isFallback: false });
+            expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('falls through to fetching when no rule matches', async () => {
+            mockFetch.mockResolvedValueOnce(
+                createTextResponse(true, '<html><head><title>Direct Title</title></head><body></body></html>')
+            );
+
+            const result = await fetchLinkTitle('https://example.com/docs', {
+                linkTitleRules: DEFAULT_JIRA_RULES,
+            });
+
+            expect(result).toEqual({ title: 'Direct Title', isFallback: false });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+
+        it('ignores invalid rule JSON and proceeds with fetching', async () => {
+            mockFetch.mockResolvedValueOnce(
+                createTextResponse(true, '<html><head><title>Direct Title</title></head><body></body></html>')
+            );
+
+            const result = await fetchLinkTitle('https://example.com/docs', {
+                linkTitleRules: 'not json',
+            });
+
+            expect(result).toEqual({ title: 'Direct Title', isFallback: false });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('parseLinkTitleRules', () => {
+        it('returns an empty array for blank input', () => {
+            expect(parseLinkTitleRules('')).toEqual([]);
+            expect(parseLinkTitleRules('   ')).toEqual([]);
+        });
+
+        it('returns an empty array for invalid JSON', () => {
+            expect(parseLinkTitleRules('{not json')).toEqual([]);
+        });
+
+        it('returns an empty array when the JSON is not an array', () => {
+            expect(parseLinkTitleRules('{"pattern":"x","title":"y"}')).toEqual([]);
+        });
+
+        it('skips entries missing string pattern/title', () => {
+            const rules = parseLinkTitleRules(
+                JSON.stringify([
+                    { pattern: 'good', title: '$&' },
+                    { pattern: 123, title: 'x' },
+                    { title: 'no pattern' },
+                ])
+            );
+            expect(rules).toHaveLength(1);
+        });
+
+        it('skips entries with an invalid regex but keeps valid ones', () => {
+            const rules = parseLinkTitleRules(
+                JSON.stringify([
+                    { pattern: '(', title: 'broken' },
+                    { pattern: 'example', title: 'ok' },
+                ])
+            );
+            expect(rules).toHaveLength(1);
+            expect(applyLinkTitleRules('https://example.com', rules)).toBe('ok');
+        });
+    });
+
+    describe('applyLinkTitleRules', () => {
+        it('substitutes numbered capture groups and the whole match', () => {
+            const rules = parseLinkTitleRules(JSON.stringify([{ pattern: 'id=(\\d+)-(\\w+)', title: '$2 ($1)' }]));
+            expect(applyLinkTitleRules('https://x.com/?id=42-abc', rules)).toBe('abc (42)');
+
+            const wholeMatch = parseLinkTitleRules(JSON.stringify([{ pattern: 'PROJ-\\d+', title: '$&' }]));
+            expect(applyLinkTitleRules('https://x.com/PROJ-7', wholeMatch)).toBe('PROJ-7');
+        });
+
+        it('returns the first matching rule in declaration order', () => {
+            const rules = parseLinkTitleRules(
+                JSON.stringify([
+                    { pattern: 'example\\.com', title: 'first' },
+                    { pattern: 'example', title: 'second' },
+                ])
+            );
+            expect(applyLinkTitleRules('https://example.com', rules)).toBe('first');
+        });
+
+        it('skips a rule whose template resolves to an empty title', () => {
+            const rules = parseLinkTitleRules(
+                JSON.stringify([
+                    { pattern: 'example\\.com(/empty)?', title: '$1' },
+                    { pattern: 'example', title: 'fallback' },
+                ])
+            );
+            expect(applyLinkTitleRules('https://example.com', rules)).toBe('fallback');
+        });
+
+        it('returns null when nothing matches', () => {
+            const rules = parseLinkTitleRules(JSON.stringify([{ pattern: 'nope', title: 'x' }]));
+            expect(applyLinkTitleRules('https://example.com', rules)).toBeNull();
         });
     });
 });

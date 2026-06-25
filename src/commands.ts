@@ -492,6 +492,7 @@ async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
 
     const { title, isFallback } = await fetchLinkTitle(linkContext.url, {
         linkPreviewApiKey: settingsCache.linkPreviewApiKey,
+        linkTitleRules: settingsCache.linkTitleRules,
     });
     const linkText = escapeMarkdownLinkText(title);
 
@@ -535,6 +536,7 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
             link,
             result: await fetchLinkTitle(link.url, {
                 linkPreviewApiKey: settingsCache.linkPreviewApiKey,
+                linkTitleRules: settingsCache.linkTitleRules,
             }),
         }))
     );
