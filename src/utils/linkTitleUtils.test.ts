@@ -12,8 +12,16 @@ const mockFetch = jest.fn();
 
 // Mirrors the seeded `linkTitleRules` default value in src/settings.ts.
 const DEFAULT_JIRA_RULES = JSON.stringify([
-    { pattern: 'atlassian\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\d+)', title: '$1', flags: 'i' },
-    { pattern: 'atlassian\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\d+)', title: '$1', flags: 'i' },
+    {
+        pattern: '^https?://([a-z0-9-]+\\.)*atlassian\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\d+)',
+        title: '$2',
+        flags: 'i',
+    },
+    {
+        pattern: '^https?://([a-z0-9-]+\\.)*atlassian\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\d+)',
+        title: '$2',
+        flags: 'i',
+    },
 ]);
 
 function createJsonResponse(ok: boolean, data: unknown): Response {
@@ -187,6 +195,19 @@ describe('linkTitleUtils', () => {
 
             expect(result).toEqual({ title: 'PROJ-123', isFallback: false });
             expect(mockFetch).not.toHaveBeenCalled();
+        });
+
+        it('does not apply the Jira rule when atlassian.net only appears in a query param of another host', async () => {
+            mockFetch.mockResolvedValueOnce(
+                createTextResponse(true, '<html><head><title>Direct Title</title></head><body></body></html>')
+            );
+
+            const result = await fetchLinkTitle('https://example.com/?redirect=team.atlassian.net/browse/PROJ-123', {
+                linkTitleRules: DEFAULT_JIRA_RULES,
+            });
+
+            expect(result).toEqual({ title: 'Direct Title', isFallback: false });
+            expect(mockFetch).toHaveBeenCalledTimes(1);
         });
 
         it('applies a custom query-param rule ahead of any fetch', async () => {

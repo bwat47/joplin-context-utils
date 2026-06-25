@@ -55,7 +55,7 @@ const SETTINGS_CONFIG = {
     linkTitleRules: {
         key: `${SECTION_ID}.linkTitleRules`,
         defaultValue:
-            '[{"pattern":"atlassian\\\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\\\d+)","title":"$1","flags":"i"},{"pattern":"atlassian\\\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\\\d+)","title":"$1","flags":"i"}]',
+            '[{"pattern":"^https?://([a-z0-9-]+\\\\.)*atlassian\\\\.net/(?:browse|issues)/([A-Z][A-Z0-9]+-\\\\d+)","title":"$2","flags":"i"},{"pattern":"^https?://([a-z0-9-]+\\\\.)*atlassian\\\\.net/issues.*[?&]selectedIssue=([A-Za-z][A-Za-z0-9]+-\\\\d+)","title":"$2","flags":"i"}]',
         type: SettingItemType.String,
         label: 'Custom link title rules (JSON)',
         description:
