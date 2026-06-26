@@ -45,19 +45,20 @@ const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
  * @returns Array of EditorContext (may be empty)
  */
 export function detectContextAtPosition(view: EditorView, pos: number): EditorContext[] {
-    const selection = view.state.selection.main;
     const taskContext = detectTasksInSelectionRanges(view);
 
-    // Check if there's a selection (not just cursor)
-    if (selection.from !== selection.to) {
+    // Check if any range is a real selection (not just a cursor). Covers multiple
+    // selections, including when the main range is a bare cursor but others aren't.
+    const hasNonEmptyRange = view.state.selection.ranges.some((range) => range.from !== range.to);
+    if (hasNonEmptyRange) {
         const selectionContexts: EditorContext[] = [];
 
         if (taskContext) {
             selectionContexts.push(taskContext);
         }
 
-        // Check for links in selection (for batch title fetching)
-        const linkSelection = detectLinksInSelection(view, selection.from, selection.to);
+        // Check for links across all selection ranges (for batch title fetching)
+        const linkSelection = detectLinksInSelection(view);
         if (linkSelection) {
             selectionContexts.push(linkSelection);
         }
@@ -469,20 +470,49 @@ function buildTaskContext(tasks: TaskInfo[]): TaskContext {
 }
 
 /**
- * Detects external HTTP(S) links within a text selection
- * Scans the selection range for Link, URL, and Autolink nodes
- * Only includes external URLs (not Joplin resources, emails, or anchors)
- * Excludes reference-style links since they can't be updated in place
+ * Detects external HTTP(S) links across all non-empty CodeMirror selection ranges.
+ * Only includes external URLs (not Joplin resources, emails, or anchors).
+ * Excludes reference-style links since they can't be updated in place.
  *
  * @param view - CodeMirror EditorView
- * @param from - Start of selection
- * @param to - End of selection
  * @returns LinkSelectionContext if external links found, null otherwise
  */
-function detectLinksInSelection(view: EditorView, from: number, to: number): LinkSelectionContext | null {
+function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
     const links: LinkInfo[] = [];
+    const seenRanges = new Set<string>(); // Deduplicate by position across ranges
+
+    for (const range of view.state.selection.ranges) {
+        // Cursor ranges are handled by the single-link primary-context path
+        if (range.from === range.to) continue;
+        collectLinksInRange(view, range.from, range.to, links, seenRanges);
+    }
+
+    if (links.length === 0) return null;
+
+    // Order links by document position (selection ranges may be out of order)
+    links.sort((a, b) => a.from - b.from);
+
+    return {
+        contextType: 'linkSelection',
+        links,
+        from: links[0].from,
+        to: Math.max(...links.map((link) => link.to)),
+    };
+}
+
+/**
+ * Scans a single range for external link/URL/autolink nodes, appending any
+ * matches to the shared `links` array. `seenRanges` deduplicates by absolute
+ * position so overlapping ranges don't yield the same link twice.
+ */
+function collectLinksInRange(
+    view: EditorView,
+    from: number,
+    to: number,
+    links: LinkInfo[],
+    seenRanges: Set<string>
+): void {
     const tree = syntaxTree(view.state);
-    const seenRanges = new Set<string>(); // Deduplicate by position
 
     tree.iterate({
         from: from,
@@ -552,13 +582,4 @@ function detectLinksInSelection(view: EditorView, from: number, to: number): Lin
             }
         },
     });
-
-    if (links.length === 0) return null;
-
-    return {
-        contextType: 'linkSelection',
-        links,
-        from,
-        to,
-    };
 }
