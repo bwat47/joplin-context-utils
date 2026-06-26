@@ -509,6 +509,7 @@ async function handleFetchLinkTitles(links?: LinkInfo[]): Promise<void> {
             to: link.markdownLinkTo ?? link.to,
             text: `[${linkText}](${link.url}${titlePart})`,
             expectedText: link.expectedText,
+            selectionBehavior: 'expand' as const,
         };
     });
 

@@ -221,3 +221,17 @@ export interface EditorRange {
     from: number;
     to: number;
 }
+
+/**
+ * Controls how selections that touch a replacement range are remapped.
+ */
+export type ReplacementSelectionBehavior = 'preserve' | 'expand';
+
+/**
+ * Text replacement payload sent to the editor content script.
+ */
+export interface TextReplacement extends EditorRange {
+    text: string;
+    expectedText?: string;
+    selectionBehavior?: ReplacementSelectionBehavior;
+}

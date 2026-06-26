@@ -410,6 +410,7 @@ Uses a single batch replacement command for all in-place edits:
 - `contextUtils-batchReplace` handles task toggles and link-title updates (one or many ranges), each carrying `expectedText`
 - Batch replacement applies all changes in a single CodeMirror transaction (one undo step)
 - Batch replacement aborts if any range doesn't match its expected text
+- Link-title replacements set `selectionBehavior: 'expand'` so selected links stay fully selected when the fetched-title markdown is longer than the original link text
 
 ### 4. Note vs Resource Distinction
 

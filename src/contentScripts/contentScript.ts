@@ -3,6 +3,7 @@ import { EditorSelection } from '@codemirror/state';
 import type { CodeMirrorControl } from 'api/types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
+import type { TextReplacement } from '../types';
 
 /**
  * Command name for getting context at cursor
@@ -44,16 +45,16 @@ function validateRange(from: number, to: number, context: string): boolean {
  *
  * Unlike CodeMirror's default change mapping (which collapses any position that
  * falls inside a replaced range to the range boundary), this preserves the
- * position's relative offset within its replaced range. That keeps the caret /
- * selection in place when a whole line is rewritten in-place (e.g. toggling a
- * checkbox marker while the user has a partial selection on that line).
+ * position's relative offset within its replaced range by default. Replacements
+ * can opt into expanding selection endpoints at their right boundary, which
+ * keeps selected links fully selected when title fetching makes them longer.
  *
  * @param pos - Position in the original document
  * @param sorted - Replacements sorted ascending by `from` (must not overlap)
  */
-function mapPositionThroughReplacements(
+export function mapPositionThroughReplacements(
     pos: number,
-    sorted: Array<{ from: number; to: number; text: string }>
+    sorted: TextReplacement[]
 ): number {
     let delta = 0;
     for (const r of sorted) {
@@ -62,6 +63,10 @@ function mapPositionThroughReplacements(
             break;
         }
         if (pos <= r.to) {
+            if (pos === r.to && r.selectionBehavior === 'expand') {
+                return r.from + delta + r.text.length;
+            }
+
             // Position is inside this replaced range: keep its relative offset,
             // clamped to the new text length.
             const offset = Math.min(pos - r.from, r.text.length);
@@ -131,7 +136,7 @@ export default () => {
             // Used for atomic multi-range text replacement operations
             editorControl.registerCommand(
                 BATCH_REPLACE_COMMAND,
-                (replacements: Array<{ from: number; to: number; text: string; expectedText?: string }>) => {
+                (replacements: TextReplacement[]) => {
                     // Validate all ranges before proceeding
                     for (const r of replacements) {
                         if (!validateRange(r.from, r.to, 'batchReplace')) {
