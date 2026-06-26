@@ -4,7 +4,7 @@
     "app_min_version": "3.3",
     "version": "1.8.0",
     "name": "Context Utils",
-    "description": "Adds various context-sensitive options to the right-click context menu in the Markdown Editor, and keyboard commands for toggling task list items and contextual copy.",
+    "description": "Adds various options to the right-click context menu in the Markdown Editor and commands for toggling task list items, contextual copy, and fetching link titles.",
     "author": "bwat47",
     "homepage_url": "https://github.com/bwat47/joplin-context-utils",
     "repository_url": "https://github.com/bwat47/joplin-context-utils",
