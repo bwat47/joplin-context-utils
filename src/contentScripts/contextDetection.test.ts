@@ -137,6 +137,72 @@ describe('contextDetection', () => {
         expect(linkSelection).toBeUndefined();
     });
 
+    it('aggregates links from multiple selected ranges', () => {
+        const doc = 'See https://a.example.com here\nand https://b.example.com there';
+        const firstUrl = 'https://a.example.com';
+        const secondUrl = 'https://b.example.com';
+        const firstFrom = doc.indexOf(firstUrl);
+        const secondFrom = doc.indexOf(secondUrl);
+        const view = createViewWithRanges(doc, [
+            [firstFrom, firstFrom + firstUrl.length],
+            [secondFrom, secondFrom + secondUrl.length],
+        ]);
+        const contexts = detectContextAtPosition(view, firstFrom);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection).toBeDefined();
+        expect(linkSelection?.links.map((link) => link.url)).toEqual([firstUrl, secondUrl]);
+    });
+
+    it('orders aggregated links by document position regardless of range order', () => {
+        const doc = 'first https://a.example.com\nsecond https://b.example.com';
+        const firstUrl = 'https://a.example.com';
+        const secondUrl = 'https://b.example.com';
+        const firstFrom = doc.indexOf(firstUrl);
+        const secondFrom = doc.indexOf(secondUrl);
+        // Provide the later range first to confirm sorting by position.
+        const view = createViewWithRanges(doc, [
+            [secondFrom, secondFrom + secondUrl.length],
+            [firstFrom, firstFrom + firstUrl.length],
+        ]);
+        const contexts = detectContextAtPosition(view, secondFrom);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection?.links.map((link) => link.url)).toEqual([firstUrl, secondUrl]);
+    });
+
+    it('deduplicates a link covered by overlapping ranges', () => {
+        const doc = 'See https://a.example.com here';
+        const url = 'https://a.example.com';
+        const from = doc.indexOf(url);
+        const view = createViewWithRanges(doc, [
+            [from, from + 5],
+            [from + 2, from + url.length],
+        ]);
+        const contexts = detectContextAtPosition(view, from);
+        const linkSelection = getLinkSelection(contexts);
+
+        expect(linkSelection?.links).toHaveLength(1);
+        expect(linkSelection?.links[0].url).toBe(url);
+    });
+
+    it('aggregates links from mixed cursor and selection ranges, ignoring the cursor', () => {
+        const doc = 'cursor https://a.example.com\nselected https://b.example.com';
+        const firstUrl = 'https://a.example.com';
+        const secondUrl = 'https://b.example.com';
+        const cursorPos = doc.indexOf(firstUrl) + 2; // bare cursor inside the first link
+        const secondFrom = doc.indexOf(secondUrl);
+        const view = createViewWithRanges(doc, [
+            [cursorPos, cursorPos],
+            [secondFrom, secondFrom + secondUrl.length],
+        ]);
+        const contexts = detectContextAtPosition(view, cursorPos);
+        const linkSelection = getLinkSelection(contexts);
+
+        // Only the non-empty range contributes a link.
+        expect(linkSelection?.links.map((link) => link.url)).toEqual([secondUrl]);
+    });
+
     it('detects task context on an unchecked task line', () => {
         const doc = '- [ ] Task item';
         const view = createViewWithCursor(doc, doc.indexOf('['));

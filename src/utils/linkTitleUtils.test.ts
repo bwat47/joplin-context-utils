@@ -6,7 +6,10 @@ import {
     fetchLinkTitle,
     parseLinkTitleRules,
     applyLinkTitleRules,
+    isFetchableLink,
+    getFetchLinkTitlesMenuLabel,
 } from './linkTitleUtils';
+import { LinkType } from '../types';
 
 const mockFetch = jest.fn();
 
@@ -332,6 +335,45 @@ describe('linkTitleUtils', () => {
             expect(applyLinkTitleRules('https://x.com/?id=1', rules)).toBe('1');
             expect(applyLinkTitleRules('https://x.com/?id=2', rules)).toBe('2');
             expect(applyLinkTitleRules('https://x.com/?id=3', rules)).toBe('3');
+        });
+    });
+
+    describe('isFetchableLink', () => {
+        const fetchable = {
+            type: LinkType.ExternalUrl,
+            expectedText: 'https://example.com',
+        };
+
+        it('accepts an external URL with expectedText', () => {
+            expect(isFetchableLink(fetchable)).toBe(true);
+        });
+
+        it('rejects image embeds', () => {
+            expect(isFetchableLink({ ...fetchable, isImage: true })).toBe(false);
+        });
+
+        it('rejects reference-style links', () => {
+            expect(isFetchableLink({ ...fetchable, isReferenceLink: true })).toBe(false);
+        });
+
+        it('rejects non-external link types', () => {
+            expect(isFetchableLink({ ...fetchable, type: LinkType.JoplinResource })).toBe(false);
+        });
+
+        it('rejects links without expectedText (cannot be replaced in place)', () => {
+            expect(isFetchableLink({ type: LinkType.ExternalUrl })).toBe(false);
+            expect(isFetchableLink({ type: LinkType.ExternalUrl, expectedText: '' })).toBe(false);
+        });
+    });
+
+    describe('getFetchLinkTitlesMenuLabel', () => {
+        it('uses the singular label for one link', () => {
+            expect(getFetchLinkTitlesMenuLabel(1)).toBe('Fetch Link Title');
+        });
+
+        it('uses the counted plural label otherwise', () => {
+            expect(getFetchLinkTitlesMenuLabel(0)).toBe('Fetch Link Titles (0)');
+            expect(getFetchLinkTitlesMenuLabel(3)).toBe('Fetch Link Titles (3)');
         });
     });
 });

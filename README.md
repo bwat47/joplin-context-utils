@@ -27,7 +27,7 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 - **Copy Quote** - Display option to copy block quote contents without quote markers
 
 - **Toggle Task(s)** - Toggle task on selected line or Toggle all tasks in selection(s).
-    - can be assigned a keyboard shortcut (uses `CmdOrCtrl+Shift+Space` by default).
+    - Can be assigned a keyboard shortcut (uses `CmdOrCtrl+Shift+Space` by default).
 
 - **Go to Footnote** - Scroll editor to defintion associated with the selected Footnote reference.
 
@@ -35,13 +35,12 @@ Context Utils is a Joplin plugin that adds various context-sensitive options to 
 
 - **Open Note as Pinned Tab** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
 
-- **Fetch Link Title** / **Fetch All Link Titles** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL).
+- **Fetch Link Title(s)** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL). Operates on the single link at the cursor, or every link in the selection.
+    - Can be assigned a keyboard shortcut.
     - Note that this results in an outbound request to fetch the web page title.
     - If a `linkpreview.net` API key is configured in plugin settings, the plugin tries `linkpreview.net` first and falls back to direct page fetching if needed.
     - **Custom link title rules** let you derive the link text directly from the URL (no page fetch). See below. Jira links are handled by a default rule.
-
-> [!note]
-> Open All Links and Fetch Link Title/Fetch All Link Titles do not support reference-style links or links inside embeds.
+    - Note that Open All Links and Fetch Link Title(s) do not support reference-style links or links inside embeds.
 
 ### Custom link title rules
 
