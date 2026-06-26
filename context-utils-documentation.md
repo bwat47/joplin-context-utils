@@ -401,8 +401,8 @@ Features:
 2. Only includes external HTTP(S) URLs (excludes Joplin resources, emails, anchors)
 3. Excludes reference-style links (no inline URL to replace)
 4. Returns `LinkSelectionContext` if external links found
-5. Link batch detection remains scoped to the main selection range; multi-cursor aggregation currently applies only to task toggling
-6. Both task and link selections can be returned together (if the main selection contains links and any range contains tasks)
+5. Link batch detection scans all non-empty selection ranges, deduplicates overlapping matches, and sorts links by document position
+6. Cursor-only ranges are handled by the single-link path; mixed cursor/selection ranges use selected links plus any detected task contexts
 
 **Text Replacement:**
 Uses a single batch replacement command for all in-place edits:
