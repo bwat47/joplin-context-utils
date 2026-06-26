@@ -141,8 +141,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Go to Footnote (scrolls to footnote definition)
     - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
     - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
-    - Fetch Link Title (fetches web page title for single HTTP(S) link)
-    - Fetch All Link Titles (batch fetches titles for all HTTP(S) links in selection)
+    - Fetch Link Title(s) (unified: fetches web page titles for the single HTTP(S) link at the cursor or every HTTP(S) link in the selection; one handler, one atomic batch replace)
     - Open All Links (batch opens all HTTP(S) links in selection in order)
     - Copy Heading Link (internal) (copies `[Heading](#anchor)` to clipboard)
     - Copy Heading Link (external) (copies `[Heading @ Note](:/noteId#anchor)`; resolves note via `joplin.workspace.selectedNote()`)
@@ -156,8 +155,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Registers commands:
     - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
-    - `contextUtils-replaceRange` - single-range text replacement for link-title updates
-    - `contextUtils-batchReplace` - atomic batch replacement for bulk operations
+    - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
 
 **src/contentScripts/contextDetection.ts**
@@ -407,12 +405,11 @@ Features:
 6. Both task and link selections can be returned together (if the main selection contains links and any range contains tasks)
 
 **Text Replacement:**
-Uses single-range and batch replacement commands:
+Uses a single batch replacement command for all in-place edits:
 
-- `contextUtils-replaceRange` handles single link-title updates with `expectedText`
-- `contextUtils-batchReplace` handles task and batch link operations
+- `contextUtils-batchReplace` handles task toggles and link-title updates (one or many ranges), each carrying `expectedText`
 - Batch replacement applies all changes in a single CodeMirror transaction (one undo step)
-- Batch replacement aborts if any line doesn't match expectation
+- Batch replacement aborts if any range doesn't match its expected text
 
 ### 4. Note vs Resource Distinction
 

@@ -3,6 +3,7 @@
  */
 
 import { logger } from '../logger';
+import { LinkContext, LinkInfo, LinkType } from '../types';
 
 const FETCH_TIMEOUT_MS = 5000;
 const LINK_PREVIEW_API_URL = 'https://api.linkpreview.net/';
@@ -52,6 +53,53 @@ export function sanitizeLinkTitle(title: string): string {
  */
 export function escapeMarkdownLinkText(title: string): string {
     return title.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
+}
+
+/**
+ * Determines whether a link can have its title fetched and updated in place.
+ *
+ * Only external HTTP(S) URLs qualify: image embeds are not titled links, and
+ * reference-style links lack the `expectedText`/markdown range needed to replace
+ * them in place. Centralizes the rule shared by the context menu, the cursor
+ * resolver, and the fetch handler.
+ */
+export function isFetchableLink(link: {
+    type: LinkType;
+    isImage?: boolean;
+    isReferenceLink?: boolean;
+    expectedText?: string;
+}): boolean {
+    return (
+        link.type === LinkType.ExternalUrl &&
+        !link.isImage &&
+        !link.isReferenceLink &&
+        typeof link.expectedText === 'string' &&
+        link.expectedText.length > 0
+    );
+}
+
+/**
+ * Narrows a single cursor {@link LinkContext} to the {@link LinkInfo} shape
+ * consumed by the unified fetch handler.
+ */
+export function linkContextToLinkInfo(ctx: LinkContext): LinkInfo {
+    return {
+        url: ctx.url,
+        type: ctx.type,
+        from: ctx.from,
+        to: ctx.to,
+        markdownLinkFrom: ctx.markdownLinkFrom,
+        markdownLinkTo: ctx.markdownLinkTo,
+        linkTitleToken: ctx.linkTitleToken,
+        expectedText: ctx.expectedText,
+    };
+}
+
+/**
+ * Generates the menu label for the unified fetch link titles action.
+ */
+export function getFetchLinkTitlesMenuLabel(count: number): string {
+    return count === 1 ? 'Fetch Link Title' : `Fetch Link Titles (${count})`;
 }
 
 /**

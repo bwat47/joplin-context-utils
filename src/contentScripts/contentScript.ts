@@ -13,9 +13,8 @@ export const IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND = 'contextUtils-isEditorConte
 // Time window to consider context menu events as originating from the editor, in milliseconds
 const EDITOR_CONTEXT_MENU_EVENT_GRACE_MS = 400;
 /**
- * Command names for replacing a range of text in the editor
+ * Command name for atomically replacing one or more ranges of text in the editor
  */
-export const REPLACE_RANGE_COMMAND = 'contextUtils-replaceRange';
 export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
 
 /**
@@ -127,57 +126,6 @@ export default () => {
 
                 return isEditorOrigin;
             });
-
-            // Register command to replace a range of text in the editor
-            // Used for single-range text replacement operations
-            editorControl.registerCommand(
-                REPLACE_RANGE_COMMAND,
-                (newText: string, from: number, to: number, expectedText?: string) => {
-                    if (!validateRange(from, to, 'replaceRange')) {
-                        return false;
-                    }
-
-                    try {
-                        // Optimistic concurrency control: Verify text hasn't changed
-                        if (expectedText !== undefined) {
-                            const currentText = view.state.doc.sliceString(from, to);
-                            if (currentText !== expectedText) {
-                                logger.warn(
-                                    'replaceRange: Content changed since detection; aborting replacement.',
-                                    '\nExpected:',
-                                    expectedText,
-                                    '\nFound:',
-                                    currentText
-                                );
-                                return false;
-                            }
-                        }
-
-                        // Calculate new cursor position to preserve relative offset
-                        // This prevents the cursor from jumping to the start of the line when replacing the whole line
-                        let selection = undefined;
-                        const currentHead = view.state.selection.main.head;
-                        if (currentHead >= from && currentHead <= to) {
-                            const offset = currentHead - from;
-                            // Ensure offset doesn't exceed new text length
-                            const newOffset = Math.min(offset, newText.length);
-                            const newHead = from + newOffset;
-                            selection = { anchor: newHead, head: newHead };
-                        }
-
-                        // Perform the text replacement with cursor preservation
-                        view.dispatch({
-                            changes: { from, to, insert: newText },
-                            ...(selection && { selection }),
-                        });
-                        logger.debug(`Replaced text from ${from} to ${to} with:`, newText);
-                        return true;
-                    } catch (error) {
-                        logger.error('replaceRange: failed to replace text:', error);
-                        return false;
-                    }
-                }
-            );
 
             // Register command to batch replace multiple ranges
             // Used for atomic multi-range text replacement operations

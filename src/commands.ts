@@ -3,6 +3,7 @@ import {
     COMMAND_IDS,
     EditorContext,
     LinkContext,
+    LinkInfo,
     CodeContext,
     TaskContext,
     LinkType,
@@ -16,13 +17,18 @@ import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import {
     GET_CONTEXT_AT_CURSOR_COMMAND,
-    REPLACE_RANGE_COMMAND,
     BATCH_REPLACE_COMMAND,
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/contentScript';
 import { toggleCheckboxInLine } from './utils/checkboxUtils';
 import { getTaskTogglePlan } from './utils/taskToggleUtils';
-import { fetchLinkTitle, buildTitleAttributeToken, escapeMarkdownLinkText } from './utils/linkTitleUtils';
+import {
+    fetchLinkTitle,
+    buildTitleAttributeToken,
+    escapeMarkdownLinkText,
+    isFetchableLink,
+    linkContextToLinkInfo,
+} from './utils/linkTitleUtils';
 import { formatInternalHeadingLink, formatExternalHeadingLink } from './utils/headingLinkFormatting';
 import { settingsCache } from './settings';
 import { resolveContextualCopyTarget } from './utils/contextualCopyResolver';
@@ -162,24 +168,11 @@ export async function registerCommands(): Promise<void> {
     });
 
     await joplin.commands.register({
-        name: COMMAND_IDS.FETCH_LINK_TITLE,
-        label: 'Fetch Link Title',
-        execute: async (linkContext: LinkContext) => {
+        name: COMMAND_IDS.FETCH_LINK_TITLES,
+        label: 'Fetch Link Title(s)',
+        execute: async (links?: LinkInfo[]) => {
             try {
-                await handleFetchLinkTitle(linkContext);
-            } catch (error) {
-                logger.error('Failed to fetch link title:', error);
-                await showToast('Failed to fetch link title', ToastType.Error);
-            }
-        },
-    });
-
-    await joplin.commands.register({
-        name: COMMAND_IDS.FETCH_ALL_LINK_TITLES,
-        label: 'Fetch All Link Titles',
-        execute: async (linkSelectionContext: LinkSelectionContext) => {
-            try {
-                await handleBatchFetchLinkTitles(linkSelectionContext);
+                await handleFetchLinkTitles(links);
             } catch (error) {
                 logger.error('Failed to fetch link titles:', error);
                 await showToast('Failed to fetch link titles', ToastType.Error);
@@ -482,57 +475,22 @@ async function handleAddLinkToNote(): Promise<void> {
 }
 
 /**
- * "Fetch Link Title" handler
- * Fetches the title from an HTTP(S) URL and updates the link in the editor
+ * Unified "Fetch Link Title(s)" handler
+ * Fetches titles for one or more links and updates them in a single atomic operation.
+ * When invoked without an explicit list (keyboard shortcut), resolves the fetchable
+ * links at the current cursor or selection.
  */
-async function handleFetchLinkTitle(linkContext: LinkContext): Promise<void> {
-    if (linkContext.type !== LinkType.ExternalUrl || linkContext.isImage) {
-        throw new Error('Fetch link title only works for non-image HTTP(S) links');
+async function handleFetchLinkTitles(links?: LinkInfo[]): Promise<void> {
+    const resolvedLinks = links ?? (await getFetchableLinksAtCursor());
+
+    if (resolvedLinks.length === 0) {
+        await showToast('No link found', ToastType.Info);
+        return;
     }
 
-    const { title, isFallback } = await fetchLinkTitle(linkContext.url, {
-        linkPreviewApiKey: settingsCache.linkPreviewApiKey,
-        linkTitleRules: settingsCache.linkTitleRules,
-    });
-    const linkText = escapeMarkdownLinkText(title);
-
-    // Build the new markdown link, updating title attribute if present
-    const titlePart = linkContext.linkTitleToken
-        ? ` ${buildTitleAttributeToken(linkContext.linkTitleToken, title)}`
-        : '';
-    const newText = `[${linkText}](${linkContext.url}${titlePart})`;
-
-    // Determine replacement range:
-    // - If markdownLinkFrom/To is set, replace the full [text](url)
-    // - Otherwise, it's a bare URL, replace just the URL
-    const from = linkContext.markdownLinkFrom ?? linkContext.from;
-    const to = linkContext.markdownLinkTo ?? linkContext.to;
-
-    const success = (await joplin.commands.execute('editor.execCommand', {
-        name: REPLACE_RANGE_COMMAND,
-        args: [newText, from, to, linkContext.expectedText],
-    })) as boolean;
-
-    if (!success) {
-        throw new Error('Failed to replace link text');
-    }
-
-    if (isFallback) {
-        await showToast('No title found, using domain name', ToastType.Info);
-    } else {
-        await showToast('Link title updated', ToastType.Success);
-    }
-    logger.debug('Updated link title:', title);
-}
-
-/**
- * "Fetch All Link Titles" handler
- * Fetches titles for all links in selection and updates them in a single atomic operation
- */
-async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<void> {
     // Fetch all titles in parallel
     const results = await Promise.all(
-        ctx.links.map(async (link) => ({
+        resolvedLinks.map(async (link) => ({
             link,
             result: await fetchLinkTitle(link.url, {
                 linkPreviewApiKey: settingsCache.linkPreviewApiKey,
@@ -554,21 +512,46 @@ async function handleBatchFetchLinkTitles(ctx: LinkSelectionContext): Promise<vo
         };
     });
 
-    // Execute batch replace (atomic operation)
+    // Send ONE IPC message (atomic operation)
     const success = (await joplin.commands.execute('editor.execCommand', {
         name: BATCH_REPLACE_COMMAND,
         args: [replacements],
     })) as boolean;
 
     if (!success) {
-        throw new Error('Failed to update links in editor');
+        await showToast('Content changed; update aborted', ToastType.Error);
+        logger.warn('Batch link update aborted due to content mismatch');
+        return;
     }
 
     // Count successful title fetches (non-fallback)
     const successCount = results.filter((r) => !r.result.isFallback).length;
 
-    await showToast(`Fetched ${successCount}/${ctx.links.length} titles`, ToastType.Success);
-    logger.debug(`Batch updated ${ctx.links.length} links, ${successCount} with fetched titles`);
+    await showToast(`Fetched ${successCount}/${resolvedLinks.length} titles`, ToastType.Success);
+    logger.debug(`Updated ${resolvedLinks.length} links, ${successCount} with fetched titles`);
+}
+
+/**
+ * Resolves the fetchable external links at the current cursor or selection.
+ * Mirrors getCurrentTaskContext: a selection yields its detected links, otherwise
+ * a single fetchable link at the cursor is wrapped into a one-element array.
+ */
+async function getFetchableLinksAtCursor(): Promise<LinkInfo[]> {
+    const contexts = await getCurrentEditorContexts();
+
+    const linkSelection = contexts.find(
+        (context): context is LinkSelectionContext => context.contextType === 'linkSelection'
+    );
+    if (linkSelection) {
+        return linkSelection.links;
+    }
+
+    const link = contexts.find((context): context is LinkContext => context.contextType === 'link');
+    if (link && isFetchableLink(link)) {
+        return [linkContextToLinkInfo(link)];
+    }
+
+    return [];
 }
 
 /**

@@ -4,12 +4,14 @@ import { MenuItem, MenuItemLocation } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
+import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { settingsCache } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
 const CONTEXTUAL_COPY_EDIT_MENU_ITEM_ID = 'contextUtilsContextualCopyEditMenuItem';
+const FETCH_LINK_TITLES_EDIT_MENU_ITEM_ID = 'contextUtilsFetchLinkTitlesEditMenuItem';
 const TOGGLE_TASK_ACCELERATOR = 'CmdOrCtrl+Shift+Space';
 const CONTEXTUAL_COPY_ACCELERATOR = 'CmdOrCtrl+Shift+X';
 
@@ -164,17 +166,12 @@ export function registerContextMenuFilter(): void {
                         });
                     }
 
-                    // Show "Fetch Link Title" only for external HTTP(S) URLs (not reference links)
-                    if (
-                        context.type === LinkType.ExternalUrl &&
-                        !context.isReferenceLink &&
-                        !context.isImage &&
-                        settingsCache.showFetchLinkTitle
-                    ) {
+                    // Show "Fetch Link Title" only for fetchable external HTTP(S) URLs
+                    if (settingsCache.showFetchLinkTitle && isFetchableLink(context)) {
                         contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.FETCH_LINK_TITLE,
-                            commandArgs: [context],
-                            label: 'Fetch Link Title',
+                            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
+                            commandArgs: [[linkContextToLinkInfo(context)]],
+                            label: getFetchLinkTitlesMenuLabel(1),
                         });
                     }
 
@@ -245,9 +242,9 @@ export function registerContextMenuFilter(): void {
                     // Check setting and build menu items for link selection (batch title fetch)
                     if (settingsCache.showFetchLinkTitle) {
                         contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.FETCH_ALL_LINK_TITLES,
-                            commandArgs: [context],
-                            label: `Fetch All Link Titles (${context.links.length})`,
+                            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
+                            commandArgs: [context.links],
+                            label: getFetchLinkTitlesMenuLabel(context.links.length),
                         });
                     }
                 }
@@ -300,6 +297,12 @@ export async function registerApplicationMenuItems(): Promise<void> {
         {
             accelerator: TOGGLE_TASK_ACCELERATOR,
         }
+    );
+
+    await joplin.views.menuItems.create(
+        FETCH_LINK_TITLES_EDIT_MENU_ITEM_ID,
+        COMMAND_IDS.FETCH_LINK_TITLES,
+        MenuItemLocation.Edit
     );
 }
 
