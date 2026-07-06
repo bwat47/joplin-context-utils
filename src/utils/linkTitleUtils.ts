@@ -22,7 +22,7 @@ export interface FetchLinkTitleOptions {
  * // Extract the `track` query param value:
  * { pattern: 'helpdesk\\.example\\.com/.*[?&]track=([^&]+)', title: '$1' }
  */
-export interface LinkTitleRule {
+interface LinkTitleRule {
     /** Regex source, tested against the full URL. */
     pattern: string;
     /** Title template; `$1`..`$9` = capture groups, `$&` = the whole match. */

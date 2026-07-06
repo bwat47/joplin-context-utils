@@ -217,7 +217,7 @@ export const COMMAND_IDS = {
 /**
  * Editor range for text replacement operations
  */
-export interface EditorRange {
+interface EditorRange {
     from: number;
     to: number;
 }
@@ -225,7 +225,7 @@ export interface EditorRange {
 /**
  * Controls how selections that touch a replacement range are remapped.
  */
-export type ReplacementSelectionBehavior = 'preserve' | 'expand';
+type ReplacementSelectionBehavior = 'preserve' | 'expand';
 
 /**
  * Text replacement payload sent to the editor content script.

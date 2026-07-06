@@ -93,7 +93,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - `TaskInfo` interface for individual tasks in task contexts
 - `LinkInfo` interface for individual links in selections
 - Command IDs (including task toggle, footnote, fetch title, and batch open commands)
-- `EditorRange` for text replacement operations
+- `TextReplacement` payload for editor text replacement operations
 
 **src/settings.ts**
 

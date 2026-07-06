@@ -10,7 +10,8 @@
         "lint:fix": "eslint --ext .ts src/ --fix",
         "format": "prettier --write \"src/**/*.ts\"",
         "test": "jest --passWithNoTests",
-        "test:watch": "jest --watch"
+        "test:watch": "jest --watch",
+        "knip": "knip"
     },
     "license": "MIT",
     "keywords": [
@@ -24,11 +25,11 @@
         "@codemirror/language": "^6.11.3",
         "@codemirror/state": "^6.5.2",
         "@eslint/js": "^10.0.1",
+        "@lezer/markdown": "^1.6.3",
         "@types/jest": "^30.0.0",
-        "@types/node": "^24.10.0",
+        "@types/node": "^24.13.2",
         "@typescript-eslint/eslint-plugin": "^8.58.1",
         "@typescript-eslint/parser": "^8.58.1",
-        "baseline-browser-mapping": "^2.9.19",
         "chalk": "^4.1.0",
         "copy-webpack-plugin": "^14.0.0",
         "eslint": "^10.2.0",
@@ -39,6 +40,7 @@
         "globals": "^17.6.0",
         "jest": "^30.4.2",
         "jest-environment-jsdom": "^30.4.1",
+        "knip": "^6.24.0",
         "prettier": "^3.8.2",
         "tar": "^7.5.16",
         "ts-jest": "^29.4.11",
@@ -48,6 +50,8 @@
         "webpack-cli": "^6.0.1"
     },
     "dependencies": {
+        "@codemirror/view": "^6.41.0",
+        "@lezer/common": "^1.5.2",
         "@joplin/fork-uslug": "^2.0.6"
     },
     "overrides": {
