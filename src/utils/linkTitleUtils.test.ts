@@ -10,8 +10,9 @@ import {
     getFetchLinkTitlesMenuLabel,
 } from './linkTitleUtils';
 import { LinkType } from '../types';
+import { vi } from 'vitest';
 
-const mockFetch = jest.fn();
+const mockFetch = vi.fn();
 
 // Mirrors the seeded `linkTitleRules` default value in src/settings.ts.
 const DEFAULT_JIRA_RULES = JSON.stringify([
@@ -30,14 +31,14 @@ const DEFAULT_JIRA_RULES = JSON.stringify([
 function createJsonResponse(ok: boolean, data: unknown): Response {
     return {
         ok,
-        json: jest.fn().mockResolvedValue(data),
+        json: vi.fn().mockResolvedValue(data),
     } as unknown as Response;
 }
 
 function createTextResponse(ok: boolean, html: string): Response {
     return {
         ok,
-        text: jest.fn().mockResolvedValue(html),
+        text: vi.fn().mockResolvedValue(html),
     } as unknown as Response;
 }
 
