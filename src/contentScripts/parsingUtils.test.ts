@@ -119,20 +119,28 @@ describe('parsingUtils', () => {
             return { state } as any;
         };
 
+        const extractFromFirstLink = <T>(doc: string, extractor: (node: any, view: any) => T): T | null => {
+            const { state } = createView(doc);
+            const tree = syntaxTree(state);
+            let foundLink = false;
+            let extracted: T | null = null;
+
+            tree.iterate({
+                enter: (node) => {
+                    if (!foundLink && node.name === 'Link') {
+                        foundLink = true;
+                        extracted = extractor(node.node, { state } as any);
+                    }
+                },
+            });
+
+            return extracted;
+        };
+
         describe('extractUrl', () => {
             it('should extract URL and title attribute from markdown links', () => {
                 const text = '[Joplin](https://joplinapp.org "Joplin [Docs]")';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let extracted = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            extracted = extractUrl(node.node, { state } as any);
-                        }
-                    },
-                });
+                const extracted = extractFromFirstLink(text, extractUrl);
 
                 expect(extracted).toEqual({
                     url: 'https://joplinapp.org',
@@ -144,17 +152,7 @@ describe('parsingUtils', () => {
 
             it('should preserve single-quoted title tokens', () => {
                 const text = "[Joplin](https://joplinapp.org 'Docs Title')";
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let extracted = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            extracted = extractUrl(node.node, { state } as any);
-                        }
-                    },
-                });
+                const extracted = extractFromFirstLink(text, extractUrl);
 
                 expect(extracted).toEqual({
                     url: 'https://joplinapp.org',
@@ -166,17 +164,7 @@ describe('parsingUtils', () => {
 
             it('should preserve parenthesized title tokens', () => {
                 const text = '[Joplin](https://joplinapp.org (Docs Title))';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let extracted = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            extracted = extractUrl(node.node, { state } as any);
-                        }
-                    },
-                });
+                const extracted = extractFromFirstLink(text, extractUrl);
 
                 expect(extracted).toEqual({
                     url: 'https://joplinapp.org',
@@ -188,17 +176,7 @@ describe('parsingUtils', () => {
 
             it('should not extract URL-shaped reference link labels as inline URLs', () => {
                 const text = '[https://google.com][ref]\n\n[ref]: https://google.com';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let extracted = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            extracted = extractUrl(node.node, { state } as any);
-                        }
-                    },
-                });
+                const extracted = extractFromFirstLink(text, extractUrl);
 
                 expect(extracted).toBeNull();
             });
@@ -207,51 +185,21 @@ describe('parsingUtils', () => {
         describe('extractReferenceLabel', () => {
             it('should extract label from reference link', () => {
                 const text = '[Google][2]';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let label = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            label = extractReferenceLabel(node.node, { state } as any);
-                        }
-                    },
-                });
+                const label = extractFromFirstLink(text, extractReferenceLabel);
 
                 expect(label).toBe('[2]');
             });
 
             it('should return null for normal links', () => {
                 const text = '[Google](https://google.com)';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let label = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            label = extractReferenceLabel(node.node, { state } as any);
-                        }
-                    },
-                });
+                const label = extractFromFirstLink(text, extractReferenceLabel);
 
                 expect(label).toBeNull();
             });
 
             it('should return null for shortcut reference links', () => {
                 const text = '[Google]\n\n[Google]: https://google.com';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let label = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            label = extractReferenceLabel(node.node, { state } as any);
-                        }
-                    },
-                });
+                const label = extractFromFirstLink(text, extractReferenceLabel);
 
                 // Shortcut links have no explicit label, should return null
                 expect(label).toBeNull();
@@ -259,17 +207,7 @@ describe('parsingUtils', () => {
 
             it('should return "[]" for collapsed reference links', () => {
                 const text = '[Google][]\n\n[Google]: https://google.com';
-                const { state } = createView(text);
-                const tree = syntaxTree(state);
-                let label = null;
-
-                tree.iterate({
-                    enter: (node) => {
-                        if (node.name === 'Link') {
-                            label = extractReferenceLabel(node.node, { state } as any);
-                        }
-                    },
-                });
+                const label = extractFromFirstLink(text, extractReferenceLabel);
 
                 // Collapsed links have empty label "[]"
                 expect(label).toBe('[]');
