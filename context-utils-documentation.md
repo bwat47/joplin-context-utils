@@ -184,6 +184,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Detects the heading at the cursor and generates its anchor/slug
 - `getHeadingAtPosition(view, pos)` walks the whole syntax tree to build the ordered anchor list (so duplicate slugs get `-2`, `-3`, ... suffixes) and returns the heading under the cursor
 - Slugify (`@joplin/fork-uslug`), duplicate handling, and inline-text extraction are kept in sync with the [joplin-heading-navigator](https://github.com/bwat47/joplin-heading-navigator/blob/main/src/headingExtractor.ts) plugin so anchors match Joplin's rendered heading IDs
+- Math nodes (`InlineMath` / `BlockMath`) are copied verbatim rather than walked, since Joplin re-parses their content with a TeX parser and slugs the raw source for its own heading links; the test file approximates that grammar with a local inline-math markdown extension
 
 **src/contentScripts/quoteExtraction.ts**
 

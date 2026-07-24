@@ -1,8 +1,61 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
-import { GFM } from '@lezer/markdown';
+import { GFM, type InlineContext, type MarkdownConfig } from '@lezer/markdown';
 import { getHeadingAtPosition } from './headingExtraction';
+
+const DOLLAR_SIGN_CHARCODE = 36;
+const BACKSLASH_CHARCODE = 92;
+
+/**
+ * Joplin marks `$...$` as an `InlineMath` node wrapping an `InlineMathContent` node, and
+ * hands the content to a TeX parser. That grammar is app-internal, so tests approximate it
+ * here. The TeX parse is omitted: the extractor copies `InlineMath` verbatim from the
+ * source, so nothing below that node is ever visited.
+ *
+ * @see https://github.com/laurent22/joplin/blob/dev/packages/editor/CodeMirror/extensions/markdownMathExtension.ts
+ */
+const inlineMathConfig: MarkdownConfig = {
+    defineNodes: [{ name: 'InlineMath' }, { name: 'InlineMathContent' }],
+    parseInline: [
+        {
+            name: 'InlineMath',
+            after: 'InlineCode',
+            parse(cx: InlineContext, current: number, pos: number): number {
+                const prevCharCode = pos - 1 >= 0 ? cx.char(pos - 1) : -1;
+                const nextCharCode = cx.char(pos + 1);
+                if (
+                    current !== DOLLAR_SIGN_CHARCODE ||
+                    prevCharCode === DOLLAR_SIGN_CHARCODE ||
+                    nextCharCode === DOLLAR_SIGN_CHARCODE ||
+                    /\s/.test(String.fromCharCode(nextCharCode))
+                ) {
+                    return -1;
+                }
+
+                const start = pos;
+                const end = cx.end;
+                let escaped = false;
+
+                // Scan ahead for the next unescaped '$'
+                for (pos++; pos < end && (escaped || cx.char(pos) !== DOLLAR_SIGN_CHARCODE); pos++) {
+                    escaped = !escaped && cx.char(pos) === BACKSLASH_CHARCODE;
+                }
+
+                // Not math when the region is unterminated or the closing '$' follows a space
+                if (pos === end || /\s/.test(String.fromCharCode(cx.char(pos - 1)))) {
+                    return -1;
+                }
+
+                pos++;
+                const content = cx.elt('InlineMathContent', start + 1, pos - 1);
+                cx.addElement(cx.elt('InlineMath', start, pos, [content]));
+
+                return pos + 1;
+            },
+        },
+    ],
+};
 
 describe('headingExtraction', () => {
     const createView = (doc: string) => {
@@ -10,7 +63,7 @@ describe('headingExtraction', () => {
             doc,
             extensions: [
                 markdown({
-                    extensions: [GFM],
+                    extensions: [GFM, inlineMathConfig],
                 }),
             ],
         });
@@ -86,6 +139,24 @@ describe('headingExtraction', () => {
     it('strips unsupported highlight (==) and insert (++) formatting', () => {
         const result = headingAt('# ==Important== ++new++', 'Important');
         expect(result).toEqual({ text: 'Important new', anchor: 'important-new' });
+    });
+
+    it('keeps inline math verbatim so anchors match Joplin heading links', () => {
+        expect(headingAt('# Maxwell $E=mc^2$', 'Maxwell')).toEqual({
+            text: 'Maxwell $E=mc^2$',
+            anchor: 'maxwell-emc2',
+        });
+
+        expect(headingAt('## Decay of $\\alpha$ particles', 'Decay')).toEqual({
+            text: 'Decay of $\\alpha$ particles',
+            anchor: 'decay-of-alpha-particles',
+        });
+
+        // Lone dollar signs are not math and stay plain text.
+        expect(headingAt('### Price is 5$ or 10$', 'Price')).toEqual({
+            text: 'Price is 5$ or 10$',
+            anchor: 'price-is-5-or-10',
+        });
     });
 
     it('returns null when the cursor is not on a heading', () => {

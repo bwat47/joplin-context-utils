@@ -40,9 +40,24 @@ function parseHeadingLevel(nodeName: string): number | null {
 }
 
 /**
+ * Nodes whose source text is copied verbatim instead of being walked.
+ *
+ * Joplin's editor grammar wraps `$...$` math in an `InlineMath` node whose content is
+ * re-parsed by a TeX parser, so walking it drops every token that parser recognises
+ * (`# Maxwell $E=mc^2$` came out as `Maxwell $=$`). Joplin's own in-editor heading links
+ * slug the raw heading source, so keeping the formula and its `$` delimiters verbatim is
+ * also what produces the anchor Joplin's ctrl+click navigation looks for
+ * (`maxwell-emc2`).
+ *
+ * `BlockMath` cannot start on a heading line, but is listed for the same reason.
+ */
+const VERBATIM_NODE_NAMES = new Set(['InlineMath', 'BlockMath']);
+
+/**
  * Recursively extracts the visible inline text of a heading node, skipping
  * formatting marks, URLs, link labels/titles, images, and HTML tags while
- * preserving escaped characters and the gaps between inline elements.
+ * preserving escaped characters, math regions, and the gaps between inline
+ * elements.
  */
 function extractInlineText(node: SyntaxNode, doc: string): string {
     let out = '';
@@ -64,6 +79,13 @@ function extractInlineText(node: SyntaxNode, doc: string): string {
 
         if (from > lastPos) {
             out += doc.slice(lastPos, from);
+        }
+
+        // Keep math regions exactly as written (see VERBATIM_NODE_NAMES).
+        if (VERBATIM_NODE_NAMES.has(name)) {
+            out += doc.slice(from, to);
+            lastPos = to;
+            continue;
         }
 
         // A URL node is a hidden link destination only inside a Link/Image
