@@ -136,6 +136,29 @@ describe('headingExtraction', () => {
         expect(result).toEqual({ text: 'Bold and italic', anchor: 'bold-and-italic' });
     });
 
+    it.each([
+        {
+            name: 'preserves escaped characters',
+            doc: '# Escaped \\*star\\*',
+            needle: 'Escaped',
+            expected: { text: 'Escaped *star*', anchor: 'escaped-star' },
+        },
+        {
+            name: 'skips HTML tags while preserving their text',
+            doc: '# HTML <b>bold</b> tag',
+            needle: 'HTML',
+            expected: { text: 'HTML bold tag', anchor: 'html-bold-tag' },
+        },
+        {
+            name: 'skips images including their alt text',
+            doc: '# Image only ![alt](img.png)',
+            needle: 'Image',
+            expected: { text: 'Image only', anchor: 'image-only' },
+        },
+    ])('$name', ({ doc, needle, expected }) => {
+        expect(headingAt(doc, needle)).toEqual(expected);
+    });
+
     it('strips unsupported highlight (==) and insert (++) formatting', () => {
         const result = headingAt('# ==Important== ++new++', 'Important');
         expect(result).toEqual({ text: 'Important new', anchor: 'important-new' });
