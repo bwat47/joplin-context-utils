@@ -532,7 +532,7 @@ function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
 /**
  * Scans a single range for external link/URL/autolink nodes, appending any
  * matches to the shared `links` array. `seenRanges` deduplicates by absolute
- * position so overlapping ranges don't yield the same link twice.
+ * position when multiple ranges touch the same link node.
  */
 function collectLinksInRange(
     view: EditorView,
@@ -548,78 +548,74 @@ function collectLinksInRange(
         to: to,
         enter: (node) => {
             switch (node.type.name) {
-                case 'Link':
-                    collectMarkdownLink(view, node, links, seenRanges);
+                case 'Link': {
+                    const link = buildMarkdownLink(view, node);
+                    if (link) {
+                        appendUniqueLink(link, links, seenRanges);
+                    }
                     // Skip child URL nodes and reference-link labels.
                     return false;
+                }
                 case 'URL':
-                case 'Autolink':
-                    collectBareUrl(view, node, links, seenRanges);
-                    // Continue traversal; nested autolink URL nodes are filtered by collectBareUrl.
+                case 'Autolink': {
+                    const link = buildBareUrlLink(view, node);
+                    if (link) {
+                        appendUniqueLink(link, links, seenRanges);
+                    }
+                    // Continue traversal; nested autolink URL nodes are filtered by buildBareUrlLink.
                     return;
+                }
             }
         },
     });
 }
 
-function collectMarkdownLink(view: EditorView, node: SyntaxNodeRef, links: LinkInfo[], seenRanges: Set<string>): void {
-    if (node.node.parent?.type.name === 'Image') {
-        return;
-    }
-
+function buildMarkdownLink(view: EditorView, node: SyntaxNodeRef): LinkInfo | null {
     const extracted = extractUrl(node.node, view);
     if (!extracted) {
-        return;
+        return null;
     }
 
     const classified = classifyUrl(extracted.url);
     if (!classified || classified.type !== LinkType.ExternalUrl) {
-        return;
+        return null;
     }
 
     const fullLinkText = view.state.doc.sliceString(node.from, node.to);
-    appendUniqueLink(
-        {
-            url: classified.url,
-            type: classified.type,
-            from: extracted.from,
-            to: extracted.to,
-            markdownLinkFrom: node.from,
-            markdownLinkTo: node.to,
-            linkTitleToken: extracted.linkTitleToken,
-            expectedText: fullLinkText,
-        },
-        links,
-        seenRanges
-    );
+    return {
+        url: classified.url,
+        type: classified.type,
+        from: extracted.from,
+        to: extracted.to,
+        markdownLinkFrom: node.from,
+        markdownLinkTo: node.to,
+        linkTitleToken: extracted.linkTitleToken,
+        expectedText: fullLinkText,
+    };
 }
 
-function collectBareUrl(view: EditorView, node: SyntaxNodeRef, links: LinkInfo[], seenRanges: Set<string>): void {
+function buildBareUrlLink(view: EditorView, node: SyntaxNodeRef): LinkInfo | null {
     const parentType = node.node.parent?.type.name;
     const isEmbedded = parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock';
     const isNestedAutolinkUrl = node.type.name === 'URL' && parentType === 'Autolink';
     if (isEmbedded || isNestedAutolinkUrl) {
-        return;
+        return null;
     }
 
     const urlText = view.state.doc.sliceString(node.from, node.to);
     const url = urlText.replace(/^<|>$/g, '');
     const classified = classifyUrl(url);
     if (!classified || classified.type !== LinkType.ExternalUrl) {
-        return;
+        return null;
     }
 
-    appendUniqueLink(
-        {
-            url: classified.url,
-            type: classified.type,
-            from: node.from,
-            to: node.to,
-            expectedText: urlText,
-        },
-        links,
-        seenRanges
-    );
+    return {
+        url: classified.url,
+        type: classified.type,
+        from: node.from,
+        to: node.to,
+        expectedText: urlText,
+    };
 }
 
 function appendUniqueLink(link: LinkInfo, links: LinkInfo[], seenRanges: Set<string>): void {
