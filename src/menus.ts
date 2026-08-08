@@ -71,6 +71,7 @@ function buildGlobalMenuItems(): MenuItem[] {
 }
 
 function hasEnabledContextSensitiveItem(): boolean {
+    // Keep this list in sync with the context-specific menu builders below.
     return (
         settingsCache.showOpenLink ||
         settingsCache.showPinToTabs ||
@@ -124,6 +125,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         });
     }
 
+    // If Note Tabs isn't installed, command execution will show an error toast.
     if (isNote && settingsCache.showPinToTabs) {
         items.push({
             commandName: COMMAND_IDS.PIN_TO_TABS,
