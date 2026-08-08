@@ -37,7 +37,7 @@ context-utils-documentation.md
 
 ## Git
 
-- Use conventional commit format for commit messages
+- Use conventional commit format for commit messages. Only use "fix" for bugfixes.
 - Never run git commit proactively; always wait for explicit user consent.
 
 ## Codex working instructions
