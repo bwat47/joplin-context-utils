@@ -16,6 +16,11 @@ export interface ExtractedUrl {
 
 type LinkParseResult = Omit<LinkContext, 'from' | 'to' | 'contextType'> | null;
 
+interface ReferenceDefinition {
+    label?: string;
+    url?: string;
+}
+
 /**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
@@ -172,6 +177,23 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
     return null;
 }
 
+function extractReferenceDefinition(node: SyntaxNode, view: EditorView): ReferenceDefinition {
+    const cursor = node.cursor();
+    const definition: ReferenceDefinition = {};
+
+    if (!cursor.firstChild()) return definition;
+
+    do {
+        if (cursor.name === 'LinkLabel') {
+            definition.label = view.state.doc.sliceString(cursor.from, cursor.to);
+        } else if (cursor.name === 'URL') {
+            definition.url = view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return definition;
+}
+
 /**
  * Finds the URL defined for a reference label
  * Scans the document using a cursor to allow early exit
@@ -181,32 +203,17 @@ export function findReferenceDefinition(view: EditorView, label: string): string
     const tree = ensureSyntaxTree(view.state, view.state.doc.length);
     if (!tree) return null;
     const cursor = tree.cursor();
+    const normalizedLabel = label.toLowerCase();
 
     // Loop through the entire tree in document order
     do {
         if (cursor.name === 'LinkReference') {
-            // We found a reference definition. Inspect it using a separate cursor
-            // to avoid disrupting our main loop position.
-            const refCursor = cursor.node.cursor();
-
-            let defLabel: string | null = null;
-            let defUrl: string | null = null;
-
-            // Traverse the children of the LinkReference
-            if (refCursor.firstChild()) {
-                do {
-                    if (refCursor.name === 'LinkLabel') {
-                        defLabel = view.state.doc.sliceString(refCursor.from, refCursor.to);
-                    } else if (refCursor.name === 'URL') {
-                        defUrl = view.state.doc.sliceString(refCursor.from, refCursor.to);
-                    }
-                } while (refCursor.nextSibling());
-            }
+            const definition = extractReferenceDefinition(cursor.node, view);
 
             // If this is the match, return immediately (early exit)
             // Note: Reference labels are case-insensitive per CommonMark spec
-            if (defLabel !== null && defUrl !== null && defLabel.toLowerCase() === label.toLowerCase()) {
-                return defUrl;
+            if (definition.label?.toLowerCase() === normalizedLabel && definition.url !== undefined) {
+                return definition.url;
             }
         }
     } while (cursor.next());
