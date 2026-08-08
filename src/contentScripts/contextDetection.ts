@@ -176,6 +176,13 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
     return context ?? detectFootnoteContext(view, pos);
 }
 
+/**
+ * Maps supported syntax node types to their specialized context detectors.
+ *
+ * @param view - CodeMirror EditorView
+ * @param node - Syntax node at the cursor position
+ * @returns Detected link or code context, null for unsupported nodes
+ */
 function detectContextForNode(view: EditorView, node: SyntaxNodeRef): LinkContext | CodeContext | null {
     switch (node.type.name) {
         case 'InlineCode':
