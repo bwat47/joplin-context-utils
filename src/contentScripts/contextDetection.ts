@@ -530,68 +530,85 @@ function collectLinksInRange(
         from: from,
         to: to,
         enter: (node) => {
-            const { type } = node;
-
-            // Handle markdown links [text](url)
-            if (type.name === 'Link') {
-                if (node.node.parent?.type.name === 'Image') {
+            switch (node.type.name) {
+                case 'Link':
+                    collectMarkdownLink(view, node, links, seenRanges);
+                    // Skip child URL nodes and reference-link labels.
                     return false;
-                }
-                const extracted = extractUrl(node.node, view);
-                if (extracted) {
-                    const classified = classifyUrl(extracted.url);
-                    // Only include external URLs
-                    if (classified && classified.type === LinkType.ExternalUrl) {
-                        const key = `${extracted.from}-${extracted.to}`;
-                        if (!seenRanges.has(key)) {
-                            seenRanges.add(key);
-                            const fullLinkText = view.state.doc.sliceString(node.from, node.to);
-                            links.push({
-                                url: classified.url,
-                                type: classified.type,
-                                from: extracted.from,
-                                to: extracted.to,
-                                markdownLinkFrom: node.from,
-                                markdownLinkTo: node.to,
-                                linkTitleToken: extracted.linkTitleToken,
-                                expectedText: fullLinkText,
-                            });
-                        }
-                    }
-                }
-                // Skip reference links (no extracted URL)
-                return false;
-            }
-            // Handle bare URLs
-            else if (type.name === 'URL' || type.name === 'Autolink') {
-                const parentType = node.node.parent?.type.name;
-                if (parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock') {
-                    return;
-                }
-                if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
-                    return;
-                }
-                const urlText = view.state.doc.sliceString(node.from, node.to);
-                // Remove angle brackets if present (<url>)
-                const url = urlText.replace(/^<|>$/g, '');
-                const classified = classifyUrl(url);
-
-                // Only include external URLs
-                if (classified && classified.type === LinkType.ExternalUrl) {
-                    const key = `${node.from}-${node.to}`;
-                    if (!seenRanges.has(key)) {
-                        seenRanges.add(key);
-                        links.push({
-                            url: classified.url,
-                            type: classified.type,
-                            from: node.from,
-                            to: node.to,
-                            // No markdown link range for bare URLs
-                            expectedText: urlText,
-                        });
-                    }
-                }
+                case 'URL':
+                case 'Autolink':
+                    collectBareUrl(view, node, links, seenRanges);
             }
         },
     });
+}
+
+function collectMarkdownLink(view: EditorView, node: SyntaxNodeRef, links: LinkInfo[], seenRanges: Set<string>): void {
+    if (node.node.parent?.type.name === 'Image') {
+        return;
+    }
+
+    const extracted = extractUrl(node.node, view);
+    if (!extracted) {
+        return;
+    }
+
+    const classified = classifyUrl(extracted.url);
+    if (!classified || classified.type !== LinkType.ExternalUrl) {
+        return;
+    }
+
+    const fullLinkText = view.state.doc.sliceString(node.from, node.to);
+    appendUniqueLink(
+        {
+            url: classified.url,
+            type: classified.type,
+            from: extracted.from,
+            to: extracted.to,
+            markdownLinkFrom: node.from,
+            markdownLinkTo: node.to,
+            linkTitleToken: extracted.linkTitleToken,
+            expectedText: fullLinkText,
+        },
+        links,
+        seenRanges
+    );
+}
+
+function collectBareUrl(view: EditorView, node: SyntaxNodeRef, links: LinkInfo[], seenRanges: Set<string>): void {
+    const parentType = node.node.parent?.type.name;
+    const isEmbedded = parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock';
+    const isNestedAutolinkUrl = node.type.name === 'URL' && parentType === 'Autolink';
+    if (isEmbedded || isNestedAutolinkUrl) {
+        return;
+    }
+
+    const urlText = view.state.doc.sliceString(node.from, node.to);
+    const url = urlText.replace(/^<|>$/g, '');
+    const classified = classifyUrl(url);
+    if (!classified || classified.type !== LinkType.ExternalUrl) {
+        return;
+    }
+
+    appendUniqueLink(
+        {
+            url: classified.url,
+            type: classified.type,
+            from: node.from,
+            to: node.to,
+            expectedText: urlText,
+        },
+        links,
+        seenRanges
+    );
+}
+
+function appendUniqueLink(link: LinkInfo, links: LinkInfo[], seenRanges: Set<string>): void {
+    const key = `${link.from}-${link.to}`;
+    if (seenRanges.has(key)) {
+        return;
+    }
+
+    seenRanges.add(key);
+    links.push(link);
 }
