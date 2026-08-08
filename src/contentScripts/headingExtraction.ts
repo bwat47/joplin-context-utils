@@ -62,11 +62,15 @@ const SKIPPED_NODE_NAMES = new Set(['Image', 'LinkLabel', 'LinkTitle', 'HTMLTag'
 /** Leaf nodes whose source text contributes to a heading. */
 const TEXT_NODE_NAMES = new Set(['Text', 'CodeText', 'URL']);
 
-/** Text-bearing nodes when extractInlineText is called on a leaf directly. */
-const LEAF_TEXT_NODE_NAMES = new Set(['Text', 'CodeText']);
-
-/** Reports whether a node contributes no readable heading text. */
-function isSkippedNode(node: SyntaxNode, name: string): boolean {
+/**
+ * Reports whether a node contributes no readable heading text.
+ *
+ * A URL node is a hidden destination only inside a Link/Image
+ * (e.g. `[text](url)` / `![alt](url)`). Bare URLs, emails, and autolink targets
+ * are visible heading text, so they must be kept to match Joplin's heading IDs.
+ */
+function isSkippedNode(node: SyntaxNode): boolean {
+    const name = node.name;
     if (name.endsWith('Mark') || SKIPPED_NODE_NAMES.has(name)) {
         return true;
     }
@@ -83,7 +87,7 @@ function extractChildText(node: SyntaxNode, doc: string): string {
         return doc.slice(node.from, node.to);
     }
 
-    if (isSkippedNode(node, name)) {
+    if (isSkippedNode(node)) {
         return '';
     }
 
@@ -109,7 +113,7 @@ function extractInlineText(node: SyntaxNode, doc: string): string {
     const cursor = node.cursor();
 
     if (!cursor.firstChild()) {
-        return LEAF_TEXT_NODE_NAMES.has(cursor.name) ? doc.slice(cursor.from, cursor.to) : '';
+        return '';
     }
 
     let lastPos = node.from;
