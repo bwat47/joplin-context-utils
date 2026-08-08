@@ -138,39 +138,30 @@ describe('parsingUtils', () => {
         };
 
         describe('extractUrl', () => {
-            it('should extract URL and title attribute from markdown links', () => {
-                const text = '[Joplin](https://joplinapp.org "Joplin [Docs]")';
-                const extracted = extractFromFirstLink(text, extractUrl);
-
-                expect(extracted).toEqual({
-                    url: 'https://joplinapp.org',
-                    from: text.indexOf('https://joplinapp.org'),
-                    to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
+            it.each([
+                {
+                    name: 'extracts URL and title attribute from markdown links',
+                    text: '[Joplin](https://joplinapp.org "Joplin [Docs]")',
                     linkTitleToken: '"Joplin [Docs]"',
-                });
-            });
-
-            it('should preserve single-quoted title tokens', () => {
-                const text = "[Joplin](https://joplinapp.org 'Docs Title')";
-                const extracted = extractFromFirstLink(text, extractUrl);
-
-                expect(extracted).toEqual({
-                    url: 'https://joplinapp.org',
-                    from: text.indexOf('https://joplinapp.org'),
-                    to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
+                },
+                {
+                    name: 'preserves single-quoted title tokens',
+                    text: "[Joplin](https://joplinapp.org 'Docs Title')",
                     linkTitleToken: "'Docs Title'",
-                });
-            });
-
-            it('should preserve parenthesized title tokens', () => {
-                const text = '[Joplin](https://joplinapp.org (Docs Title))';
+                },
+                {
+                    name: 'preserves parenthesized title tokens',
+                    text: '[Joplin](https://joplinapp.org (Docs Title))',
+                    linkTitleToken: '(Docs Title)',
+                },
+            ])('$name', ({ text, linkTitleToken }) => {
                 const extracted = extractFromFirstLink(text, extractUrl);
 
                 expect(extracted).toEqual({
                     url: 'https://joplinapp.org',
                     from: text.indexOf('https://joplinapp.org'),
                     to: text.indexOf('https://joplinapp.org') + 'https://joplinapp.org'.length,
-                    linkTitleToken: '(Docs Title)',
+                    linkTitleToken,
                 });
             });
 
@@ -215,36 +206,40 @@ describe('parsingUtils', () => {
         });
 
         describe('findReferenceDefinition', () => {
-            it('should find definition for label', () => {
-                const text = '[Google][2]\n\n[2]: https://google.com';
+            it.each([
+                {
+                    name: 'finds definition for label',
+                    text: '[Google][2]\n\n[2]: https://google.com',
+                    label: '[2]',
+                    expectedUrl: 'https://google.com',
+                },
+                {
+                    name: 'returns null if definition is not found',
+                    text: '[Google][2]',
+                    label: '[2]',
+                    expectedUrl: null,
+                },
+                {
+                    name: 'handles title in definition',
+                    text: '[2]: https://google.com "Title"',
+                    label: '[2]',
+                    expectedUrl: 'https://google.com',
+                },
+                {
+                    name: 'uses first occurrence when multiple definitions have the same label',
+                    text:
+                        '[Example][1]\n\n' +
+                        '[1]: https://first.com\n' +
+                        '[1]: https://second.com\n' +
+                        '[1]: https://third.com',
+                    label: '[1]',
+                    expectedUrl: 'https://first.com',
+                },
+            ])('$name', ({ text, label, expectedUrl }) => {
                 const { state } = createView(text);
-                const url = findReferenceDefinition({ state } as any, '[2]');
-                expect(url).toBe('https://google.com');
-            });
+                const url = findReferenceDefinition({ state } as any, label);
 
-            it('should return null if definition not found', () => {
-                const text = '[Google][2]';
-                const { state } = createView(text);
-                const url = findReferenceDefinition({ state } as any, '[2]');
-                expect(url).toBeNull();
-            });
-
-            it('should handle title in definition', () => {
-                const text = '[2]: https://google.com "Title"';
-                const { state } = createView(text);
-                const url = findReferenceDefinition({ state } as any, '[2]');
-                expect(url).toBe('https://google.com');
-            });
-
-            it('should use first occurrence when multiple definitions exist with same label', () => {
-                const text =
-                    '[Example][1]\n\n' +
-                    '[1]: https://first.com\n' +
-                    '[1]: https://second.com\n' +
-                    '[1]: https://third.com';
-                const { state } = createView(text);
-                const url = findReferenceDefinition({ state } as any, '[1]');
-                expect(url).toBe('https://first.com');
+                expect(url).toBe(expectedUrl);
             });
 
             it('should match labels case-insensitively', () => {
