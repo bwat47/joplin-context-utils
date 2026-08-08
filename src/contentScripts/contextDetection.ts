@@ -165,7 +165,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
         from: pos,
         to: pos,
         enter: (node) => {
-            const detectedContext = detectSyntaxContext(view, node);
+            const detectedContext = detectContextForNode(view, node);
             if (detectedContext) {
                 context = detectedContext;
                 return false;
@@ -176,7 +176,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
     return context ?? detectFootnoteContext(view, pos);
 }
 
-function detectSyntaxContext(view: EditorView, node: SyntaxNodeRef): LinkContext | CodeContext | null {
+function detectContextForNode(view: EditorView, node: SyntaxNodeRef): LinkContext | CodeContext | null {
     switch (node.type.name) {
         case 'InlineCode':
         case 'CodeText':
@@ -555,6 +555,8 @@ function collectLinksInRange(
                 case 'URL':
                 case 'Autolink':
                     collectBareUrl(view, node, links, seenRanges);
+                    // Continue traversal; nested autolink URL nodes are filtered by collectBareUrl.
+                    return;
             }
         },
     });
