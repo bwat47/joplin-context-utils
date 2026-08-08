@@ -108,7 +108,7 @@ async function getEditorContexts(): Promise<EditorContext[]> {
 
 async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
-    const isExternalLink = context.type === LinkType.ExternalUrl || context.type === LinkType.Email;
+    const isExternalOrEmail = context.type === LinkType.ExternalUrl || context.type === LinkType.Email;
     let isNote = false;
 
     if (context.type === LinkType.JoplinResource && settingsCache.showPinToTabs) {
@@ -116,7 +116,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         isNote = (await getJoplinIdType(resourceId)) === 'note';
     }
 
-    if (settingsCache.showOpenLink && isExternalLink) {
+    if (settingsCache.showOpenLink && isExternalOrEmail) {
         items.push({
             commandName: COMMAND_IDS.OPEN_LINK,
             commandArgs: [context],
@@ -132,7 +132,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         });
     }
 
-    if (settingsCache.showCopyPath && isExternalLink) {
+    if (settingsCache.showCopyPath && isExternalOrEmail) {
         items.push({
             commandName: COMMAND_IDS.COPY_PATH,
             commandArgs: [context],
