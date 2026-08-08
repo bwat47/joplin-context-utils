@@ -14,6 +14,13 @@ export interface ExtractedUrl {
     linkTitleToken?: string;
 }
 
+type LinkParseResult = Omit<LinkContext, 'from' | 'to' | 'contextType'> | null;
+
+interface ReferenceDefinition {
+    label?: string;
+    url?: string;
+}
+
 /**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
@@ -62,7 +69,7 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
  * Parses HTML img tag and extracts src attribute
  * Handles img elements with various attributes
  */
-export function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+export function parseImageTag(htmlText: string): LinkParseResult {
     // Check if this is an img tag
     if (!htmlText.match(/<img\s/i)) {
         return null;
@@ -83,7 +90,7 @@ export function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to'
  * @param url - The URL to classify
  * @returns Link context with type, or null if not a supported URL type
  */
-export function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+export function classifyUrl(url: string): LinkParseResult {
     // Determine link type
     if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
         return { url, type: LinkType.JoplinResource };
@@ -171,6 +178,27 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
 }
 
 /**
+ * Extracts the label and URL from a LinkReference node's children.
+ * Fields are left undefined when the corresponding child is absent.
+ */
+function extractReferenceDefinition(node: SyntaxNode, view: EditorView): ReferenceDefinition {
+    const cursor = node.cursor();
+    const definition: ReferenceDefinition = {};
+
+    if (!cursor.firstChild()) return definition;
+
+    do {
+        if (cursor.name === 'LinkLabel') {
+            definition.label = view.state.doc.sliceString(cursor.from, cursor.to);
+        } else if (cursor.name === 'URL') {
+            definition.url = view.state.doc.sliceString(cursor.from, cursor.to);
+        }
+    } while (cursor.nextSibling());
+
+    return definition;
+}
+
+/**
  * Finds the URL defined for a reference label
  * Scans the document using a cursor to allow early exit
  * Uses the first occurrence if multiple definitions exist with the same label
@@ -179,31 +207,16 @@ export function findReferenceDefinition(view: EditorView, label: string): string
     const tree = ensureSyntaxTree(view.state, view.state.doc.length);
     if (!tree) return null;
     const cursor = tree.cursor();
+    const normalizedLabel = label.toLowerCase();
 
     // Loop through the entire tree in document order
     do {
         if (cursor.name === 'LinkReference') {
-            // We found a reference definition. Inspect it using a separate cursor
-            // to avoid disrupting our main loop position.
-            const refCursor = cursor.node.cursor();
-
-            let defLabel: string | null = null;
-            let defUrl: string | null = null;
-
-            // Traverse the children of the LinkReference
-            if (refCursor.firstChild()) {
-                do {
-                    if (refCursor.name === 'LinkLabel') {
-                        defLabel = view.state.doc.sliceString(refCursor.from, refCursor.to);
-                    } else if (refCursor.name === 'URL') {
-                        defUrl = view.state.doc.sliceString(refCursor.from, refCursor.to);
-                    }
-                } while (refCursor.nextSibling());
-            }
+            const { label: defLabel, url: defUrl } = extractReferenceDefinition(cursor.node, view);
 
             // If this is the match, return immediately (early exit)
             // Note: Reference labels are case-insensitive per CommonMark spec
-            if (defLabel !== null && defUrl !== null && defLabel.toLowerCase() === label.toLowerCase()) {
+            if (defUrl !== undefined && defLabel?.toLowerCase() === normalizedLabel) {
                 return defUrl;
             }
         }
