@@ -1,5 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
+import type { SyntaxNodeRef } from '@lezer/common';
 import {
     LinkContext,
     CodeContext,
@@ -157,187 +158,222 @@ function detectQuoteContext(view: EditorView, pos: number): QuoteContext | null 
  */
 function detectPrimaryContext(view: EditorView, pos: number): LinkContext | CodeContext | FootnoteContext | null {
     const tree = syntaxTree(view.state);
-    let context: LinkContext | CodeContext | FootnoteContext | null = null;
+    let context: LinkContext | CodeContext | null = null;
 
     // Traverse syntax tree to find nodes at position
     tree.iterate({
         from: pos,
         to: pos,
         enter: (node) => {
-            const { type, from, to } = node;
-
-            // Check for code blocks and inline code (highest priority)
-            if (type.name === 'InlineCode' || type.name === 'CodeText') {
-                const codeText = view.state.doc.sliceString(from, to);
-                const parsedCode = parseInlineCode(codeText);
-
-                if (parsedCode) {
-                    context = {
-                        contextType: 'code',
-                        ...parsedCode,
-                        from,
-                        to,
-                    };
-                    return false; // Stop iteration
-                }
-            } else if (type.name === 'FencedCode' || type.name === 'CodeBlock') {
-                const parsedCode = parseCodeBlock(node.node, view);
-
-                if (parsedCode) {
-                    context = {
-                        contextType: 'code',
-                        ...parsedCode,
-                        from,
-                        to,
-                    };
-                    return false; // Stop iteration
-                }
-            }
-            // Check for markdown link syntax [text](url)
-            else if (type.name === 'Link') {
-                const extracted = extractUrl(node.node, view);
-
-                // If URL found directly, use it with position info
-                if (extracted) {
-                    const classified = classifyUrl(extracted.url);
-                    if (classified) {
-                        const fullLinkText = view.state.doc.sliceString(from, to);
-                        context = {
-                            contextType: 'link',
-                            ...classified,
-                            from: extracted.from,
-                            to: extracted.to,
-                            // Track full markdown link range for replacement
-                            markdownLinkFrom: from,
-                            markdownLinkTo: to,
-                            // Preserve optional title attribute
-                            linkTitleToken: extracted.linkTitleToken,
-                            expectedText: fullLinkText,
-                        };
-                        return false; // Stop iteration
-                    }
-                }
-
-                // If no URL found, check if it's a reference link
-                let label = extractReferenceLabel(node.node, view);
-
-                // Handle shortcut [foo] and collapsed [foo][] reference links
-                // - Shortcut: [foo] has no LinkLabel child, extractReferenceLabel returns null
-                // - Collapsed: [foo][] has LinkLabel child with value "[]"
-                if (!label || label === '[]') {
-                    label = view.state.doc.sliceString(from, to);
-                    // Strip trailing [] for collapsed reference links
-                    label = label.replace(/\[\]$/, '');
-                }
-
-                if (label) {
-                    const refUrl = findReferenceDefinition(view, label);
-                    const classified = refUrl ? classifyUrl(refUrl) : null;
-
-                    if (classified) {
-                        // Reference links: mark as such so Fetch Link Title can be hidden
-                        context = {
-                            contextType: 'link',
-                            ...classified,
-                            from,
-                            to,
-                            isReferenceLink: true,
-                        };
-                        return false; // Stop iteration
-                    }
-                }
-            }
-            // Check for markdown image syntax ![alt](url)
-            else if (type.name === 'Image') {
-                const extracted = extractUrl(node.node, view);
-                const classified = extracted ? classifyUrl(extracted.url) : null;
-
-                if (classified) {
-                    context = {
-                        contextType: 'link',
-                        ...classified,
-                        from,
-                        to,
-                        isImage: true,
-                    };
-                    return false; // Stop iteration
-                }
-            }
-            // Check for bare URLs and autolinks
-            else if (type.name === 'URL' || type.name === 'Autolink') {
-                const urlText = view.state.doc.sliceString(from, to);
-                // Remove angle brackets if present (<url>)
-                const url = urlText.replace(/^<|>$/g, '');
-                const classified = classifyUrl(url);
-
-                if (classified) {
-                    context = {
-                        contextType: 'link',
-                        ...classified,
-                        from,
-                        to,
-                        expectedText: urlText,
-                    };
-                    return false; // Stop iteration
-                }
-            }
-            // Check for HTML tags (img elements)
-            else if (type.name === 'HTMLTag' || type.name === 'HTMLBlock') {
-                const htmlText = view.state.doc.sliceString(from, to);
-                const parsedImage = parseImageTag(htmlText);
-
-                if (parsedImage) {
-                    context = {
-                        contextType: 'link',
-                        ...parsedImage,
-                        from,
-                        to,
-                        isImage: true,
-                    };
-                    return false; // Stop iteration
-                }
+            const detectedContext = detectContextForNode(view, node);
+            if (detectedContext) {
+                context = detectedContext;
+                return false;
             }
         },
     });
 
-    // If no context found yet, check for footnotes
-    // CodeMirror's markdown parser does not recognize footnote syntax,
-    // so we detect them via regex on the current line
-    // Low chance of false positives here (despite relying on regex for detection)
-    // Because we check the syntax tree for code/links/images/html tags first
-    if (!context) {
-        const line = view.state.doc.lineAt(pos);
-        const lineText = line.text;
-        const relativePos = pos - line.from;
+    return context ?? detectFootnoteContext(view, pos);
+}
 
-        // Regex to find all footnote references in the line: [^label]
-        const footnoteRegex = /\[\^([^\]]+)\]/g;
-        let match;
-        while ((match = footnoteRegex.exec(lineText)) !== null) {
-            const start = match.index;
-            const end = start + match[0].length;
+/**
+ * Maps supported syntax node types to their specialized context detectors.
+ *
+ * @param view - CodeMirror EditorView
+ * @param node - Syntax node at the cursor position
+ * @returns Detected link or code context, null for unsupported nodes
+ */
+function detectContextForNode(view: EditorView, node: SyntaxNodeRef): LinkContext | CodeContext | null {
+    switch (node.type.name) {
+        case 'InlineCode':
+        case 'CodeText':
+            return detectInlineCodeContext(view, node);
+        case 'FencedCode':
+        case 'CodeBlock':
+            return detectCodeBlockContext(view, node);
+        case 'Link':
+            return detectLinkContext(view, node);
+        case 'Image':
+            return detectMarkdownImageContext(view, node);
+        case 'URL':
+        case 'Autolink':
+            return detectUrlContext(view, node);
+        case 'HTMLTag':
+        case 'HTMLBlock':
+            return detectHtmlImageContext(view, node);
+        default:
+            return null;
+    }
+}
 
-            // Check if cursor is within this footnote reference
-            if (relativePos >= start && relativePos <= end) {
-                const label = match[1];
+function detectInlineCodeContext(view: EditorView, node: SyntaxNodeRef): CodeContext | null {
+    const codeText = view.state.doc.sliceString(node.from, node.to);
+    const parsedCode = parseInlineCode(codeText);
+    if (!parsedCode) {
+        return null;
+    }
 
-                const targetPos = findFootnoteDefinition(view, label);
+    return {
+        contextType: 'code',
+        ...parsedCode,
+        from: node.from,
+        to: node.to,
+    };
+}
 
-                if (targetPos !== null) {
-                    context = {
-                        contextType: 'footnote',
-                        label,
-                        targetPos,
-                        from: line.from + start,
-                        to: line.from + end,
-                    };
-                    break;
-                }
-            }
+function detectCodeBlockContext(view: EditorView, node: SyntaxNodeRef): CodeContext | null {
+    const parsedCode = parseCodeBlock(node.node, view);
+    if (!parsedCode) {
+        return null;
+    }
+
+    return {
+        contextType: 'code',
+        ...parsedCode,
+        from: node.from,
+        to: node.to,
+    };
+}
+
+/**
+ * Detects a direct or reference-style Markdown link from a Link syntax node.
+ * Direct links retain both the URL range and full Markdown range so callers can
+ * replace the complete link while preserving its optional title attribute.
+ *
+ * @param view - CodeMirror EditorView
+ * @param node - Link syntax node to inspect
+ * @returns Link context if the URL can be classified, null otherwise
+ */
+function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+    const extracted = extractUrl(node.node, view);
+    if (extracted) {
+        const classified = classifyUrl(extracted.url);
+        if (classified) {
+            const fullLinkText = view.state.doc.sliceString(node.from, node.to);
+            return {
+                contextType: 'link',
+                ...classified,
+                from: extracted.from,
+                to: extracted.to,
+                // Track full Markdown link range for replacement.
+                markdownLinkFrom: node.from,
+                markdownLinkTo: node.to,
+                // Preserve optional title attribute.
+                linkTitleToken: extracted.linkTitleToken,
+                expectedText: fullLinkText,
+            };
         }
     }
 
-    return context;
+    let label = extractReferenceLabel(node.node, view);
+    // Shortcut links have no LinkLabel child; collapsed links have a LinkLabel
+    // whose literal value is "[]", so both forms fall back to the full node text.
+    if (!label || label === '[]') {
+        label = view.state.doc.sliceString(node.from, node.to).replace(/\[\]$/, '');
+    }
+
+    const refUrl = label ? findReferenceDefinition(view, label) : null;
+    const classified = refUrl ? classifyUrl(refUrl) : null;
+    if (!classified) {
+        return null;
+    }
+
+    return {
+        contextType: 'link',
+        ...classified,
+        from: node.from,
+        to: node.to,
+        isReferenceLink: true,
+    };
+}
+
+function detectMarkdownImageContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+    const extracted = extractUrl(node.node, view);
+    const classified = extracted ? classifyUrl(extracted.url) : null;
+    if (!classified) {
+        return null;
+    }
+
+    return {
+        contextType: 'link',
+        ...classified,
+        from: node.from,
+        to: node.to,
+        isImage: true,
+    };
+}
+
+function detectUrlContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+    const urlText = view.state.doc.sliceString(node.from, node.to);
+    const url = urlText.replace(/^<|>$/g, '');
+    const classified = classifyUrl(url);
+    if (!classified) {
+        return null;
+    }
+
+    return {
+        contextType: 'link',
+        ...classified,
+        from: node.from,
+        to: node.to,
+        expectedText: urlText,
+    };
+}
+
+function detectHtmlImageContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+    const htmlText = view.state.doc.sliceString(node.from, node.to);
+    const parsedImage = parseImageTag(htmlText);
+    if (!parsedImage) {
+        return null;
+    }
+
+    return {
+        contextType: 'link',
+        ...parsedImage,
+        from: node.from,
+        to: node.to,
+        isImage: true,
+    };
+}
+
+/**
+ * Detects a footnote reference at the cursor using a current-line text scan.
+ * CodeMirror's Markdown parser does not recognize footnote syntax, so this runs
+ * only after syntax-tree detection and returns a context only for a defined label.
+ *
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position to inspect
+ * @returns Footnote context if a matching definition exists, null otherwise
+ */
+function detectFootnoteContext(view: EditorView, pos: number): FootnoteContext | null {
+    const line = view.state.doc.lineAt(pos);
+    const relativePos = pos - line.from;
+    const footnoteRegex = /\[\^([^\]]+)\]/g;
+    let match;
+
+    while ((match = footnoteRegex.exec(line.text)) !== null) {
+        const start = match.index;
+        const end = start + match[0].length;
+        if (relativePos < start || relativePos > end) {
+            continue;
+        }
+
+        const label = match[1];
+        const targetPos = findFootnoteDefinition(view, label);
+        if (targetPos === null) {
+            continue;
+        }
+
+        return {
+            contextType: 'footnote',
+            label,
+            targetPos,
+            from: line.from + start,
+            to: line.from + end,
+        };
+    }
+
+    return null;
 }
 
 /**
@@ -503,7 +539,7 @@ function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
 /**
  * Scans a single range for external link/URL/autolink nodes, appending any
  * matches to the shared `links` array. `seenRanges` deduplicates by absolute
- * position so overlapping ranges don't yield the same link twice.
+ * position when multiple ranges touch the same link node.
  */
 function collectLinksInRange(
     view: EditorView,
@@ -518,68 +554,83 @@ function collectLinksInRange(
         from: from,
         to: to,
         enter: (node) => {
-            const { type } = node;
-
-            // Handle markdown links [text](url)
-            if (type.name === 'Link') {
-                if (node.node.parent?.type.name === 'Image') {
+            switch (node.type.name) {
+                case 'Link': {
+                    const link = buildMarkdownLink(view, node);
+                    if (link) {
+                        appendUniqueLink(link, links, seenRanges);
+                    }
+                    // Skip child URL nodes and reference-link labels.
                     return false;
                 }
-                const extracted = extractUrl(node.node, view);
-                if (extracted) {
-                    const classified = classifyUrl(extracted.url);
-                    // Only include external URLs
-                    if (classified && classified.type === LinkType.ExternalUrl) {
-                        const key = `${extracted.from}-${extracted.to}`;
-                        if (!seenRanges.has(key)) {
-                            seenRanges.add(key);
-                            const fullLinkText = view.state.doc.sliceString(node.from, node.to);
-                            links.push({
-                                url: classified.url,
-                                type: classified.type,
-                                from: extracted.from,
-                                to: extracted.to,
-                                markdownLinkFrom: node.from,
-                                markdownLinkTo: node.to,
-                                linkTitleToken: extracted.linkTitleToken,
-                                expectedText: fullLinkText,
-                            });
-                        }
+                case 'URL':
+                case 'Autolink': {
+                    const link = buildBareUrlLink(view, node);
+                    if (link) {
+                        appendUniqueLink(link, links, seenRanges);
                     }
-                }
-                // Skip reference links (no extracted URL)
-                return false;
-            }
-            // Handle bare URLs
-            else if (type.name === 'URL' || type.name === 'Autolink') {
-                const parentType = node.node.parent?.type.name;
-                if (parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock') {
+                    // Continue traversal; nested autolink URL nodes are filtered by buildBareUrlLink.
                     return;
-                }
-                if (type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
-                    return;
-                }
-                const urlText = view.state.doc.sliceString(node.from, node.to);
-                // Remove angle brackets if present (<url>)
-                const url = urlText.replace(/^<|>$/g, '');
-                const classified = classifyUrl(url);
-
-                // Only include external URLs
-                if (classified && classified.type === LinkType.ExternalUrl) {
-                    const key = `${node.from}-${node.to}`;
-                    if (!seenRanges.has(key)) {
-                        seenRanges.add(key);
-                        links.push({
-                            url: classified.url,
-                            type: classified.type,
-                            from: node.from,
-                            to: node.to,
-                            // No markdown link range for bare URLs
-                            expectedText: urlText,
-                        });
-                    }
                 }
             }
         },
     });
+}
+
+function buildMarkdownLink(view: EditorView, node: SyntaxNodeRef): LinkInfo | null {
+    const extracted = extractUrl(node.node, view);
+    if (!extracted) {
+        return null;
+    }
+
+    const classified = classifyUrl(extracted.url);
+    if (!classified || classified.type !== LinkType.ExternalUrl) {
+        return null;
+    }
+
+    const fullLinkText = view.state.doc.sliceString(node.from, node.to);
+    return {
+        url: classified.url,
+        type: classified.type,
+        from: extracted.from,
+        to: extracted.to,
+        markdownLinkFrom: node.from,
+        markdownLinkTo: node.to,
+        linkTitleToken: extracted.linkTitleToken,
+        expectedText: fullLinkText,
+    };
+}
+
+function buildBareUrlLink(view: EditorView, node: SyntaxNodeRef): LinkInfo | null {
+    const parentType = node.node.parent?.type.name;
+    const isEmbedded = parentType === 'Image' || parentType === 'HTMLTag' || parentType === 'HTMLBlock';
+    const isNestedAutolinkUrl = node.type.name === 'URL' && parentType === 'Autolink';
+    if (isEmbedded || isNestedAutolinkUrl) {
+        return null;
+    }
+
+    const urlText = view.state.doc.sliceString(node.from, node.to);
+    const url = urlText.replace(/^<|>$/g, '');
+    const classified = classifyUrl(url);
+    if (!classified || classified.type !== LinkType.ExternalUrl) {
+        return null;
+    }
+
+    return {
+        url: classified.url,
+        type: classified.type,
+        from: node.from,
+        to: node.to,
+        expectedText: urlText,
+    };
+}
+
+function appendUniqueLink(link: LinkInfo, links: LinkInfo[], seenRanges: Set<string>): void {
+    const key = `${link.from}-${link.to}`;
+    if (seenRanges.has(key)) {
+        return;
+    }
+
+    seenRanges.add(key);
+    links.push(link);
 }
