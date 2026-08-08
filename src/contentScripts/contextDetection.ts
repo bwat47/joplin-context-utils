@@ -228,6 +228,15 @@ function detectCodeBlockContext(view: EditorView, node: SyntaxNodeRef): CodeCont
     };
 }
 
+/**
+ * Detects a direct or reference-style Markdown link from a Link syntax node.
+ * Direct links retain both the URL range and full Markdown range so callers can
+ * replace the complete link while preserving its optional title attribute.
+ *
+ * @param view - CodeMirror EditorView
+ * @param node - Link syntax node to inspect
+ * @returns Link context if the URL can be classified, null otherwise
+ */
 function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
     const extracted = extractUrl(node.node, view);
     if (extracted) {
@@ -239,8 +248,10 @@ function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext |
                 ...classified,
                 from: extracted.from,
                 to: extracted.to,
+                // Track full Markdown link range for replacement.
                 markdownLinkFrom: node.from,
                 markdownLinkTo: node.to,
+                // Preserve optional title attribute.
                 linkTitleToken: extracted.linkTitleToken,
                 expectedText: fullLinkText,
             };
@@ -248,7 +259,8 @@ function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext |
     }
 
     let label = extractReferenceLabel(node.node, view);
-    // Shortcut links have no LinkLabel child; collapsed links use an empty label.
+    // Shortcut links have no LinkLabel child; collapsed links have a LinkLabel
+    // whose literal value is "[]", so both forms fall back to the full node text.
     if (!label || label === '[]') {
         label = view.state.doc.sliceString(node.from, node.to).replace(/\[\]$/, '');
     }
@@ -317,11 +329,16 @@ function detectHtmlImageContext(view: EditorView, node: SyntaxNodeRef): LinkCont
     };
 }
 
+/**
+ * Detects a footnote reference at the cursor using a current-line text scan.
+ * CodeMirror's Markdown parser does not recognize footnote syntax, so this runs
+ * only after syntax-tree detection and returns a context only for a defined label.
+ *
+ * @param view - CodeMirror EditorView
+ * @param pos - Cursor position to inspect
+ * @returns Footnote context if a matching definition exists, null otherwise
+ */
 function detectFootnoteContext(view: EditorView, pos: number): FootnoteContext | null {
-    // CodeMirror's markdown parser does not recognize footnote syntax,
-    // so we detect them via regex on the current line
-    // Low chance of false positives here (despite relying on regex for detection)
-    // Because we check the syntax tree for code/links/images/html tags first
     const line = view.state.doc.lineAt(pos);
     const relativePos = pos - line.from;
     const footnoteRegex = /\[\^([^\]]+)\]/g;
