@@ -22,21 +22,12 @@ vi.mock('api', () => ({
     },
 }));
 
-const MENU_SETTING_KEYS = [
-    'showOpenLink',
-    'showFetchLinkTitle',
-    'showOpenAllLinksInSelection',
-    'showAddExternalLink',
-    'showAddLinkToNote',
-    'showCopyPath',
-    'showCopyCode',
-    'showCopyHeadingLink',
-    'showCopyQuote',
-    'showToggleTask',
-    'showGoToFootnote',
-    'showGoToHeading',
-    'showPinToTabs',
-] as const;
+type ShowSettingKey = Extract<keyof typeof settingsCache, `show${string}`>;
+type MenuSettingKey = Exclude<ShowSettingKey, 'showToastMessages'>;
+
+const MENU_SETTING_KEYS = Object.keys(settingsCache).filter(
+    (key): key is MenuSettingKey => key.startsWith('show') && key !== 'showToastMessages'
+);
 
 const EXISTING_MENU_ITEM: MenuItem = {
     commandName: 'existing.command',
@@ -92,7 +83,7 @@ const SIMPLE_CONTEXT_CASES = [
     },
 ] as const satisfies ReadonlyArray<{
     name: string;
-    setting: (typeof MENU_SETTING_KEYS)[number];
+    setting: MenuSettingKey;
     context: EditorContext;
     expectedCommands: readonly string[];
 }>;
@@ -151,7 +142,7 @@ const LINK_SETTING_CASES = [
     },
 ] as const satisfies ReadonlyArray<{
     name: string;
-    setting: (typeof MENU_SETTING_KEYS)[number];
+    setting: MenuSettingKey;
     context: EditorContext;
     expectedCommand: string;
 }>;
