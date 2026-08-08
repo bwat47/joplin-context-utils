@@ -396,6 +396,25 @@ describe('context menu filter', () => {
         expect(apiMocks.dataGet).toHaveBeenCalledTimes(2);
     });
 
+    it('skips Joplin ID lookups when pinning is disabled', async () => {
+        settingsCache.showOpenLink = true;
+        const resourceId = 'b'.repeat(32);
+        const context: EditorContext = {
+            contextType: 'link',
+            url: `:/${resourceId}`,
+            type: LinkType.JoplinResource,
+            from: 0,
+            to: 34,
+        };
+        const originalMenu = { items: [EXISTING_MENU_ITEM] };
+
+        const result = await runFilter([context], originalMenu);
+
+        expect(result).toBe(originalMenu);
+        expect(apiMocks.execute).toHaveBeenCalledTimes(2);
+        expect(apiMocks.dataGet).not.toHaveBeenCalled();
+    });
+
     it('does not offer pinning when a Joplin link resolves to a resource', async () => {
         settingsCache.showPinToTabs = true;
         const resourceId = 'b'.repeat(32);

@@ -126,7 +126,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
     }
 
     // If Note Tabs isn't installed, command execution will show an error toast.
-    if (isNote && settingsCache.showPinToTabs) {
+    if (isNote) {
         items.push({
             commandName: COMMAND_IDS.PIN_TO_TABS,
             commandArgs: [context],
