@@ -253,7 +253,7 @@ function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext |
         label = view.state.doc.sliceString(node.from, node.to).replace(/\[\]$/, '');
     }
 
-    const refUrl = findReferenceDefinition(view, label);
+    const refUrl = label ? findReferenceDefinition(view, label) : null;
     const classified = refUrl ? classifyUrl(refUrl) : null;
     if (!classified) {
         return null;
