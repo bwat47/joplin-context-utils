@@ -50,6 +50,217 @@ async function isEditorContextMenuOrigin(): Promise<boolean> {
     }
 }
 
+function buildGlobalMenuItems(): MenuItem[] {
+    const items: MenuItem[] = [];
+
+    if (settingsCache.showAddExternalLink) {
+        items.push({
+            commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
+            label: 'Add External Link',
+        });
+    }
+
+    if (settingsCache.showAddLinkToNote) {
+        items.push({
+            commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
+            label: 'Add Link to Note',
+        });
+    }
+
+    return items;
+}
+
+function hasEnabledContextSensitiveItem(): boolean {
+    return (
+        settingsCache.showOpenLink ||
+        settingsCache.showPinToTabs ||
+        settingsCache.showCopyPath ||
+        settingsCache.showCopyCode ||
+        settingsCache.showToggleTask ||
+        settingsCache.showGoToFootnote ||
+        settingsCache.showGoToHeading ||
+        settingsCache.showFetchLinkTitle ||
+        settingsCache.showOpenAllLinksInSelection ||
+        settingsCache.showCopyHeadingLink ||
+        settingsCache.showCopyQuote
+    );
+}
+
+async function getEditorContexts(): Promise<EditorContext[]> {
+    if (!hasEnabledContextSensitiveItem()) {
+        return [];
+    }
+
+    try {
+        // Work around a Linux timing issue where the cursor position may not have updated yet.
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const result = await joplin.commands.execute('editor.execCommand', {
+            name: GET_CONTEXT_AT_CURSOR_COMMAND,
+        });
+
+        return (Array.isArray(result) ? result : []) as EditorContext[];
+    } catch (error) {
+        logger.error('Error getting contexts at cursor:', error);
+        return [];
+    }
+}
+
+async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
+    const items: MenuItem[] = [];
+    const isExternalLink = context.type === LinkType.ExternalUrl || context.type === LinkType.Email;
+    let isNote = false;
+
+    if (context.type === LinkType.JoplinResource && settingsCache.showPinToTabs) {
+        const resourceId = extractJoplinResourceId(context.url);
+        isNote = (await getJoplinIdType(resourceId)) === 'note';
+    }
+
+    if (settingsCache.showOpenLink && isExternalLink) {
+        items.push({
+            commandName: COMMAND_IDS.OPEN_LINK,
+            commandArgs: [context],
+            label: getLabelForOpenLink(context),
+        });
+    }
+
+    if (isNote && settingsCache.showPinToTabs) {
+        items.push({
+            commandName: COMMAND_IDS.PIN_TO_TABS,
+            commandArgs: [context],
+            label: 'Open Note as Pinned Tab',
+        });
+    }
+
+    if (settingsCache.showCopyPath && isExternalLink) {
+        items.push({
+            commandName: COMMAND_IDS.COPY_PATH,
+            commandArgs: [context],
+            label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
+        });
+    }
+
+    if (settingsCache.showFetchLinkTitle && isFetchableLink(context)) {
+        items.push({
+            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
+            commandArgs: [[linkContextToLinkInfo(context)]],
+            label: getFetchLinkTitlesMenuLabel(1),
+        });
+    }
+
+    if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
+        items.push({
+            commandName: COMMAND_IDS.GO_TO_HEADING,
+            commandArgs: [context],
+            label: 'Go to Heading',
+        });
+    }
+
+    return items;
+}
+
+function buildHeadingMenuItems(context: Extract<EditorContext, { contextType: 'heading' }>): MenuItem[] {
+    if (!settingsCache.showCopyHeadingLink) {
+        return [];
+    }
+
+    return [
+        {
+            commandName: COMMAND_IDS.COPY_HEADING_LINK_INTERNAL,
+            commandArgs: [context],
+            label: 'Copy Heading Link (internal)',
+        },
+        {
+            commandName: COMMAND_IDS.COPY_HEADING_LINK_EXTERNAL,
+            commandArgs: [context],
+            label: 'Copy Heading Link (external)',
+        },
+    ];
+}
+
+function buildLinkSelectionMenuItems(context: Extract<EditorContext, { contextType: 'linkSelection' }>): MenuItem[] {
+    const items: MenuItem[] = [];
+
+    if (settingsCache.showOpenAllLinksInSelection) {
+        items.push({
+            commandName: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
+            commandArgs: [context],
+            label: `Open All Links (${context.links.length})`,
+        });
+    }
+
+    if (settingsCache.showFetchLinkTitle) {
+        items.push({
+            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
+            commandArgs: [context.links],
+            label: getFetchLinkTitlesMenuLabel(context.links.length),
+        });
+    }
+
+    return items;
+}
+
+async function buildMenuItemsForContext(context: EditorContext): Promise<MenuItem[]> {
+    switch (context.contextType) {
+        case 'link':
+            return buildLinkMenuItems(context);
+        case 'code':
+            return settingsCache.showCopyCode
+                ? [{ commandName: COMMAND_IDS.COPY_CODE, commandArgs: [context], label: 'Copy Code' }]
+                : [];
+        case 'task':
+            return settingsCache.showToggleTask
+                ? [
+                      {
+                          commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
+                          commandArgs: [context],
+                          label: getLabelForTaskToggle(context),
+                      },
+                  ]
+                : [];
+        case 'footnote':
+            return settingsCache.showGoToFootnote
+                ? [
+                      {
+                          commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
+                          commandArgs: [context],
+                          label: 'Go to Footnote',
+                      },
+                  ]
+                : [];
+        case 'heading':
+            return buildHeadingMenuItems(context);
+        case 'quote':
+            return settingsCache.showCopyQuote
+                ? [{ commandName: COMMAND_IDS.COPY_QUOTE, commandArgs: [context], label: 'Copy Quote' }]
+                : [];
+        case 'linkSelection':
+            return buildLinkSelectionMenuItems(context);
+    }
+}
+
+async function buildContextSensitiveMenuItems(contexts: EditorContext[]): Promise<MenuItem[]> {
+    const items: MenuItem[] = [];
+
+    for (const context of contexts) {
+        items.push(...(await buildMenuItemsForContext(context)));
+    }
+
+    return items;
+}
+
+function combineMenuItems(contextItems: MenuItem[], globalItems: MenuItem[]): MenuItem[] {
+    if (contextItems.length === 0) {
+        return globalItems;
+    }
+
+    if (globalItems.length === 0) {
+        return contextItems;
+    }
+
+    return [...contextItems, { type: 'separator' }, ...globalItems];
+}
+
 /**
  * Registers context menu filter
  * This is called BEFORE the context menu opens
@@ -64,201 +275,12 @@ export function registerContextMenuFilter(): void {
                 return menuItems;
             }
 
-            const globalItems: MenuItem[] = [];
-
-            // Always show "Add External Link" if enabled (not context-sensitive)
-            if (settingsCache.showAddExternalLink) {
-                globalItems.push({
-                    commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
-                    label: 'Add External Link',
-                });
-            }
-
-            // Always show "Add Link to Note" if enabled (not context-sensitive)
-            if (settingsCache.showAddLinkToNote) {
-                globalItems.push({
-                    commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
-                    label: 'Add Link to Note',
-                });
-            }
-
-            const shouldBuildContextSensitiveItems =
-                settingsCache.showOpenLink ||
-                settingsCache.showPinToTabs ||
-                settingsCache.showCopyPath ||
-                settingsCache.showCopyCode ||
-                settingsCache.showToggleTask ||
-                settingsCache.showGoToFootnote ||
-                settingsCache.showGoToHeading ||
-                settingsCache.showFetchLinkTitle ||
-                settingsCache.showOpenAllLinksInSelection ||
-                settingsCache.showCopyHeadingLink ||
-                settingsCache.showCopyQuote;
-
-            // Get contexts directly from editor (pull architecture)
-            // This is guaranteed to match the current cursor position
-            // May return multiple contexts (e.g., code + task)
-            let contexts: EditorContext[] = [];
-            if (shouldBuildContextSensitiveItems) {
-                try {
-                    // Small delay to work around timing issue on Linux where cursor position
-                    // may not have updated yet when context menu filter is called
-                    await new Promise((resolve) => setTimeout(resolve, 10));
-
-                    const contextsResult = await joplin.commands.execute('editor.execCommand', {
-                        name: GET_CONTEXT_AT_CURSOR_COMMAND,
-                    });
-
-                    contexts = (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
-                } catch (error) {
-                    logger.error('Error getting contexts at cursor:', error);
-                }
-            }
-
+            const globalItems = buildGlobalMenuItems();
+            const contexts = await getEditorContexts();
             logger.debug('Building context menu for contexts:', contexts);
 
-            const contextSensitiveItems: MenuItem[] = [];
-
-            // Process each context and build menu items
-            for (const context of contexts) {
-                // Handle different context types
-                if (context.contextType === 'link') {
-                    // For Joplin links, check if it's a note or an actual resource
-                    let idType: 'note' | 'resource' | null = null;
-                    if (context.type === LinkType.JoplinResource && settingsCache.showPinToTabs) {
-                        const resourceId = extractJoplinResourceId(context.url);
-                        idType = await getJoplinIdType(resourceId);
-                    }
-
-                    const isNote = idType === 'note';
-
-                    // Show "Open Link" for external links and emails only.
-                    if (
-                        settingsCache.showOpenLink &&
-                        (context.type === LinkType.ExternalUrl || context.type === LinkType.Email)
-                    ) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.OPEN_LINK,
-                            commandArgs: [context],
-                            label: getLabelForOpenLink(context),
-                        });
-                    }
-
-                    // Show "Open Note as Pinned Tab" for notes (requires Note Tabs plugin)
-                    // If Note Tabs isn't installed, command execution will show an error toast
-                    if (isNote && settingsCache.showPinToTabs) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.PIN_TO_TABS,
-                            commandArgs: [context],
-                            label: 'Open Note as Pinned Tab',
-                        });
-                    }
-
-                    if (
-                        (context.type === LinkType.ExternalUrl || context.type === LinkType.Email) &&
-                        settingsCache.showCopyPath
-                    ) {
-                        // For external URLs and emails, still show copy option
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.COPY_PATH,
-                            commandArgs: [context],
-                            label: context.type === LinkType.Email ? 'Copy Email Address' : 'Copy URL',
-                        });
-                    }
-
-                    // Show "Fetch Link Title" only for fetchable external HTTP(S) URLs
-                    if (settingsCache.showFetchLinkTitle && isFetchableLink(context)) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
-                            commandArgs: [[linkContextToLinkInfo(context)]],
-                            label: getFetchLinkTitlesMenuLabel(1),
-                        });
-                    }
-
-                    if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
-                        // For internal anchor links (#heading), show "Go to heading"
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.GO_TO_HEADING,
-                            commandArgs: [context],
-                            label: 'Go to Heading',
-                        });
-                    }
-                } else if (context.contextType === 'code') {
-                    // Check setting and build menu items for code
-                    if (settingsCache.showCopyCode) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.COPY_CODE,
-                            commandArgs: [context],
-                            label: 'Copy Code',
-                        });
-                    }
-                } else if (context.contextType === 'task') {
-                    // Check setting and build menu item for tasks
-                    if (settingsCache.showToggleTask) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
-                            commandArgs: [context],
-                            label: getLabelForTaskToggle(context),
-                        });
-                    }
-                } else if (context.contextType === 'footnote') {
-                    if (settingsCache.showGoToFootnote) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
-                            commandArgs: [context],
-                            label: 'Go to Footnote',
-                        });
-                    }
-                } else if (context.contextType === 'heading') {
-                    if (settingsCache.showCopyHeadingLink) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.COPY_HEADING_LINK_INTERNAL,
-                            commandArgs: [context],
-                            label: 'Copy Heading Link (internal)',
-                        });
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.COPY_HEADING_LINK_EXTERNAL,
-                            commandArgs: [context],
-                            label: 'Copy Heading Link (external)',
-                        });
-                    }
-                } else if (context.contextType === 'quote') {
-                    if (settingsCache.showCopyQuote) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.COPY_QUOTE,
-                            commandArgs: [context],
-                            label: 'Copy Quote',
-                        });
-                    }
-                } else if (context.contextType === 'linkSelection') {
-                    if (settingsCache.showOpenAllLinksInSelection) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
-                            commandArgs: [context],
-                            label: `Open All Links (${context.links.length})`,
-                        });
-                    }
-
-                    // Check setting and build menu items for link selection (batch title fetch)
-                    if (settingsCache.showFetchLinkTitle) {
-                        contextSensitiveItems.push({
-                            commandName: COMMAND_IDS.FETCH_LINK_TITLES,
-                            commandArgs: [context.links],
-                            label: getFetchLinkTitlesMenuLabel(context.links.length),
-                        });
-                    }
-                }
-            }
-
-            // Combine items
-            const finalContextItems: MenuItem[] = [...contextSensitiveItems];
-
-            // Add separator if we have both context items and global items
-            if (contextSensitiveItems.length > 0 && globalItems.length > 0) {
-                finalContextItems.push({ type: 'separator' });
-            }
-
-            finalContextItems.push(...globalItems);
+            const contextSensitiveItems = await buildContextSensitiveMenuItems(contexts);
+            const finalContextItems = combineMenuItems(contextSensitiveItems, globalItems);
 
             // Only add items if we have any menu items to show
             if (finalContextItems.length === 0) {
