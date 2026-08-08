@@ -54,6 +54,51 @@ function parseHeadingLevel(nodeName: string): number | null {
 const VERBATIM_NODE_NAMES = new Set(['InlineMath', 'BlockMath']);
 
 /**
+ * Nodes that carry no readable heading text.
+ * `*Mark` nodes (including `HeaderMark`) are matched by suffix.
+ */
+const SKIPPED_NODE_NAMES = new Set(['Image', 'LinkLabel', 'LinkTitle', 'HTMLTag']);
+
+/** Leaf nodes whose source text contributes to a heading. */
+const TEXT_NODE_NAMES = new Set(['Text', 'CodeText', 'URL']);
+
+/** Text-bearing nodes when extractInlineText is called on a leaf directly. */
+const LEAF_TEXT_NODE_NAMES = new Set(['Text', 'CodeText']);
+
+/** Reports whether a node contributes no readable heading text. */
+function isSkippedNode(node: SyntaxNode, name: string): boolean {
+    if (name.endsWith('Mark') || SKIPPED_NODE_NAMES.has(name)) {
+        return true;
+    }
+
+    const parentName = node.parent?.name;
+    return name === 'URL' && (parentName === 'Link' || parentName === 'Image');
+}
+
+/** Extracts the heading text contributed by one child node. */
+function extractChildText(node: SyntaxNode, doc: string): string {
+    const name = node.name;
+
+    if (VERBATIM_NODE_NAMES.has(name)) {
+        return doc.slice(node.from, node.to);
+    }
+
+    if (isSkippedNode(node, name)) {
+        return '';
+    }
+
+    if (name === 'Escape') {
+        return doc.slice(node.from + 1, node.to);
+    }
+
+    if (TEXT_NODE_NAMES.has(name)) {
+        return doc.slice(node.from, node.to);
+    }
+
+    return extractInlineText(node, doc);
+}
+
+/**
  * Recursively extracts the visible inline text of a heading node, skipping
  * formatting marks, URLs, link labels/titles, images, and HTML tags while
  * preserving escaped characters, math regions, and the gaps between inline
@@ -64,67 +109,18 @@ function extractInlineText(node: SyntaxNode, doc: string): string {
     const cursor = node.cursor();
 
     if (!cursor.firstChild()) {
-        if (cursor.name === 'Text' || cursor.name === 'CodeText') {
-            return doc.slice(cursor.from, cursor.to);
-        }
-        return '';
+        return LEAF_TEXT_NODE_NAMES.has(cursor.name) ? doc.slice(cursor.from, cursor.to) : '';
     }
 
     let lastPos = node.from;
 
     do {
-        const name = cursor.name;
-        const from = cursor.from;
-        const to = cursor.to;
-
-        if (from > lastPos) {
-            out += doc.slice(lastPos, from);
+        if (cursor.from > lastPos) {
+            out += doc.slice(lastPos, cursor.from);
         }
 
-        // Keep math regions exactly as written (see VERBATIM_NODE_NAMES).
-        if (VERBATIM_NODE_NAMES.has(name)) {
-            out += doc.slice(from, to);
-            lastPos = to;
-            continue;
-        }
-
-        // A URL node is a hidden link destination only inside a Link/Image
-        // (e.g. [text](url) / ![alt](url)). A bare URL, email, or autolink target
-        // is visible heading text, so it must be kept (matches Joplin's heading IDs).
-        const parentName = cursor.node.parent?.name;
-        const isLinkDestination = name === 'URL' && (parentName === 'Link' || parentName === 'Image');
-
-        if (
-            name.endsWith('Mark') ||
-            name === 'HeaderMark' ||
-            name === 'Image' ||
-            name === 'LinkLabel' ||
-            name === 'LinkTitle' ||
-            isLinkDestination
-        ) {
-            lastPos = to;
-            continue;
-        }
-
-        if (name === 'Escape') {
-            out += doc.slice(from + 1, to);
-            lastPos = to;
-            continue;
-        }
-
-        if (name === 'HTMLTag') {
-            lastPos = to;
-            continue;
-        }
-
-        if (name === 'Text' || name === 'CodeText' || name === 'URL') {
-            out += doc.slice(from, to);
-            lastPos = to;
-            continue;
-        }
-
-        out += extractInlineText(cursor.node, doc);
-        lastPos = to;
+        out += extractChildText(cursor.node, doc);
+        lastPos = cursor.to;
     } while (cursor.nextSibling());
 
     if (lastPos < node.to) {
