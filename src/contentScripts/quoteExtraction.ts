@@ -47,7 +47,8 @@ function trimBlankEdgeLines(lines: string[]): string[] {
 }
 
 // Matches a leading alert marker (e.g. `[!NOTE]`) optionally followed by a
-// title (e.g. `[!NOTE] Custom Title`). Capture group 1 holds the title text.
+// title (e.g. `[!NOTE] Custom Title`). Capture group 1 holds the raw text after
+// the marker, including any leading space — callers must trim it.
 const ALERT_MARKER_PATTERN = /^\[![^\]]+\](.*)$/;
 
 function stripLeadingAlertMarker(lines: string[]): string[] {
