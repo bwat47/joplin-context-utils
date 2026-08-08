@@ -171,14 +171,17 @@ describe('contextDetection', () => {
         expect(linkSelection?.links.map((link) => link.url)).toEqual([firstUrl, secondUrl]);
     });
 
-    it('deduplicates a link covered by overlapping ranges', () => {
+    it('deduplicates a link touched by disjoint selection ranges', () => {
         const doc = 'See https://a.example.com here';
         const url = 'https://a.example.com';
         const from = doc.indexOf(url);
         const view = createViewWithRanges(doc, [
             [from, from + 5],
-            [from + 2, from + url.length],
+            [from + 6, from + url.length],
         ]);
+
+        expect(view.state.selection.ranges).toHaveLength(2);
+
         const contexts = detectContextAtPosition(view, from);
         const linkSelection = getLinkSelection(contexts);
 
