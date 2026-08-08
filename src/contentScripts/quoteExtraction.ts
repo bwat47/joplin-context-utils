@@ -48,7 +48,7 @@ function trimBlankEdgeLines(lines: string[]): string[] {
 
 // Matches a leading alert marker (e.g. `[!NOTE]`) optionally followed by a
 // title (e.g. `[!NOTE] Custom Title`). Capture group 1 holds the title text.
-const ALERT_MARKER_PATTERN = /^\[![^\]]+\]\s*(.*)$/;
+const ALERT_MARKER_PATTERN = /^\[![^\]]+\](.*)$/;
 
 function stripLeadingAlertMarker(lines: string[]): string[] {
     if (lines.length === 0) {
