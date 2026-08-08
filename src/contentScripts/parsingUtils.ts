@@ -212,12 +212,12 @@ export function findReferenceDefinition(view: EditorView, label: string): string
     // Loop through the entire tree in document order
     do {
         if (cursor.name === 'LinkReference') {
-            const definition = extractReferenceDefinition(cursor.node, view);
+            const { label: defLabel, url: defUrl } = extractReferenceDefinition(cursor.node, view);
 
             // If this is the match, return immediately (early exit)
             // Note: Reference labels are case-insensitive per CommonMark spec
-            if (definition.label?.toLowerCase() === normalizedLabel && definition.url !== undefined) {
-                return definition.url;
+            if (defUrl !== undefined && defLabel?.toLowerCase() === normalizedLabel) {
+                return defUrl;
             }
         }
     } while (cursor.next());
