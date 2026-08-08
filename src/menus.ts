@@ -238,6 +238,9 @@ async function buildMenuItemsForContext(context: EditorContext): Promise<MenuIte
                 : [];
         case 'linkSelection':
             return buildLinkSelectionMenuItems(context);
+        default:
+            context satisfies never;
+            return [];
     }
 }
 

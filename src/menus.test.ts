@@ -239,6 +239,23 @@ describe('context menu filter', () => {
         expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.COPY_CODE]);
     });
 
+    it('skips an unknown context type without dropping valid or global items', async () => {
+        settingsCache.showCopyCode = true;
+        settingsCache.showAddExternalLink = true;
+        const unknownContext = { contextType: 'somethingNew' } as unknown as EditorContext;
+        const codeContext: EditorContext = { contextType: 'code', code: 'value', from: 0, to: 5 };
+
+        const result = await runFilter([unknownContext, codeContext]);
+
+        expect(menuTokens(result)).toEqual([
+            'existing.command',
+            'separator',
+            COMMAND_IDS.COPY_CODE,
+            'separator',
+            COMMAND_IDS.ADD_EXTERNAL_LINK,
+        ]);
+    });
+
     it('preserves context order and separates context-sensitive items from global items', async () => {
         settingsCache.showCopyCode = true;
         settingsCache.showCopyHeadingLink = true;
