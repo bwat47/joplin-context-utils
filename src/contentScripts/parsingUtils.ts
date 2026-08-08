@@ -14,6 +14,8 @@ export interface ExtractedUrl {
     linkTitleToken?: string;
 }
 
+type LinkParseResult = Omit<LinkContext, 'from' | 'to' | 'contextType'> | null;
+
 /**
  * Extracts URL from a Link or Image node by traversing its children
  * Properly handles nested parentheses and special characters
@@ -62,7 +64,7 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
  * Parses HTML img tag and extracts src attribute
  * Handles img elements with various attributes
  */
-export function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+export function parseImageTag(htmlText: string): LinkParseResult {
     // Check if this is an img tag
     if (!htmlText.match(/<img\s/i)) {
         return null;
@@ -83,7 +85,7 @@ export function parseImageTag(htmlText: string): Omit<LinkContext, 'from' | 'to'
  * @param url - The URL to classify
  * @returns Link context with type, or null if not a supported URL type
  */
-export function classifyUrl(url: string): Omit<LinkContext, 'from' | 'to' | 'contextType'> | null {
+export function classifyUrl(url: string): LinkParseResult {
     // Determine link type
     if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
         return { url, type: LinkType.JoplinResource };
