@@ -177,6 +177,10 @@ export function extractReferenceLabel(node: SyntaxNode, view: EditorView): strin
     return null;
 }
 
+/**
+ * Extracts the label and URL from a LinkReference node's children.
+ * Fields are left undefined when the corresponding child is absent.
+ */
 function extractReferenceDefinition(node: SyntaxNode, view: EditorView): ReferenceDefinition {
     const cursor = node.cursor();
     const definition: ReferenceDefinition = {};
