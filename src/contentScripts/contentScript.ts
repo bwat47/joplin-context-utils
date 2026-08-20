@@ -1,6 +1,6 @@
 import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
-import type { CodeMirrorControl } from 'api/types';
+import type { CodeMirrorControl, MarkdownEditorContentScriptModule } from 'api/types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
 import type { TextReplacement } from '../types';
@@ -78,7 +78,7 @@ export function mapPositionThroughReplacements(pos: number, sorted: TextReplacem
 /**
  * Content script entry point
  */
-export default () => {
+export default (): MarkdownEditorContentScriptModule => {
     return {
         plugin: (editorControl: CodeMirrorControl) => {
             // Check CM6 availability
