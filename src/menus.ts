@@ -93,9 +93,6 @@ async function getEditorContexts(): Promise<EditorContext[]> {
     }
 
     try {
-        // Work around a Linux timing issue where the cursor position may not have updated yet.
-        await new Promise((resolve) => setTimeout(resolve, 10));
-
         const result = await joplin.commands.execute('editor.execCommand', {
             name: GET_CONTEXT_AT_CURSOR_COMMAND,
         });
