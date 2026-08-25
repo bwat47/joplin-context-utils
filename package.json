@@ -1,6 +1,6 @@
 {
     "name": "joplin-plugin-context-utils",
-    "version": "1.8.2",
+    "version": "1.8.3",
     "scripts": {
         "dist": "webpack --env joplin-plugin-config=buildMain && webpack --env joplin-plugin-config=buildExtraScripts && webpack --env joplin-plugin-config=createArchive",
         "prepare": "npm run dist",
@@ -53,8 +53,5 @@
         "@codemirror/view": "^6.41.0",
         "@lezer/common": "^1.5.2",
         "@joplin/fork-uslug": "^2.0.6"
-    },
-    "overrides": {
-        "js-yaml": "^4.2.0"
     }
 }
