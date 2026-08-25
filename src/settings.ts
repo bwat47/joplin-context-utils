@@ -171,18 +171,24 @@ function createSettingsCacheFromDefaults(): SettingsCache {
  */
 export const settingsCache = createSettingsCacheFromDefaults();
 
-async function updateSettingCacheValue<K extends SettingKey>(key: K): Promise<void> {
-    const config = SETTINGS_CONFIG[key];
-    settingsCache[key] = (await joplin.settings.value(config.key)) as SettingsCache[K];
-}
-
 /**
- * Updates the settings cache by reading all values from Joplin settings
+ * Updates the settings cache by reading all values from Joplin settings.
+ *
+ * Uses `values()` rather than repeated `value()` calls: each `value()` is a
+ * separate IPC round-trip, so a single batched read is significantly faster.
  */
 async function updateSettingsCache(): Promise<void> {
-    for (const key of Object.keys(SETTINGS_CONFIG) as SettingKey[]) {
-        await updateSettingCacheValue(key);
+    const keys = Object.keys(SETTINGS_CONFIG) as SettingKey[];
+    const values = await joplin.settings.values(keys.map((key) => SETTINGS_CONFIG[key].key));
+    for (const key of keys) {
+        setSettingCacheValue(key, values[SETTINGS_CONFIG[key].key]);
     }
+}
+
+function setSettingCacheValue<K extends SettingKey>(key: K, value: unknown): void {
+    // Joplin omits unknown keys from values(); keep the registered default in that case.
+    if (value === undefined) return;
+    settingsCache[key] = value as SettingsCache[K];
 }
 
 /**
