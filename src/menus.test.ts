@@ -199,8 +199,10 @@ describe('context menu filter', () => {
 
         const result = await runFilter([context]);
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', ...expectedCommands]);
-        expect(result.items.slice(2).map((item) => item.commandArgs)).toEqual(expectedCommands.map(() => [context]));
+        expect(menuTokens(result)).toEqual(['existing.command', 'separator', ...expectedCommands, 'separator']);
+        expect(result.items.slice(2, -1).map((item) => item.commandArgs)).toEqual(
+            expectedCommands.map(() => [context])
+        );
         expect(apiMocks.execute).toHaveBeenCalledTimes(2);
     });
 
@@ -209,7 +211,7 @@ describe('context menu filter', () => {
 
         const result = await runFilter([context]);
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', expectedCommand]);
+        expect(menuTokens(result)).toEqual(['existing.command', 'separator', expectedCommand, 'separator']);
         expect(apiMocks.execute).toHaveBeenCalledTimes(2);
     });
 
@@ -227,7 +229,7 @@ describe('context menu filter', () => {
 
         const result = await runFilter(contexts);
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.COPY_CODE]);
+        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.COPY_CODE, 'separator']);
     });
 
     it('skips an unknown context type without dropping valid or global items', async () => {
@@ -244,6 +246,7 @@ describe('context menu filter', () => {
             COMMAND_IDS.COPY_CODE,
             'separator',
             COMMAND_IDS.ADD_EXTERNAL_LINK,
+            'separator',
         ]);
     });
 
@@ -268,6 +271,7 @@ describe('context menu filter', () => {
             'separator',
             COMMAND_IDS.ADD_EXTERNAL_LINK,
             COMMAND_IDS.ADD_LINK_TO_NOTE,
+            'separator',
         ]);
     });
 
@@ -277,7 +281,12 @@ describe('context menu filter', () => {
 
         const result = await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.ADD_EXTERNAL_LINK]);
+        expect(menuTokens(result)).toEqual([
+            'existing.command',
+            'separator',
+            COMMAND_IDS.ADD_EXTERNAL_LINK,
+            'separator',
+        ]);
         expect(apiMocks.execute).toHaveBeenCalledOnce();
     });
 
@@ -336,8 +345,9 @@ describe('context menu filter', () => {
             COMMAND_IDS.OPEN_LINK,
             COMMAND_IDS.COPY_PATH,
             COMMAND_IDS.FETCH_LINK_TITLES,
+            'separator',
         ]);
-        expect(result.items.slice(2).map((item) => item.label)).toEqual([
+        expect(result.items.slice(2, -1).map((item) => item.label)).toEqual([
             'Open Link in Browser',
             'Copy URL',
             'Fetch Link Title',
@@ -363,8 +373,9 @@ describe('context menu filter', () => {
             'separator',
             COMMAND_IDS.OPEN_LINK,
             COMMAND_IDS.COPY_PATH,
+            'separator',
         ]);
-        expect(result.items.slice(2).map((item) => item.label)).toEqual(['Send Email', 'Copy Email Address']);
+        expect(result.items.slice(2, -1).map((item) => item.label)).toEqual(['Send Email', 'Copy Email Address']);
     });
 
     it('offers pinning only when a Joplin link resolves to a note', async () => {
@@ -383,7 +394,7 @@ describe('context menu filter', () => {
 
         const result = await runFilter([context]);
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.PIN_TO_TABS]);
+        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.PIN_TO_TABS, 'separator']);
         expect(apiMocks.dataGet).toHaveBeenCalledTimes(2);
     });
 
@@ -449,8 +460,9 @@ describe('context menu filter', () => {
             'separator',
             COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
             COMMAND_IDS.FETCH_LINK_TITLES,
+            'separator',
         ]);
-        expect(result.items.slice(2).map((item) => item.label)).toEqual([
+        expect(result.items.slice(2, -1).map((item) => item.label)).toEqual([
             'Open All Links (2)',
             'Fetch Link Titles (2)',
         ]);
@@ -467,7 +479,12 @@ describe('context menu filter', () => {
 
         const result = await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
 
-        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.ADD_EXTERNAL_LINK]);
+        expect(menuTokens(result)).toEqual([
+            'existing.command',
+            'separator',
+            COMMAND_IDS.ADD_EXTERNAL_LINK,
+            'separator',
+        ]);
         expect(logSpy).toHaveBeenCalledWith('Error getting contexts at cursor:', error);
     });
 });

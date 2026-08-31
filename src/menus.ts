@@ -289,12 +289,13 @@ export function registerContextMenuFilter(): void {
                 return menuItems;
             }
 
-            // Add separator before our items
+            // Bound our items with separators so items appended by later plugin filters
+            // cannot appear as part of the Context Utils group.
             const separator: MenuItem = { type: 'separator' };
 
             // Return original items plus our additions
             return {
-                items: [...menuItems.items, separator, ...finalContextItems],
+                items: [...menuItems.items, separator, ...finalContextItems, separator],
             };
         } catch (error) {
             logger.error('Error in context menu filter:', error);

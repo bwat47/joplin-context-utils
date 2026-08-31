@@ -129,7 +129,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
 - Note-specific options are limited to "Open Note as Pinned Tab"
 - Checks settings before adding menu items
-- Adds separator if ≥1 menu item will be shown, and between context-sensitive and non-context sensitive menu items
+- Adds separators before and after the Context Utils items if ≥1 item will be shown, and between context-sensitive and non-context-sensitive items
 
 **src/commands.ts**
 
