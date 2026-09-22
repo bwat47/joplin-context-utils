@@ -164,7 +164,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
     - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
-- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed)
+- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed). The `onMessage` handler in `index.ts` reads values with `readSettingValue()` (direct `joplin.settings.value()`) instead of `settingsCache`, because the reload can race ahead of the `onChange` cache refresh
 - Installs the paste cleanup extension from `pasteCleanup.ts`, which reads the cached flag on each paste
 
 **src/contentScripts/pasteCleanup.ts**

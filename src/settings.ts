@@ -200,6 +200,18 @@ function setSettingCacheValue<K extends SettingKey>(key: K, value: unknown): voi
 }
 
 /**
+ * Reads a setting directly from Joplin, bypassing the cache.
+ *
+ * Use when the caller may run before `onChange` has refreshed the cache, e.g. the
+ * content script requesting settings as the editor reloads after the Options screen closes.
+ */
+export async function readSettingValue<K extends SettingKey>(key: K): Promise<SettingsCache[K]> {
+    const value = await joplin.settings.value(SETTINGS_CONFIG[key].key);
+    setSettingCacheValue(key, value);
+    return settingsCache[key];
+}
+
+/**
  * Initializes the settings cache and registers change listener.
  * Must be called once during plugin initialization, after registerSettings().
  */

@@ -2,7 +2,7 @@ import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
-import { registerSettings, initializeSettingsCache, settingsCache } from './settings';
+import { registerSettings, initializeSettingsCache, readSettingValue } from './settings';
 import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, ContentScriptMessage, ContentScriptSettings } from './types';
 import { logger } from './logger';
 
@@ -21,10 +21,12 @@ joplin.plugins.register({
 
             // Serve settings the content script needs (it fetches them once on load).
             // Registered before the content script so an already-open editor never posts before a handler exists.
-            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
+            // Values are read from Joplin rather than the cache: the editor reloads when the Options screen
+            // closes, which can happen before onChange has refreshed the cache.
+            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (message: ContentScriptMessage) => {
                 if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
                     const settings: ContentScriptSettings = {
-                        cleanListMarkersOnPaste: settingsCache.cleanListMarkersOnPaste,
+                        cleanListMarkersOnPaste: await readSettingValue('cleanListMarkersOnPaste'),
                     };
                     return settings;
                 }
