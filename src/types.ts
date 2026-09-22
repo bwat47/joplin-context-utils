@@ -252,5 +252,5 @@ export interface ContentScriptMessage {
  * Settings the main plugin sends to the editor content script.
  */
 export interface ContentScriptSettings {
-    cleanListMarkersOnPaste: boolean;
+    cleanUpListPaste: boolean;
 }

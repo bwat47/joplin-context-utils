@@ -105,19 +105,19 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
 
             // Settings are fetched once on load. Joplin reloads the editor (and this content script)
             // after the Options screen closes, so changed settings are picked up then.
-            let cleanListMarkersOnPaste = false;
+            let cleanUpListPaste = false;
             const loadSettings = async (): Promise<void> => {
                 try {
                     const message: ContentScriptMessage = { type: GET_CONTENT_SCRIPT_SETTINGS_MESSAGE };
                     const settings = (await context.postMessage(message)) as ContentScriptSettings | undefined;
-                    cleanListMarkersOnPaste = settings?.cleanListMarkersOnPaste === true;
+                    cleanUpListPaste = settings?.cleanUpListPaste === true;
                 } catch (error) {
                     logger.warn('Failed to fetch content script settings:', error);
                 }
             };
             void loadSettings();
 
-            editorControl.addExtension(createPasteCleanupExtension(() => cleanListMarkersOnPaste));
+            editorControl.addExtension(createPasteCleanupExtension(() => cleanUpListPaste));
 
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens

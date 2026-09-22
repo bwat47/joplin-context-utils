@@ -26,7 +26,7 @@ joplin.plugins.register({
             await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (message: ContentScriptMessage) => {
                 if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
                     const settings: ContentScriptSettings = {
-                        cleanListMarkersOnPaste: await readSettingValue('cleanListMarkersOnPaste'),
+                        cleanUpListPaste: await readSettingValue('cleanUpListPaste'),
                     };
                     return settings;
                 }

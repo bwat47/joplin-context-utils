@@ -105,7 +105,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 15 boolean settings (all default `true` except `cleanListMarkersOnPaste`) plus 1 enum string setting, 1 secure string setting, and 1 JSON string setting:
+- 15 boolean settings (all default `true` except `cleanUpListPaste`) plus 1 enum string setting, 1 secure string setting, and 1 JSON string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -123,7 +123,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
     - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
-    - `cleanListMarkersOnPaste` - Remove duplicate list markers from pasted text (default `false`; consumed by the content script)
+    - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal) (default `false`; consumed by the content script)
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
