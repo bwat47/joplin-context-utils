@@ -98,6 +98,13 @@ describe('createPasteCleanupExtension', () => {
         expect(transaction.isUserEvent('input.paste')).toBe(true);
     });
 
+    it.each([
+        ['Some text\n- ', 12, 'Some text\n- foo'],
+        ['Some text\n1. ', 13, 'Some text\n1. foo'],
+    ])('strips on an empty marker line directly after a paragraph (%j)', (doc, pos, expected) => {
+        expect(paste(createState(doc, [[pos, pos]]), '- foo').doc.toString()).toBe(expected);
+    });
+
     it('strips the pasted marker and task box on a task line', () => {
         const doc = '- [ ] ';
         expect(paste(createState(doc, [[6, 6]]), '- [x] foo').doc.toString()).toBe('- [ ] foo');

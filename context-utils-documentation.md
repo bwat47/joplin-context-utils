@@ -171,7 +171,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - `createPasteCleanupExtension(isEnabled)` - `EditorState.transactionFilter` that runs `cleanPasteTransaction` when enabled. A transaction filter is used instead of `EditorView.clipboardInputFilter` because Joplin desktop's Paste command (Ctrl+V / Edit > Paste) reads the clipboard itself and calls `insertText(text, 'input.paste')` (`replaceSelection`), bypassing CodeMirror's paste handler; CodeMirror's native paste uses the same `input.paste` user event, so both paths are covered
 - `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text; preserves annotations and maps the original selection and position-dependent effects through the removed marker
-- `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is inside a `ListItem` (not inside code)
+- `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is not inside code. A `ListItem` node is not required, because an empty marker line directly after a paragraph parses as a setext heading underline or paragraph continuation
 - `stripDuplicateListMarker(linePrefix, pastedText)` - pure regex logic; strips the leading marker from the first pasted line. If the line has a task box, a pasted task box is also stripped; otherwise a pasted task box is kept
 - Blockquote prefixes and multi-line re-indentation are intentionally out of scope
 

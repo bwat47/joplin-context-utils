@@ -66,14 +66,14 @@ export function stripDuplicateListMarker(linePrefix: string, pastedText: string)
 }
 
 /**
- * Checks via the syntax tree that the position is inside a list item and not inside code.
+ * Checks via the syntax tree whether the position is inside code.
+ *
+ * A list item is intentionally not required: an empty marker line directly after a paragraph
+ * (`Some text\n- `) parses as a setext heading underline or paragraph continuation, not a list.
  */
-function isInListItem(state: EditorState, pos: number): boolean {
+function isInCode(state: EditorState, pos: number): boolean {
     for (let node: SyntaxNode | null = syntaxTree(state).resolveInner(pos, -1); node; node = node.parent) {
         if (CODE_NODE_NAMES.has(node.name)) {
-            return false;
-        }
-        if (node.name === 'ListItem') {
             return true;
         }
     }
@@ -82,7 +82,7 @@ function isInListItem(state: EditorState, pos: number): boolean {
 
 /**
  * Cleans text pasted at `from` in the given (pre-paste) editor state. Only applies to
- * single-range pastes positioned directly after a list marker inside a markdown list item.
+ * single-range pastes positioned directly after a list marker, outside code.
  */
 function cleanPastedText(text: string, state: EditorState, from: number): string {
     if (state.selection.ranges.length !== 1) {
@@ -92,7 +92,7 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
     const line = state.doc.lineAt(from);
     const linePrefix = line.text.slice(0, from - line.from);
 
-    if (!LIST_PREFIX_ONLY_REGEX.test(linePrefix) || !isInListItem(state, from)) {
+    if (!LIST_PREFIX_ONLY_REGEX.test(linePrefix) || isInCode(state, from)) {
         return text;
     }
 
