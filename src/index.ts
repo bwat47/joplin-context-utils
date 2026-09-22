@@ -2,7 +2,8 @@ import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
-import { registerSettings, initializeSettingsCache } from './settings';
+import { registerSettings, initializeSettingsCache, settingsCache } from './settings';
+import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, ContentScriptMessage, ContentScriptSettings } from './types';
 import { logger } from './logger';
 
 joplin.plugins.register({
@@ -25,6 +26,17 @@ joplin.plugins.register({
                 './contentScripts/contentScript.js' // .js extension (webpack output)
             );
             logger.debug('Link detection content script registered');
+
+            // Serve settings the content script needs (it fetches them once on load)
+            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
+                if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
+                    const settings: ContentScriptSettings = {
+                        cleanListMarkersOnPaste: settingsCache.cleanListMarkersOnPaste,
+                    };
+                    return settings;
+                }
+                return undefined;
+            });
 
             // 4. Register commands
             await registerCommands();

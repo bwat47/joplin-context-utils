@@ -83,6 +83,7 @@ This can be assigned a keyboard shortcut and uses `CmdOrCtrl+Shift+X` by default
 - Optional secure `linkpreview.net` API key setting for link title fetching.
 - Custom link title rules (JSON) for deriving link text from the URL (see [Custom link title rules](#custom-link-title-rules)).
 - Default heading format for Contextual Copy (internal or external).
+- Remove duplicate list markers when pasting (off by default). When pasting directly after an existing list marker, a leading list marker in the pasted text is removed, e.g. pasting `- foo` onto a `- ` line gives `- foo` instead of `- - foo`. If the line already has a task box (`- [ ] `), a pasted task box is removed too.
 
 ## Misc Notes
 

@@ -151,6 +151,14 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Note as Pinned Tab" in context menu',
         description: 'Display option to open notes as a pinned tab (requires Note Tabs plugin)',
     },
+    cleanListMarkersOnPaste: {
+        key: `${SECTION_ID}.cleanListMarkersOnPaste`,
+        defaultValue: false,
+        type: SettingItemType.Bool,
+        label: 'Remove duplicate list markers when pasting',
+        description:
+            'When pasting onto a line that already starts with a list marker (e.g. "- " or "- [ ] "), remove the list marker from the start of the pasted text',
+    },
 } as const satisfies Record<string, SettingConfigEntry<string | boolean>>;
 
 type WidenSettingValue<T extends string | boolean> = T extends boolean ? boolean : T extends string ? string : never;

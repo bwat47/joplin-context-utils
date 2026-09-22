@@ -26,6 +26,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Block quotes (`> Quote`) for copying quote contents
 - Contextual Copy command for copying the innermost copy-capable context at the cursor
 
+**Editor behaviors:**
+
+- Optional paste cleanup that removes a duplicate list marker from pasted text when pasting directly after an existing list marker
+
 ## Architecture
 
 ### Core Components
@@ -84,6 +88,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Plugin registration and initialization
 - Coordinates all subsystems
 - Initialization order matters (settings → settings cache → content script → commands → menu)
+- Registers a `joplin.contentScripts.onMessage` handler that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` from `settingsCache`
 
 **src/types.ts**
 
@@ -94,12 +99,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - `LinkInfo` interface for individual links in selections
 - Command IDs (including task toggle, footnote, fetch title, and batch open commands)
 - `TextReplacement` payload for editor text replacement operations
+- `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE`, `ContentScriptMessage`, `ContentScriptSettings` for content script → plugin settings requests
 
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 14 boolean settings (all default `true`) plus 1 enum string setting and 1 secure string setting:
+- 15 boolean settings (all default `true` except `cleanListMarkersOnPaste`) plus 1 enum string setting, 1 secure string setting, and 1 JSON string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -117,6 +123,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
     - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
+    - `cleanListMarkersOnPaste` - Remove duplicate list markers from pasted text (default `false`; consumed by the content script)
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -157,6 +164,16 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
     - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
+- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed)
+- Installs the paste cleanup extension from `pasteCleanup.ts`, which reads the cached flag on each paste
+
+**src/contentScripts/pasteCleanup.ts**
+
+- `createPasteCleanupExtension(isEnabled)` - `EditorState.transactionFilter` that runs `cleanPasteTransaction` when enabled. A transaction filter is used instead of `EditorView.clipboardInputFilter` because Joplin desktop's Paste command (Ctrl+V / Edit > Paste) reads the clipboard itself and calls `insertText(text, 'input.paste')` (`replaceSelection`), bypassing CodeMirror's paste handler; CodeMirror's native paste uses the same `input.paste` user event, so both paths are covered
+- `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text (cursor placed after the inserted text, user event preserved)
+- `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is inside a `ListItem` (not inside code)
+- `stripDuplicateListMarker(linePrefix, pastedText)` - pure regex logic; strips the leading marker from the first pasted line. If the line has a task box, a pasted task box is also stripped; otherwise a pasted task box is kept
+- Blockquote prefixes and multi-line re-indentation are intentionally out of scope
 
 **src/contentScripts/contextDetection.ts**
 

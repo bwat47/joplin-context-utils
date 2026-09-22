@@ -238,3 +238,19 @@ export interface TextReplacement extends EditorRange {
     expectedText?: string;
     selectionBehavior?: ReplacementSelectionBehavior;
 }
+
+/**
+ * Message the content script posts to request the settings it needs.
+ */
+export const GET_CONTENT_SCRIPT_SETTINGS_MESSAGE = 'contextUtils-getContentScriptSettings';
+
+export interface ContentScriptMessage {
+    type: typeof GET_CONTENT_SCRIPT_SETTINGS_MESSAGE;
+}
+
+/**
+ * Settings the main plugin sends to the editor content script.
+ */
+export interface ContentScriptSettings {
+    cleanListMarkersOnPaste: boolean;
+}
