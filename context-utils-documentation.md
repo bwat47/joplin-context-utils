@@ -87,8 +87,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Plugin registration and initialization
 - Coordinates all subsystems
-- Initialization order matters (settings → settings cache → content script → commands → menu)
-- Registers a `joplin.contentScripts.onMessage` handler that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` from `settingsCache`
+- Initialization order matters (settings → settings cache → content script message handler → content script → commands → menu)
+- Registers a `joplin.contentScripts.onMessage` handler (before the content script, so the first request cannot race it) that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` from `settingsCache`
 
 **src/types.ts**
 

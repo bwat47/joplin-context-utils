@@ -19,15 +19,8 @@ joplin.plugins.register({
             await initializeSettingsCache();
             logger.debug('Settings cache initialized');
 
-            // 3. Register content script for link detection
-            await joplin.contentScripts.register(
-                ContentScriptType.CodeMirrorPlugin,
-                CONTENT_SCRIPT_ID,
-                './contentScripts/contentScript.js' // .js extension (webpack output)
-            );
-            logger.debug('Link detection content script registered');
-
-            // Serve settings the content script needs (it fetches them once on load)
+            // Serve settings the content script needs (it fetches them once on load).
+            // Registered before the content script so an already-open editor never posts before a handler exists.
             await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, (message: ContentScriptMessage) => {
                 if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
                     const settings: ContentScriptSettings = {
@@ -37,6 +30,14 @@ joplin.plugins.register({
                 }
                 return undefined;
             });
+
+            // 3. Register content script for link detection
+            await joplin.contentScripts.register(
+                ContentScriptType.CodeMirrorPlugin,
+                CONTENT_SCRIPT_ID,
+                './contentScripts/contentScript.js' // .js extension (webpack output)
+            );
+            logger.debug('Link detection content script registered');
 
             // 4. Register commands
             await registerCommands();
