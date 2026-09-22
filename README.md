@@ -83,7 +83,7 @@ This can be assigned a keyboard shortcut and uses `CmdOrCtrl+Shift+X` by default
 - Optional secure `linkpreview.net` API key setting for link title fetching.
 - Custom link title rules (JSON) for deriving link text from the URL (see [Custom link title rules](#custom-link-title-rules)).
 - Default heading format for Contextual Copy (internal or external).
-- Clean up pasted list items (off by default). When pasting directly after an existing list marker, a leading list marker in the pasted text is removed, e.g. pasting `- foo` onto a `- ` line gives `- foo` instead of `- - foo`. If the line already has a task box (`- [ ] `), a pasted task box is removed too.
+- Clean up pasted list items (off by default). When pasting directly after an existing list marker, a leading list marker in the pasted text is removed, e.g. pasting `- foo` onto a `- ` line gives `- foo` instead of `- - foo`. If the line already has a task box (`- [ ] `), a pasted task box is removed too. When an ordered list is pasted onto an ordered list item, the pasted items and the items below are renumbered, e.g. pasting `1. a` / `2. b` onto the `2. ` line of `1. x` / `2. ` / `3. y` gives `1. x` / `2. a` / `3. b` / `4. y`.
 
 ## Misc Notes
 
