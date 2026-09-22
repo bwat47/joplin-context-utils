@@ -1,6 +1,6 @@
-import { syntaxTree } from '@codemirror/language';
+import { indentString, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
-import { EditorState, Transaction, countColumn } from '@codemirror/state';
+import { ChangeSet, EditorState, Transaction, countColumn } from '@codemirror/state';
 import type { ChangeSpec, Extension, Text, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
 
@@ -161,6 +161,82 @@ export function getListRenumberChanges(
 }
 
 /**
+ * Returns the indentation width in columns of the first line of `text`.
+ */
+function leadingIndentColumns(text: string, tabSize: number): number {
+    const whitespaceLength = /^[ \t]*/.exec(text)?.[0].length ?? 0;
+    return countColumn(text, tabSize, whitespaceLength);
+}
+
+/**
+ * Computes changes that shift the pasted lines after the first so the pasted list keeps its
+ * structure at the target line's indentation. The shift is the target line's indentation minus
+ * the pasted first line's original indentation, applied to every later non-blank pasted line
+ * (clamped at zero) and written with the editor's indent unit via `formatIndent`.
+ *
+ * When the pasted first line has no indentation but every later non-blank line is indented, the
+ * copy may have started at the marker and dropped the first line's indentation, so the original
+ * level is unknown and no changes are made.
+ *
+ * @param doc - Post-paste document
+ * @param pasteFrom - Position where the paste was inserted
+ * @param pastedText - Original pasted text, as inserted at `pasteFrom`
+ * @param linePrefix - Target line's text up to the paste position, e.g. `'   1. '`
+ * @param tabSize - Tab size for measuring indentation
+ * @param formatIndent - Builds the whitespace for an indentation width in columns
+ * @returns Indentation replacements in `doc` coordinates
+ *
+ * @example
+ * // target '   - ', pasted '- a\n  - child\n- b'
+ * // -> '   - a\n     - child\n   - b'
+ */
+export function getPasteReindentChanges(
+    doc: Text,
+    pasteFrom: number,
+    pastedText: string,
+    linePrefix: string,
+    tabSize: number,
+    formatIndent: (columns: number) => string
+): ChangeSpec[] {
+    const baseIndent = leadingIndentColumns(pastedText, tabSize);
+    const indentDelta = leadingIndentColumns(linePrefix, tabSize) - baseIndent;
+    if (indentDelta === 0) {
+        return [];
+    }
+
+    const pasteEnd = pasteFrom + pastedText.length;
+    const lines: Array<{ from: number; whitespace: string; indent: number }> = [];
+    for (let lineNumber = doc.lineAt(pasteFrom).number + 1; lineNumber <= doc.lines; lineNumber++) {
+        const line = doc.line(lineNumber);
+        if (line.from >= pasteEnd) {
+            break;
+        }
+        const whitespaceLength = line.text.search(/[^ \t]/);
+        if (whitespaceLength === -1) {
+            continue;
+        }
+        lines.push({
+            from: line.from,
+            whitespace: line.text.slice(0, whitespaceLength),
+            indent: countColumn(line.text, tabSize, whitespaceLength),
+        });
+    }
+
+    if (baseIndent === 0 && lines.every((line) => line.indent > 0)) {
+        return [];
+    }
+
+    const changes: ChangeSpec[] = [];
+    for (const line of lines) {
+        const insert = formatIndent(Math.max(0, line.indent + indentDelta));
+        if (insert !== line.whitespace) {
+            changes.push({ from: line.from, to: line.from + line.whitespace.length, insert });
+        }
+    }
+    return changes;
+}
+
+/**
  * Returns the line text from the line start up to `pos`.
  */
 function getLinePrefix(state: EditorState, pos: number): string {
@@ -209,7 +285,8 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
 
 /**
  * Rewrites a single-change `input.paste` transaction with cleaned text, or returns it unchanged.
- * When the paste lands on an ordered list item, the following items are renumbered as well.
+ * Later pasted lines are re-indented to the target line's level, and when the paste lands on an
+ * ordered list item, the following items are renumbered as well.
  */
 function cleanPasteTransaction(tr: Transaction): Transaction | readonly TransactionSpec[] {
     if (!tr.docChanged || !tr.isUserEvent('input.paste')) {
@@ -230,22 +307,39 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
         return tr;
     }
 
+    const { startState, newDoc } = tr;
+    const linePrefix = getLinePrefix(startState, from);
+    const removedLength = text.length - cleaned.length;
+    const reindentChanges = getPasteReindentChanges(newDoc, from, text, linePrefix, startState.tabSize, (columns) =>
+        indentString(startState, columns)
+    );
+    if (reindentChanges.length > 0) {
+        logger.debug(`Re-indented ${reindentChanges.length} pasted line(s)`);
+    }
+
+    // The marker deletion is on the first pasted line and the re-indentation at the start of later
+    // lines, so they never overlap and share post-paste coordinates.
+    const cleanupChanges = ChangeSet.of([{ from, to: from + removedLength }, ...reindentChanges], newDoc.length);
+    const cleanedDoc = cleanupChanges.apply(newDoc);
+
+    // Renumber against the re-indented document so re-indented pasted items count as siblings.
     const renumberChanges = getListRenumberChanges(
-        tr.newDoc,
-        tr.newDoc.lineAt(from).number,
-        getLinePrefix(tr.startState, from),
-        tr.startState.tabSize
+        cleanedDoc,
+        cleanedDoc.lineAt(from).number,
+        linePrefix,
+        startState.tabSize
     );
     if (renumberChanges.length > 0) {
         logger.debug(`Renumbered ${renumberChanges.length} ordered list item(s) after paste`);
     }
 
-    // Compose the marker deletion and renumbering after the original paste. All changes use
-    // post-paste coordinates and never overlap (the deletion is on the first pasted line, the
-    // renumbering on later lines). CodeMirror maps the paste's selection and effects through
-    // them while retaining every annotation on the paste.
-    const removedLength = text.length - cleaned.length;
-    return [tr, { changes: [{ from, to: from + removedLength }, ...renumberChanges], sequential: true }];
+    // Compose the cleanup and renumbering after the original paste. CodeMirror maps the paste's
+    // selection and effects through them while retaining every annotation on the paste.
+    return [
+        tr,
+        { changes: cleanupChanges, sequential: true },
+        ...(renumberChanges.length > 0 ? [{ changes: renumberChanges, sequential: true }] : []),
+    ];
 }
 
 /**

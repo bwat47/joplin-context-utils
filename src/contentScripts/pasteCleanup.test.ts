@@ -1,7 +1,14 @@
+import type { Extension } from '@codemirror/state';
 import { Annotation, ChangeSet, EditorSelection, EditorState, StateEffect, Text, Transaction } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
-import { createPasteCleanupExtension, getListRenumberChanges, stripDuplicateListMarker } from './pasteCleanup';
+import { indentUnit } from '@codemirror/language';
+import {
+    createPasteCleanupExtension,
+    getListRenumberChanges,
+    getPasteReindentChanges,
+    stripDuplicateListMarker,
+} from './pasteCleanup';
 
 describe('stripDuplicateListMarker', () => {
     it.each([
@@ -79,7 +86,7 @@ describe('getListRenumberChanges', () => {
 });
 
 describe('createPasteCleanupExtension', () => {
-    const createState = (doc: string, ranges: Array<[number, number]>, enabled = true) =>
+    const createState = (doc: string, ranges: Array<[number, number]>, enabled = true, extensions: Extension[] = []) =>
         EditorState.create({
             doc,
             selection: EditorSelection.create(ranges.map(([anchor, head]) => EditorSelection.range(anchor, head))),
@@ -87,12 +94,22 @@ describe('createPasteCleanupExtension', () => {
                 EditorState.allowMultipleSelections.of(true),
                 markdown({ extensions: [GFM] }),
                 createPasteCleanupExtension(() => enabled),
+                ...extensions,
             ],
         });
 
     /** Mirrors Joplin's `insertText(text, UserEventSource.Paste)` */
     const paste = (state: EditorState, text: string, userEvent = 'input.paste') =>
         state.update(state.replaceSelection(text), { userEvent }).state;
+
+    /** Pastes at the cursor (`|`) or over the selection (`|...|`) marked in `docWithCursor`. */
+    const pasteAt = (docWithCursor: string, text: string, enabled = true, extensions: Extension[] = []) => {
+        const anchor = docWithCursor.indexOf('|');
+        const head = docWithCursor.indexOf('|', anchor + 1);
+        const doc = docWithCursor.replace(/\|/g, '');
+        const range: [number, number] = head === -1 ? [anchor, anchor] : [anchor, head - 1];
+        return paste(createState(doc, [range], enabled, extensions), text);
+    };
 
     it('strips the pasted marker on a list line', () => {
         const result = paste(createState('Intro\n\n- ', [[9, 9]]), '- foo');
@@ -177,15 +194,6 @@ describe('createPasteCleanupExtension', () => {
     });
 
     describe('ordered list renumbering', () => {
-        /** Pastes at the cursor (`|`) or over the selection (`|...|`) marked in `docWithCursor`. */
-        const pasteAt = (docWithCursor: string, text: string, enabled = true) => {
-            const anchor = docWithCursor.indexOf('|');
-            const head = docWithCursor.indexOf('|', anchor + 1);
-            const doc = docWithCursor.replace(/\|/g, '');
-            const range: [number, number] = head === -1 ? [anchor, anchor] : [anchor, head - 1];
-            return paste(createState(doc, [range], enabled), text);
-        };
-
         it.each([
             ['sequential list', '1. x\n2. |\n3. y', '1. a\n2. b', '1. x\n2. a\n3. b\n4. y'],
             ['repeated numbers', '1. x\n1. |\n1. y\n1. z', '1. a\n1. b', '1. x\n1. a\n2. b\n3. y\n4. z'],
@@ -213,8 +221,8 @@ describe('createPasteCleanupExtension', () => {
             expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
         });
 
-        it('does not renumber pasted items at a different indentation', () => {
-            expect(pasteAt('   1. |\n   2. y', '1. a\n2. b').doc.toString()).toBe('   1. a\n2. b\n   2. y');
+        it('renumbers pasted items re-indented to the target level', () => {
+            expect(pasteAt('   1. |\n   2. y', '1. a\n2. b').doc.toString()).toBe('   1. a\n   2. b\n   3. y');
         });
 
         it('maps the cursor through a number width change', () => {
@@ -240,5 +248,70 @@ describe('createPasteCleanupExtension', () => {
         it('does not renumber when disabled', () => {
             expect(pasteAt('1. |\n2. y', '1. a\n2. b', false).doc.toString()).toBe('1. 1. a\n2. b\n2. y');
         });
+    });
+
+    describe('re-indentation', () => {
+        it.each([
+            [
+                'top-level list into a nested item',
+                '- x\n  - |',
+                '- a\n  - child\n- b',
+                '- x\n  - a\n    - child\n  - b',
+            ],
+            ['nested list to top level', '- |', '   - a\n      - child\n   - b', '- a\n   - child\n- b'],
+            ['a continuation line', '  - |', '- a\n  more\n- b', '  - a\n    more\n  - b'],
+            ['past blank lines', '  - |', '- a\n\n- b', '  - a\n\n  - b'],
+            ['clamped at zero', '- |', '    - a\n  - b', '- a\n- b'],
+        ])('shifts later pasted lines (%s)', (_name, doc, pasted, expected) => {
+            expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
+        });
+
+        it('maps the cursor to the end of the re-indented paste', () => {
+            const result = pasteAt('  - |', '- a\n- b');
+            expect(result.doc.toString()).toBe('  - a\n  - b');
+            expect(result.selection.main.head).toBe(result.doc.length);
+        });
+
+        it('does not re-indent document text after a paste ending in a newline', () => {
+            expect(pasteAt('  - |x', '- a\n- b\n').doc.toString()).toBe('  - a\n  - b\nx');
+        });
+
+        it('uses the indent unit for the new indentation', () => {
+            const tabs = [indentUnit.of('\t'), EditorState.tabSize.of(4)];
+            expect(pasteAt('- x\n\t- |', '- a\n    - child\n- b', true, tabs).doc.toString()).toBe(
+                '- x\n\t- a\n\t\t- child\n\t- b'
+            );
+        });
+
+        it('does not re-indent when the first pasted line may have lost its indentation', () => {
+            expect(pasteAt('- |', '1. a\n   2. b').doc.toString()).toBe('- a\n   2. b');
+        });
+
+        it('re-indents an unindented first line when a later line confirms the level', () => {
+            expect(pasteAt('  - |', '- a\n  - child\n- b').doc.toString()).toBe('  - a\n    - child\n  - b');
+        });
+
+        it('does not re-indent when the paste is already at the target level', () => {
+            expect(pasteAt('  - x\n  - |', '  - a\n  - b').doc.toString()).toBe('  - x\n  - a\n  - b');
+        });
+
+        it('does not re-indent when disabled', () => {
+            expect(pasteAt('  - |', '- a\n- b', false).doc.toString()).toBe('  - - a\n- b');
+        });
+    });
+});
+
+describe('getPasteReindentChanges', () => {
+    const reindent = (doc: string, pasteFrom: number, pasted: string, linePrefix: string) =>
+        getPasteReindentChanges(Text.of(doc.split('\n')), pasteFrom, pasted, linePrefix, 4, (columns) =>
+            ' '.repeat(columns)
+        );
+
+    it('returns no changes for a single-line paste', () => {
+        expect(reindent('  - a', 4, '- a', '  - ')).toEqual([]);
+    });
+
+    it('replaces only the leading whitespace of later lines', () => {
+        expect(reindent('  - - a\n- b', 4, '- a\n- b', '  - ')).toEqual([{ from: 8, to: 8, insert: '  ' }]);
     });
 });

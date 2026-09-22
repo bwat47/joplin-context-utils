@@ -28,7 +28,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 **Editor behaviors:**
 
-- Optional list paste cleanup: removes a duplicate list marker from pasted text when pasting directly after an existing list marker, and renumbers the following ordered list items when an ordered list is pasted onto an ordered list item
+- Optional list paste cleanup: removes a duplicate list marker from pasted text when pasting directly after an existing list marker, re-indents the remaining pasted lines to the target line's level, and renumbers the following ordered list items when an ordered list is pasted onto an ordered list item
 
 ## Architecture
 
@@ -123,7 +123,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
     - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
-    - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal and ordered list renumbering) (default `false`; consumed by the content script)
+    - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal, re-indentation, and ordered list renumbering) (default `false`; consumed by the content script)
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -170,12 +170,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/contentScripts/pasteCleanup.ts**
 
 - `createPasteCleanupExtension(isEnabled)` - `EditorState.transactionFilter` that runs `cleanPasteTransaction` when enabled. A transaction filter is used instead of `EditorView.clipboardInputFilter` because Joplin desktop's Paste command (Ctrl+V / Edit > Paste) reads the clipboard itself and calls `insertText(text, 'input.paste')` (`replaceSelection`), bypassing CodeMirror's paste handler; CodeMirror's native paste uses the same `input.paste` user event, so both paths are covered
-- `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text; when the marker was removed, also adds the `getListRenumberChanges` edits. The deletion and renumbering go in one `sequential` spec (post-paste coordinates, non-overlapping), so it stays one transaction (single undo step); preserves annotations and maps the original selection and position-dependent effects through the edits
+- `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text; when the marker was removed, also applies `getPasteReindentChanges` and `getListRenumberChanges`. The deletion and re-indentation form one `ChangeSet` (post-paste coordinates, non-overlapping); renumbering is computed against the result of that `ChangeSet` so re-indented pasted items count as siblings, and is appended as a second `sequential` spec. It all stays one transaction (single undo step); preserves annotations and maps the original selection and position-dependent effects through the edits
 - `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is not inside code. A `ListItem` node is not required, because an empty marker line directly after a paragraph parses as a setext heading underline or paragraph continuation
 - `stripDuplicateListMarker(linePrefix, pastedText)` - pure regex logic; strips the leading marker from the first pasted line. If the line has a task box, a pasted task box is also stripped; otherwise a pasted task box is kept
 - `getListRenumberChanges(doc, firstLineNumber, linePrefix, tabSize)` - pure line walk over the post-paste document; only applies when `linePrefix` is an ordered marker (`N.` / `N)`, optional task box). Continues numbering from `N` for following lines: blank lines and lines indented at or past the item's content column (children, continuation lines) are skipped; a less indented line ends the walk; a sibling-level line must be an ordered marker with the same delimiter or the walk ends. Pasted and existing items are handled alike, and existing numbers are replaced unconditionally (matching Joplin's own renumbering, so `1. 1. 1.` lists become sequential)
-- Known limitations: pasted lines are not re-indented to the target level (pasted items at a different indentation are not renumbered), and a number width change (`9.` → `10.`) does not adjust child indentation
-- Blockquote prefixes and multi-line re-indentation are intentionally out of scope
+- `getPasteReindentChanges(doc, pasteFrom, pastedText, linePrefix, tabSize, formatIndent)` - shifts every later non-blank pasted line by (target line indentation − pasted first line's original indentation), clamped at zero, writing the new whitespace with the editor's indent unit (`indentString`). Blank lines and document text after a paste ending in a newline are left alone. If the pasted first line has no indentation but every later non-blank line is indented, the copy may have started at the marker and dropped the first line's indentation, so the original level is unknown and nothing is re-indented
+- Known limitations: pastes whose first line lost its indentation (copy started at the marker) are not re-indented, and a number width change (`9.` → `10.`) does not adjust child indentation
+- Blockquote prefixes are intentionally out of scope
 
 **src/contentScripts/contextDetection.ts**
 
