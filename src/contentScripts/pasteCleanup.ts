@@ -100,6 +100,8 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
     const line = state.doc.lineAt(from);
     const linePrefix = line.text.slice(0, from - line.from);
 
+    // Cheap prefix check first to skip the syntax tree walk; stripDuplicateListMarker re-checks
+    // the prefix itself so it stays correct as a standalone pure function.
     if (!LIST_PREFIX_ONLY_REGEX.test(linePrefix) || isInCode(state, from)) {
         return text;
     }
