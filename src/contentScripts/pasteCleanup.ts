@@ -5,6 +5,15 @@ import type { Extension, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
 
 /**
+ * Indentation plus a bullet (`-`, `*`, `+`) or ordered (`1.`, `1)`) marker and its trailing
+ * whitespace. Uses `[ \t]` rather than `\s` so it never consumes a newline.
+ */
+const LIST_MARKER_SOURCE = String.raw`[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+`;
+
+/** A task box (`[ ]`, `[x]`, `[X]`) and its trailing whitespace. */
+const TASK_BOX_SOURCE = String.raw`\[[ xX]\][ \t]+`;
+
+/**
  * Matches a line prefix consisting only of indentation, a list marker and an optional task box.
  *
  * @example
@@ -13,18 +22,17 @@ import { logger } from '../logger';
  * '- [ ] '    // matches (group 1 = '[ ] ')
  * '- foo '    // no match (text after the marker)
  */
-const LIST_PREFIX_ONLY_REGEX = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+(\[[ xX]\][ \t]+)?$/;
+const LIST_PREFIX_ONLY_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}(${TASK_BOX_SOURCE})?$`);
 
 /**
- * Matches a leading list marker at the start of pasted text. Uses `[ \t]` rather than `\s`
- * so it never consumes a newline.
+ * Matches a leading list marker at the start of pasted text.
  *
  * @example
  * '- foo'      // strips '- '
  * '1) foo'     // strips '1) '
  * '- [ ] foo'  // strips '- ' (task box kept)
  */
-const LEADING_LIST_MARKER_REGEX = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+/;
+const LEADING_LIST_MARKER_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}`);
 
 /**
  * Matches a leading list marker followed by a task box at the start of pasted text.
@@ -33,7 +41,7 @@ const LEADING_LIST_MARKER_REGEX = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+/;
  * '- [x] foo'  // strips '- [x] '
  * '- foo'      // strips '- '
  */
-const LEADING_LIST_MARKER_AND_TASK_REGEX = /^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/;
+const LEADING_LIST_MARKER_AND_TASK_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}(?:${TASK_BOX_SOURCE})?`);
 
 const CODE_NODE_NAMES = new Set(['FencedCode', 'CodeBlock', 'InlineCode']);
 
