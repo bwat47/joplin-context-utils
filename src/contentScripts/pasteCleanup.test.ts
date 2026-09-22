@@ -1,4 +1,4 @@
-import { EditorSelection, EditorState } from '@codemirror/state';
+import { Annotation, EditorSelection, EditorState, StateEffect, Transaction } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
 import { createPasteCleanupExtension, stripDuplicateListMarker } from './pasteCleanup';
@@ -70,6 +70,32 @@ describe('createPasteCleanupExtension', () => {
         const result = paste(createState('Intro\n\n- ', [[9, 9]]), '- foo');
         expect(result.doc.toString()).toBe('Intro\n\n- foo');
         expect(result.selection.main.head).toBe(result.doc.length);
+    });
+
+    it('preserves paste annotations and maps selection and effects through the removed marker', () => {
+        const positionEffect = StateEffect.define<number>({
+            map: (position, changes) => changes.mapPos(position),
+        });
+        const sourceAnnotation = Annotation.define<string>();
+        const state = createState('- ', [[2, 2]]);
+        const transaction = state.update({
+            changes: { from: 2, insert: '- foo' },
+            selection: EditorSelection.range(4, 7),
+            effects: positionEffect.of(6),
+            annotations: [
+                Transaction.userEvent.of('input.paste'),
+                Transaction.addToHistory.of(false),
+                sourceAnnotation.of('clipboard'),
+            ],
+        });
+
+        expect(transaction.newDoc.toString()).toBe('- foo');
+        expect(transaction.newSelection.main.from).toBe(2);
+        expect(transaction.newSelection.main.to).toBe(5);
+        expect(transaction.effects.find((effect) => effect.is(positionEffect))?.value).toBe(4);
+        expect(transaction.annotation(Transaction.addToHistory)).toBe(false);
+        expect(transaction.annotation(sourceAnnotation)).toBe('clipboard');
+        expect(transaction.isUserEvent('input.paste')).toBe(true);
     });
 
     it('strips the pasted marker and task box on a task line', () => {

@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
-import { EditorSelection, EditorState, Transaction } from '@codemirror/state';
+import { EditorState, Transaction } from '@codemirror/state';
 import type { Extension, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
 
@@ -106,32 +106,29 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
 /**
  * Rewrites a single-change `input.paste` transaction with cleaned text, or returns it unchanged.
  */
-function cleanPasteTransaction(tr: Transaction): Transaction | TransactionSpec {
+function cleanPasteTransaction(tr: Transaction): Transaction | readonly TransactionSpec[] {
     if (!tr.docChanged || !tr.isUserEvent('input.paste')) {
         return tr;
     }
 
-    const changes: Array<{ from: number; to: number; text: string }> = [];
-    tr.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-        changes.push({ from: fromA, to: toA, text: inserted.toString() });
+    const changes: Array<{ from: number; text: string }> = [];
+    tr.changes.iterChanges((fromA, _toA, _fromB, _toB, inserted) => {
+        changes.push({ from: fromA, text: inserted.toString() });
     });
     if (changes.length !== 1) {
         return tr;
     }
 
-    const { from, to, text } = changes[0];
+    const { from, text } = changes[0];
     const cleaned = cleanPastedText(text, tr.startState, from);
     if (cleaned === text) {
         return tr;
     }
 
-    return {
-        changes: { from, to, insert: cleaned },
-        selection: EditorSelection.cursor(from + cleaned.length),
-        effects: tr.effects,
-        scrollIntoView: tr.scrollIntoView,
-        annotations: Transaction.userEvent.of(tr.annotation(Transaction.userEvent) ?? 'input.paste'),
-    };
+    // Compose a deletion after the original paste. CodeMirror maps its selection and
+    // effects through the deletion while retaining every annotation on the paste.
+    const removedLength = text.length - cleaned.length;
+    return [tr, { changes: { from, to: from + removedLength }, sequential: true }];
 }
 
 /**
