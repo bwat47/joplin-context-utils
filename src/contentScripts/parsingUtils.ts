@@ -16,6 +16,13 @@ export interface ExtractedUrl {
 
 type LinkParseResult = Omit<LinkContext, 'from' | 'to' | 'contextType'> | null;
 
+/**
+ * CommonMark email autolink address (the text inside `<user@example.com>`).
+ * Example: `bobo@nowhere.com` matches; `https://google.com` does not.
+ */
+const EMAIL_AUTOLINK_PATTERN =
+    /^[a-z\d.!#$%&'*+/=?^_`{|}~-]+@[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/i;
+
 interface ReferenceDefinition {
     label?: string;
     url?: string;
@@ -104,6 +111,29 @@ export function classifyUrl(url: string): LinkParseResult {
     }
 
     return null;
+}
+
+/**
+ * Classifies an angle-bracket email autolink address as a mailto link.
+ * Returns null for anything that is not an email address, including bare text
+ * that was never parsed as an autolink.
+ *
+ * @param address - Address inside the angle brackets, e.g. `bobo@nowhere.com`
+ */
+export function classifyEmailAutolink(address: string): LinkParseResult {
+    if (!EMAIL_AUTOLINK_PATTERN.test(address)) {
+        return null;
+    }
+
+    const atIndex = address.lastIndexOf('@');
+    const localPart = address.slice(0, atIndex);
+    const domain = address.slice(atIndex + 1);
+
+    return {
+        url: `mailto:${encodeURIComponent(localPart)}@${domain}`,
+        emailAddress: address,
+        type: LinkType.Email,
+    };
 }
 
 /**

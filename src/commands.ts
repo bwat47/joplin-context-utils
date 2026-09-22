@@ -260,7 +260,7 @@ async function handleCopyPath(linkContext: LinkContext): Promise<void> {
         textToCopy = linkContext.url;
         logger.debug('Copying URL to clipboard:', textToCopy);
     } else if (linkContext.type === LinkType.Email) {
-        textToCopy = linkContext.url.replace(/^mailto:/i, '');
+        textToCopy = linkContext.emailAddress ?? linkContext.url.replace(/^mailto:/i, '');
         logger.debug('Copying email to clipboard:', textToCopy);
     } else {
         throw new Error(`Unsupported link type: ${linkContext.type}`);

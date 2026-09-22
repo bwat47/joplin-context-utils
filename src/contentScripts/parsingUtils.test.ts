@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import {
     classifyUrl,
+    classifyEmailAutolink,
     parseImageTag,
     parseInlineCode,
     extractReferenceLabel,
@@ -55,6 +56,33 @@ describe('parsingUtils', () => {
         it('should return null for invalid URLs', () => {
             expect(classifyUrl('invalid-url')).toBeNull();
             expect(classifyUrl('/local/path')).toBeNull();
+        });
+
+        it('should return null for bare email addresses', () => {
+            expect(classifyUrl('bobo@nowhere.com')).toBeNull();
+        });
+    });
+
+    describe('classifyEmailAutolink', () => {
+        it('should classify an email autolink address as a mailto link', () => {
+            expect(classifyEmailAutolink('bobo@nowhere.com')).toEqual({
+                url: 'mailto:bobo@nowhere.com',
+                emailAddress: 'bobo@nowhere.com',
+                type: LinkType.Email,
+            });
+        });
+
+        it('escapes reserved URI characters without changing the copyable address', () => {
+            expect(classifyEmailAutolink('a#b?c%d+e@example.com')).toEqual({
+                url: 'mailto:a%23b%3Fc%25d%2Be@example.com',
+                emailAddress: 'a#b?c%d+e@example.com',
+                type: LinkType.Email,
+            });
+        });
+
+        it('should return null for URLs and plain text', () => {
+            expect(classifyEmailAutolink('https://google.com')).toBeNull();
+            expect(classifyEmailAutolink('not-an-email')).toBeNull();
         });
     });
 

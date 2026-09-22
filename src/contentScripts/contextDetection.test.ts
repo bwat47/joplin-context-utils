@@ -372,6 +372,56 @@ describe('contextDetection', () => {
         expect(footnoteContext?.targetPos).toBe(doc.indexOf('[^1]:'));
     });
 
+    it.each([0, '<bobo@nowhere.com>'.indexOf('bobo'), '<bobo@nowhere.com>'.length - 1])(
+        'detects email autolink context at cursor position %i',
+        (pos) => {
+            const doc = '<bobo@nowhere.com>';
+            const view = createViewWithCursor(doc, pos);
+            const contexts = detectContextAtPosition(view, pos);
+            const linkContext = getContext(contexts, 'link');
+
+            expect(linkContext).toBeDefined();
+            expect(linkContext?.type).toBe('email');
+            expect(linkContext?.url).toBe('mailto:bobo@nowhere.com');
+            expect(linkContext?.emailAddress).toBe('bobo@nowhere.com');
+            expect(linkContext?.from).toBe(0);
+            expect(linkContext?.to).toBe(doc.length);
+            expect(linkContext?.expectedText).toBe(doc);
+        }
+    );
+
+    it('keeps reserved characters in a copyable email address while escaping its mailto URL', () => {
+        const doc = '<a#b?c%d+e@example.com>';
+        const pos = doc.indexOf('@');
+        const view = createViewWithCursor(doc, pos);
+        const linkContext = getContext(detectContextAtPosition(view, pos), 'link');
+
+        expect(linkContext?.url).toBe('mailto:a%23b%3Fc%25d%2Be@example.com');
+        expect(linkContext?.emailAddress).toBe('a#b?c%d+e@example.com');
+    });
+
+    it('detects URL autolinks as external links', () => {
+        const doc = '<https://google.com>';
+        const pos = doc.indexOf('google');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+        const linkContext = getContext(contexts, 'link');
+
+        expect(linkContext).toBeDefined();
+        expect(linkContext?.type).toBe('external-url');
+        expect(linkContext?.url).toBe('https://google.com');
+        expect(linkContext?.expectedText).toBe(doc);
+    });
+
+    it('does not detect a plain email address', () => {
+        const doc = 'Contact bobo@nowhere.com today';
+        const pos = doc.indexOf('@');
+        const view = createViewWithCursor(doc, pos);
+        const contexts = detectContextAtPosition(view, pos);
+
+        expect(getContext(contexts, 'link')).toBeUndefined();
+    });
+
     it('detects markdown link context at cursor', () => {
         const doc = '[Joplin](https://joplinapp.org)';
         const pos = doc.indexOf('Joplin');

@@ -21,6 +21,7 @@ import {
     parseCodeBlock,
     extractUrl,
     classifyUrl,
+    classifyEmailAutolink,
     parseImageTag,
     extractReferenceLabel,
     findReferenceDefinition,
@@ -304,9 +305,16 @@ function detectMarkdownImageContext(view: EditorView, node: SyntaxNodeRef): Link
 }
 
 function detectUrlContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+    // The URL child of an Autolink is handled by the parent so angle brackets stay in range.
+    if (node.type.name === 'URL' && node.node.parent?.type.name === 'Autolink') {
+        return null;
+    }
+
     const urlText = view.state.doc.sliceString(node.from, node.to);
     const url = urlText.replace(/^<|>$/g, '');
-    const classified = classifyUrl(url);
+    // Email autolinks (`<user@example.com>`) have no scheme. Bare addresses are URL
+    // nodes under GFM and stay unclassified so they do not show email options.
+    const classified = classifyUrl(url) ?? (node.type.name === 'Autolink' ? classifyEmailAutolink(url) : null);
     if (!classified) {
         return null;
     }

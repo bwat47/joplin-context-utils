@@ -8,6 +8,9 @@ export interface LinkContext {
     /** The raw link text (e.g., "https://example.com" or ":/abc123...") */
     url: string;
 
+    /** Original address of an email autolink, before mailto URL encoding */
+    emailAddress?: string;
+
     /** Type of link detected */
     type: LinkType;
 

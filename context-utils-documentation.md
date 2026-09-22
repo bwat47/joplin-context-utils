@@ -10,7 +10,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - External URLs (`https://...`)
 - Joplin resources (`:/32-hex-id`)
-- Email addresses (`mailto:...`)
+- Email addresses (`mailto:...` and angle-bracket autolinks such as `<user@example.com>`)
 - Internal anchor links (`#heading-slug`)
 - Markdown links (`[text](url)`)
 - Reference-style links (`[text][ref]` with `[ref]: url`)
@@ -175,6 +175,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `findReferenceDefinition` (finds URL for reference label, case-insensitive, first occurrence wins)
     - `parseImageTag` (regex)
     - `classifyUrl` (regex)
+    - `classifyEmailAutolink` (regex; angle-bracket email autolinks only, with reserved local-part characters encoded in the `mailto:` URL and the original address retained for copying)
     - `parseInlineCode` (regex)
     - `parseCodeBlock` (syntax tree + regex fallback)
     - `findFootnoteDefinition` (RegExpCursor with code block filtering)
@@ -461,7 +462,7 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 - `LinkLabel` - Label in reference links (e.g., `[ref]` in `[text][ref]` or `[ref]: url`)
 - `Image` - `![alt](url)` (entire structure with `URL` child nodes)
 - `URL` - Bare URLs or child nodes of Link/Image/LinkReference
-- `Autolink` - `<url>`
+- `Autolink` - `<url>` or `<user@example.com>` (email autolinks are classified as mailto links; bare `user@example.com` text is not)
 - `InlineCode` - `` `code` `` (flat/leaf node, includes backticks)
 - `FencedCode` - ` ` ```code blocks (may have`CodeText` child excluding fence markers)
 - `CodeBlock` - Indented code blocks (4 spaces/tab, has multiple `CodeText` children, one per line)
