@@ -1,7 +1,7 @@
 import { syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
-import { EditorState, Transaction } from '@codemirror/state';
-import type { Extension, TransactionSpec } from '@codemirror/state';
+import { EditorState, Transaction, countColumn } from '@codemirror/state';
+import type { ChangeSpec, Extension, Text, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
 
 /**
@@ -43,6 +43,29 @@ const LEADING_LIST_MARKER_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}`);
  */
 const LEADING_LIST_MARKER_AND_TASK_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}(?:${TASK_BOX_SOURCE})?`);
 
+/**
+ * Matches a line prefix consisting only of an ordered list marker and an optional task box.
+ * Group 1 = marker with indentation and trailing whitespace, 2 = indentation, 3 = number, 4 = delimiter.
+ *
+ * @example
+ * '3. '        // matches (number '3', delimiter '.')
+ * '  2) [ ] '  // matches (indent '  ', number '2', delimiter ')')
+ * '- '         // no match (bullet)
+ */
+const ORDERED_PREFIX_ONLY_REGEX = new RegExp(String.raw`^(([ \t]*)(\d{1,9})([.)])[ \t]+)(?:${TASK_BOX_SOURCE})?$`);
+
+/**
+ * Matches an ordered list marker at the start of a line.
+ * Group 1 = indentation, 2 = number, 3 = delimiter.
+ *
+ * @example
+ * '4. foo'     // matches
+ * '  10) bar'  // matches
+ * '5.'         // matches (empty item)
+ * '5.5 apples' // no match
+ */
+const ORDERED_LINE_MARKER_REGEX = /^([ \t]*)(\d{1,9})([.)])(?:[ \t]|$)/;
+
 const CODE_NODE_NAMES = new Set(['FencedCode', 'CodeBlock', 'InlineCode']);
 
 /**
@@ -74,6 +97,78 @@ export function stripDuplicateListMarker(linePrefix: string, pastedText: string)
 }
 
 /**
+ * Computes changes that renumber the ordered list items following a list item line, continuing
+ * from that item's number. Walks sibling items at the item's indentation, skipping blank lines and
+ * more deeply indented lines (children, continuation lines), and stops at the first line that ends
+ * the list: less indented text, or sibling-level text that is not an ordered marker with the same
+ * delimiter. Existing numbers are replaced unconditionally, so `1. 1. 1.` style lists become sequential.
+ *
+ * @param doc - Document to renumber (the post-paste document)
+ * @param firstLineNumber - Line number of the list item to continue numbering from
+ * @param linePrefix - That line's text up to the paste position, e.g. `'3. '`
+ * @param tabSize - Tab size for measuring indentation
+ * @returns Number replacements in `doc` coordinates; empty if the prefix is not an ordered marker
+ *
+ * @example
+ * // doc: '2. a\n1. b\n   1. child\n1. c', prefix '2. '
+ * // -> '2. a\n3. b\n   1. child\n4. c'
+ */
+export function getListRenumberChanges(
+    doc: Text,
+    firstLineNumber: number,
+    linePrefix: string,
+    tabSize: number
+): ChangeSpec[] {
+    const prefixMatch = ORDERED_PREFIX_ONLY_REGEX.exec(linePrefix);
+    if (!prefixMatch) {
+        return [];
+    }
+
+    const [, marker, indent, number, delimiter] = prefixMatch;
+    const markerIndent = countColumn(indent, tabSize);
+    const contentIndent = countColumn(marker, tabSize);
+    let nextNumber = Number(number) + 1;
+    const changes: ChangeSpec[] = [];
+
+    for (let lineNumber = firstLineNumber + 1; lineNumber <= doc.lines; lineNumber++) {
+        const line = doc.line(lineNumber);
+        const leadingWhitespaceLength = line.text.search(/[^ \t]/);
+        if (leadingWhitespaceLength === -1) {
+            continue;
+        }
+
+        const lineIndent = countColumn(line.text, tabSize, leadingWhitespaceLength);
+        if (lineIndent >= contentIndent) {
+            continue;
+        }
+        if (lineIndent < markerIndent) {
+            break;
+        }
+
+        const lineMatch = ORDERED_LINE_MARKER_REGEX.exec(line.text);
+        if (!lineMatch || lineMatch[3] !== delimiter) {
+            break;
+        }
+
+        const insert = String(nextNumber++);
+        if (lineMatch[2] !== insert) {
+            const numberFrom = line.from + lineMatch[1].length;
+            changes.push({ from: numberFrom, to: numberFrom + lineMatch[2].length, insert });
+        }
+    }
+
+    return changes;
+}
+
+/**
+ * Returns the line text from the line start up to `pos`.
+ */
+function getLinePrefix(state: EditorState, pos: number): string {
+    const line = state.doc.lineAt(pos);
+    return line.text.slice(0, pos - line.from);
+}
+
+/**
  * Checks via the syntax tree whether the position is inside code.
  *
  * A list item is intentionally not required: an empty marker line directly after a paragraph
@@ -97,8 +192,7 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
         return text;
     }
 
-    const line = state.doc.lineAt(from);
-    const linePrefix = line.text.slice(0, from - line.from);
+    const linePrefix = getLinePrefix(state, from);
 
     // Cheap prefix check first to skip the syntax tree walk; stripDuplicateListMarker re-checks
     // the prefix itself so it stays correct as a standalone pure function.
@@ -115,6 +209,7 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
 
 /**
  * Rewrites a single-change `input.paste` transaction with cleaned text, or returns it unchanged.
+ * When the paste lands on an ordered list item, the following items are renumbered as well.
  */
 function cleanPasteTransaction(tr: Transaction): Transaction | readonly TransactionSpec[] {
     if (!tr.docChanged || !tr.isUserEvent('input.paste')) {
@@ -135,10 +230,22 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
         return tr;
     }
 
-    // Compose a deletion after the original paste. CodeMirror maps its selection and
-    // effects through the deletion while retaining every annotation on the paste.
+    const renumberChanges = getListRenumberChanges(
+        tr.newDoc,
+        tr.newDoc.lineAt(from).number,
+        getLinePrefix(tr.startState, from),
+        tr.startState.tabSize
+    );
+    if (renumberChanges.length > 0) {
+        logger.debug(`Renumbered ${renumberChanges.length} ordered list item(s) after paste`);
+    }
+
+    // Compose the marker deletion and renumbering after the original paste. All changes use
+    // post-paste coordinates and never overlap (the deletion is on the first pasted line, the
+    // renumbering on later lines). CodeMirror maps the paste's selection and effects through
+    // them while retaining every annotation on the paste.
     const removedLength = text.length - cleaned.length;
-    return [tr, { changes: { from, to: from + removedLength }, sequential: true }];
+    return [tr, { changes: [{ from, to: from + removedLength }, ...renumberChanges], sequential: true }];
 }
 
 /**
