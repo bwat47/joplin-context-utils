@@ -239,29 +239,125 @@ function getLaterPastedLines(doc: Text, pasteFrom: number, pasteEnd: number, tab
 }
 
 /**
- * Returns an edit replacing a line's leading whitespace with `indent`, and its marker token with
- * `token` when it differs from `item`'s. Unchanged markers are left out of the edit.
+ * Returns an edit setting a line's indentation to `columns` (clamped at zero), and its marker token
+ * to `token` when it differs from `item`'s. The line's existing whitespace is kept when its width is
+ * unchanged, so only moved lines take the editor's indent style via `formatIndent`.
  *
  * @returns A single-element array with the edit, or an empty array if nothing changes
  */
-function getLineStartChange(line: PastedLine, indent: string, item?: ListItem, token?: string): ChangeSpec[] {
+function getLineStartChange(
+    line: PastedLine,
+    columns: number,
+    formatIndent: (columns: number) => string,
+    item?: ListItem,
+    token?: string
+): ChangeSpec[] {
+    const newColumns = Math.max(0, columns);
+    const indent = newColumns === line.indent ? line.text.slice(0, line.whitespaceLength) : formatIndent(newColumns);
     const replacesToken = item !== undefined && token !== undefined && token !== item.token;
     const end = replacesToken ? item.indent.length + item.token.length : line.whitespaceLength;
     const insert = replacesToken ? indent + token : indent;
     return insert === line.text.slice(0, end) ? [] : [{ from: line.from, to: line.from + end, insert }];
 }
 
+/** How the pasted first item maps onto the target line. */
+type PasteLayout = {
+    target: ListItem;
+    /** Pasted first line's original indentation in columns */
+    baseIndent: number;
+    /** Pasted first line's content column; less indented lines are at the sibling level */
+    siblingLimit: number;
+    /** Columns every later pasted line shifts by */
+    indentDelta: number;
+    tabSize: number;
+};
+
+/** A pasted list item (or other sibling-level line) with the lines nested under it. */
+type PastedGroup = {
+    /** The sibling-level line; absent for the first pasted item, which is on the target line */
+    line?: PastedLine;
+    item?: ListItem;
+    /** Converted marker token for `item` */
+    token?: string;
+    /** The item's content column after the paste changes; absent when its children never move */
+    contentColumn?: number;
+    children: PastedLine[];
+};
+
+/**
+ * Splits the later pasted lines into sibling-level groups and decides each sibling item's marker.
+ * Conversion stops at the first sibling-level line that is not a list item, at a less indented
+ * line, and at a bullet task item when the target is ordered. Unconverted groups keep their
+ * children's positions, since their marker and children shift together.
+ */
+function groupPastedLines(lines: PastedLine[], layout: PasteLayout, firstContentColumn: number): PastedGroup[] {
+    const { target, baseIndent, siblingLimit, indentDelta, tabSize } = layout;
+    const groups: PastedGroup[] = [{ contentColumn: firstContentColumn, children: [] }];
+    let converting = true;
+    let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
+
+    for (const line of lines) {
+        if (line.indent >= siblingLimit) {
+            groups[groups.length - 1].children.push(line);
+            continue;
+        }
+
+        const item = converting && line.indent >= baseIndent ? parseListItem(line.text) : null;
+        const token = item ? getConvertedToken(target, item, nextNumber) : undefined;
+        if (!item || token === undefined) {
+            converting = false;
+            groups.push({ line, children: [] });
+            continue;
+        }
+
+        nextNumber++;
+        const contentColumn =
+            countColumn(line.text, tabSize, item.contentStart) + indentDelta + token.length - item.token.length;
+        groups.push({ line, item, token, contentColumn, children: [] });
+    }
+    return groups;
+}
+
+/**
+ * Most columns a nested list item may sit past its parent's content column; any further and
+ * CommonMark parses it as an indented code block.
+ */
+const MAX_CHILD_OFFSET = 3;
+
+/**
+ * Returns the extra shift that keeps a group's children nested after its marker changed width.
+ * Children already within the valid range (content column to `MAX_CHILD_OFFSET` past it) stay put;
+ * otherwise the whole subtree moves the minimum amount into range.
+ *
+ * @example
+ * // '- a\n  - child' -> '1. a': child at 2, content column 3 -> shift +1
+ * // '- a\n    - child' -> '1. a': child at 4, within 3..6 -> no shift
+ */
+function getChildShift(group: PastedGroup, indentDelta: number): number {
+    if (group.contentColumn === undefined || group.children.length === 0) {
+        return 0;
+    }
+
+    const minIndent = Math.min(...group.children.map((child) => child.indent)) + indentDelta;
+    const maxIndent = group.contentColumn + MAX_CHILD_OFFSET;
+    if (minIndent < group.contentColumn) {
+        return group.contentColumn - minIndent;
+    }
+    return minIndent > maxIndent ? maxIndent - minIndent : 0;
+}
+
 /**
  * Computes changes that fit the pasted lines after the first into the target list item:
  *
  * - Every later non-blank pasted line is shifted by the target line's indentation minus the pasted
- *   first line's original indentation (clamped at zero), written via `formatIndent`.
+ *   first line's original indentation (clamped at zero). Lines whose indentation width is unchanged
+ *   keep their whitespace; moved lines are written via `formatIndent`.
  * - Pasted sibling items (at the pasted first item's level) take the target's list type: its bullet
  *   character, or sequential numbers with its delimiter. Conversion stops at the first sibling-level
  *   line that is not a list item, at a less indented line, and at a bullet task item when the target
  *   is ordered (left as is). Nested children keep their own type.
- * - When a marker changes width (`- ` to `1. `, `9.` to `10.`), the item's children and continuation
- *   lines shift by the same amount so they stay nested.
+ * - When a marker changes width (`- ` to `1. `, `9.` to `10.`) and the item's children would no
+ *   longer be nested under it, the children shift the minimum amount to stay nested.
  *
  * When the pasted first line has no indentation but every later non-blank line is indented, the
  * copy may have started at the marker and dropped the first line's indentation, so the original
@@ -293,10 +389,14 @@ export function getPastedLineChanges(
         return [];
     }
 
-    const targetIndent = countColumn(target.indent, tabSize);
     const baseIndent = countColumn(pastedFirst.indent, tabSize);
-    const siblingLimit = countColumn(pastedText, tabSize, pastedFirst.contentStart);
-    const indentDelta = targetIndent - baseIndent;
+    const layout: PasteLayout = {
+        target,
+        baseIndent,
+        siblingLimit: countColumn(pastedText, tabSize, pastedFirst.contentStart),
+        indentDelta: countColumn(target.indent, tabSize) - baseIndent,
+        tabSize,
+    };
 
     const lines = getLaterPastedLines(doc, pasteFrom, pasteFrom + pastedText.length, tabSize);
     if (baseIndent === 0 && lines.every((line) => line.indent > 0)) {
@@ -304,32 +404,17 @@ export function getPastedLineChanges(
     }
 
     const changes: ChangeSpec[] = [];
-    // The first pasted item's marker was replaced by the target's, so its children shift by the
-    // difference in content column (e.g. '- ' -> '1. ' is +1).
-    let childShift = countColumn(linePrefix, tabSize, target.contentStart) - targetIndent - (siblingLimit - baseIndent);
-    let converting = true;
-    let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
-
-    for (const line of lines) {
-        const indentBy = (extra: number): string => formatIndent(Math.max(0, line.indent + indentDelta + extra));
-
-        if (line.indent >= siblingLimit) {
-            changes.push(...getLineStartChange(line, indentBy(childShift)));
-            continue;
+    const firstContentColumn = countColumn(linePrefix, tabSize, target.contentStart);
+    for (const group of groupPastedLines(lines, layout, firstContentColumn)) {
+        const childShift = getChildShift(group, layout.indentDelta);
+        if (group.line) {
+            const columns = group.line.indent + layout.indentDelta;
+            changes.push(...getLineStartChange(group.line, columns, formatIndent, group.item, group.token));
         }
-
-        const item = converting && line.indent >= baseIndent ? parseListItem(line.text) : null;
-        const token = item ? getConvertedToken(target, item, nextNumber) : undefined;
-        if (!item || token === undefined) {
-            converting = false;
-            childShift = 0;
-            changes.push(...getLineStartChange(line, indentBy(0)));
-            continue;
+        for (const child of group.children) {
+            const columns = child.indent + layout.indentDelta + childShift;
+            changes.push(...getLineStartChange(child, columns, formatIndent));
         }
-
-        nextNumber++;
-        childShift = token.length - item.token.length;
-        changes.push(...getLineStartChange(line, indentBy(0), item, token));
     }
     return changes;
 }

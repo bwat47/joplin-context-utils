@@ -302,10 +302,10 @@ describe('createPasteCleanupExtension', () => {
                 '1. a\n   - child\n2. b\n   more',
             ],
             [
-                'shifting children of narrowed markers',
+                'keeping children of narrowed markers',
                 '- |',
                 '1. a\n   1. child\n2. b\n   more',
-                '- a\n  1. child\n- b\n  more',
+                '- a\n   1. child\n- b\n   more',
             ],
             [
                 'shifting children past a number width change',
@@ -318,6 +318,59 @@ describe('createPasteCleanupExtension', () => {
             ['plain bullets onto an ordered task item', '1. [ ] |', '- a\n- b', '1. [ ] a\n2. b'],
         ])('converts pasted siblings (%s)', (_name, doc, pasted, expected) => {
             expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
+        });
+
+        it('keeps 4-space children that stay nested under a widened marker', () => {
+            const pasted = [
+                '- Item 75',
+                '    - Nested item 75.1',
+                '        - Nested item 75.1.1',
+                '- Item 76',
+                '    - Nested item 76.1',
+            ].join('\n');
+            const expected = [
+                '1. ABC',
+                '2. Item 75',
+                '    - Nested item 75.1',
+                '        - Nested item 75.1.1',
+                '3. Item 76',
+                '    - Nested item 76.1',
+                '4. DEF',
+            ].join('\n');
+            expect(pasteAt('1. ABC\n2. |\n3. DEF', pasted).doc.toString()).toBe(expected);
+        });
+
+        it('keeps 4-space children under a narrowed marker', () => {
+            const pasted = '1. a\n    - child\n        - grandchild\n2. b\n    - child';
+            expect(pasteAt('- |', pasted).doc.toString()).toBe(
+                '- a\n    - child\n        - grandchild\n- b\n    - child'
+            );
+        });
+
+        it('moves children the minimum amount when they would become code', () => {
+            expect(pasteAt('- |', '10. a\n       - child\n         - grandchild\n11. b').doc.toString()).toBe(
+                '- a\n     - child\n       - grandchild\n- b'
+            );
+        });
+
+        it('moves a subtree together when children would fall out of a widened marker', () => {
+            expect(pasteAt('1. |', '- a\n  - child\n    - grandchild\n- b').doc.toString()).toBe(
+                '1. a\n   - child\n     - grandchild\n2. b'
+            );
+        });
+
+        it('keeps tab-indented children as tabs', () => {
+            const tabs = [indentUnit.of('\t'), EditorState.tabSize.of(4)];
+            expect(pasteAt('1. x\n2. |', '- a\n\t- child\n\t\t- grandchild\n- b', true, tabs).doc.toString()).toBe(
+                '1. x\n2. a\n\t- child\n\t\t- grandchild\n3. b'
+            );
+        });
+
+        it('keeps the whitespace of lines that do not move', () => {
+            const tabs = [indentUnit.of('\t'), EditorState.tabSize.of(4)];
+            expect(pasteAt('1. x\n2. |', '- a\n    - child\n- b', true, tabs).doc.toString()).toBe(
+                '1. x\n2. a\n    - child\n3. b'
+            );
         });
 
         it('does not convert bullet task items to ordered items', () => {
