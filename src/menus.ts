@@ -6,7 +6,7 @@ import { extractJoplinResourceId } from './utils/urlUtils';
 import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
 import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
-import { settingsCache } from './settings';
+import { getSettings, Settings } from './settings';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
@@ -50,17 +50,17 @@ async function isEditorContextMenuOrigin(): Promise<boolean> {
     }
 }
 
-function buildGlobalMenuItems(): MenuItem[] {
+function buildGlobalMenuItems(settings: Settings): MenuItem[] {
     const items: MenuItem[] = [];
 
-    if (settingsCache.showAddExternalLink) {
+    if (settings.showAddExternalLink) {
         items.push({
             commandName: COMMAND_IDS.ADD_EXTERNAL_LINK,
             label: 'Add External Link',
         });
     }
 
-    if (settingsCache.showAddLinkToNote) {
+    if (settings.showAddLinkToNote) {
         items.push({
             commandName: COMMAND_IDS.ADD_LINK_TO_NOTE,
             label: 'Add Link to Note',
@@ -70,25 +70,25 @@ function buildGlobalMenuItems(): MenuItem[] {
     return items;
 }
 
-function hasEnabledContextSensitiveItem(): boolean {
+function hasEnabledContextSensitiveItem(settings: Settings): boolean {
     // Keep this list in sync with the context-specific menu builders below.
     return (
-        settingsCache.showOpenLink ||
-        settingsCache.showPinToTabs ||
-        settingsCache.showCopyPath ||
-        settingsCache.showCopyCode ||
-        settingsCache.showToggleTask ||
-        settingsCache.showGoToFootnote ||
-        settingsCache.showGoToHeading ||
-        settingsCache.showFetchLinkTitle ||
-        settingsCache.showOpenAllLinksInSelection ||
-        settingsCache.showCopyHeadingLink ||
-        settingsCache.showCopyQuote
+        settings.showOpenLink ||
+        settings.showPinToTabs ||
+        settings.showCopyPath ||
+        settings.showCopyCode ||
+        settings.showToggleTask ||
+        settings.showGoToFootnote ||
+        settings.showGoToHeading ||
+        settings.showFetchLinkTitle ||
+        settings.showOpenAllLinksInSelection ||
+        settings.showCopyHeadingLink ||
+        settings.showCopyQuote
     );
 }
 
-async function getEditorContexts(): Promise<EditorContext[]> {
-    if (!hasEnabledContextSensitiveItem()) {
+async function getEditorContexts(settings: Settings): Promise<EditorContext[]> {
+    if (!hasEnabledContextSensitiveItem(settings)) {
         return [];
     }
 
@@ -104,17 +104,17 @@ async function getEditorContexts(): Promise<EditorContext[]> {
     }
 }
 
-async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
+async function buildLinkMenuItems(context: LinkContext, settings: Settings): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
     const isExternalOrEmail = context.type === LinkType.ExternalUrl || context.type === LinkType.Email;
     let isNote = false;
 
-    if (context.type === LinkType.JoplinResource && settingsCache.showPinToTabs) {
+    if (context.type === LinkType.JoplinResource && settings.showPinToTabs) {
         const resourceId = extractJoplinResourceId(context.url);
         isNote = (await getJoplinIdType(resourceId)) === 'note';
     }
 
-    if (settingsCache.showOpenLink && isExternalOrEmail) {
+    if (settings.showOpenLink && isExternalOrEmail) {
         items.push({
             commandName: COMMAND_IDS.OPEN_LINK,
             commandArgs: [context],
@@ -131,7 +131,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         });
     }
 
-    if (settingsCache.showCopyPath && isExternalOrEmail) {
+    if (settings.showCopyPath && isExternalOrEmail) {
         items.push({
             commandName: COMMAND_IDS.COPY_PATH,
             commandArgs: [context],
@@ -139,7 +139,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         });
     }
 
-    if (settingsCache.showFetchLinkTitle && isFetchableLink(context)) {
+    if (settings.showFetchLinkTitle && isFetchableLink(context)) {
         items.push({
             commandName: COMMAND_IDS.FETCH_LINK_TITLES,
             commandArgs: [[linkContextToLinkInfo(context)]],
@@ -147,7 +147,7 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
         });
     }
 
-    if (context.type === LinkType.InternalAnchor && settingsCache.showGoToHeading) {
+    if (context.type === LinkType.InternalAnchor && settings.showGoToHeading) {
         items.push({
             commandName: COMMAND_IDS.GO_TO_HEADING,
             commandArgs: [context],
@@ -158,8 +158,11 @@ async function buildLinkMenuItems(context: LinkContext): Promise<MenuItem[]> {
     return items;
 }
 
-function buildHeadingMenuItems(context: Extract<EditorContext, { contextType: 'heading' }>): MenuItem[] {
-    if (!settingsCache.showCopyHeadingLink) {
+function buildHeadingMenuItems(
+    context: Extract<EditorContext, { contextType: 'heading' }>,
+    settings: Settings
+): MenuItem[] {
+    if (!settings.showCopyHeadingLink) {
         return [];
     }
 
@@ -177,10 +180,13 @@ function buildHeadingMenuItems(context: Extract<EditorContext, { contextType: 'h
     ];
 }
 
-function buildLinkSelectionMenuItems(context: Extract<EditorContext, { contextType: 'linkSelection' }>): MenuItem[] {
+function buildLinkSelectionMenuItems(
+    context: Extract<EditorContext, { contextType: 'linkSelection' }>,
+    settings: Settings
+): MenuItem[] {
     const items: MenuItem[] = [];
 
-    if (settingsCache.showOpenAllLinksInSelection) {
+    if (settings.showOpenAllLinksInSelection) {
         items.push({
             commandName: COMMAND_IDS.OPEN_ALL_LINKS_IN_SELECTION,
             commandArgs: [context],
@@ -188,7 +194,7 @@ function buildLinkSelectionMenuItems(context: Extract<EditorContext, { contextTy
         });
     }
 
-    if (settingsCache.showFetchLinkTitle) {
+    if (settings.showFetchLinkTitle) {
         items.push({
             commandName: COMMAND_IDS.FETCH_LINK_TITLES,
             commandArgs: [context.links],
@@ -199,16 +205,16 @@ function buildLinkSelectionMenuItems(context: Extract<EditorContext, { contextTy
     return items;
 }
 
-async function buildMenuItemsForContext(context: EditorContext): Promise<MenuItem[]> {
+async function buildMenuItemsForContext(context: EditorContext, settings: Settings): Promise<MenuItem[]> {
     switch (context.contextType) {
         case 'link':
-            return buildLinkMenuItems(context);
+            return buildLinkMenuItems(context, settings);
         case 'code':
-            return settingsCache.showCopyCode
+            return settings.showCopyCode
                 ? [{ commandName: COMMAND_IDS.COPY_CODE, commandArgs: [context], label: 'Copy Code' }]
                 : [];
         case 'task':
-            return settingsCache.showToggleTask
+            return settings.showToggleTask
                 ? [
                       {
                           commandName: COMMAND_IDS.TOGGLE_CHECKBOX,
@@ -218,7 +224,7 @@ async function buildMenuItemsForContext(context: EditorContext): Promise<MenuIte
                   ]
                 : [];
         case 'footnote':
-            return settingsCache.showGoToFootnote
+            return settings.showGoToFootnote
                 ? [
                       {
                           commandName: COMMAND_IDS.GO_TO_FOOTNOTE,
@@ -228,24 +234,24 @@ async function buildMenuItemsForContext(context: EditorContext): Promise<MenuIte
                   ]
                 : [];
         case 'heading':
-            return buildHeadingMenuItems(context);
+            return buildHeadingMenuItems(context, settings);
         case 'quote':
-            return settingsCache.showCopyQuote
+            return settings.showCopyQuote
                 ? [{ commandName: COMMAND_IDS.COPY_QUOTE, commandArgs: [context], label: 'Copy Quote' }]
                 : [];
         case 'linkSelection':
-            return buildLinkSelectionMenuItems(context);
+            return buildLinkSelectionMenuItems(context, settings);
         default:
             context satisfies never;
             return [];
     }
 }
 
-async function buildContextSensitiveMenuItems(contexts: EditorContext[]): Promise<MenuItem[]> {
+async function buildContextSensitiveMenuItems(contexts: EditorContext[], settings: Settings): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
 
     for (const context of contexts) {
-        items.push(...(await buildMenuItemsForContext(context)));
+        items.push(...(await buildMenuItemsForContext(context, settings)));
     }
 
     return items;
@@ -272,16 +278,16 @@ export function registerContextMenuFilter(): void {
         try {
             // Skip all plugin menu items when the context menu did not originate from the editor
             // (for example, right-clicking in the markdown viewer pane).
-            const editorOrigin = await isEditorContextMenuOrigin();
+            const [editorOrigin, settings] = await Promise.all([isEditorContextMenuOrigin(), getSettings()]);
             if (!editorOrigin) {
                 return menuItems;
             }
 
-            const globalItems = buildGlobalMenuItems();
-            const contexts = await getEditorContexts();
+            const globalItems = buildGlobalMenuItems(settings);
+            const contexts = await getEditorContexts(settings);
             logger.debug('Building context menu for contexts:', contexts);
 
-            const contextSensitiveItems = await buildContextSensitiveMenuItems(contexts);
+            const contextSensitiveItems = await buildContextSensitiveMenuItems(contexts, settings);
             const finalContextItems = combineMenuItems(contextSensitiveItems, globalItems);
 
             // Only add items if we have any menu items to show

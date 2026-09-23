@@ -4,7 +4,7 @@
  * Integrates plugin configuration into Joplin's preferences UI, allowing
  * users to customize plugin behavior through Settings > Context Utils.
  *
- * Also maintains an in-memory settings cache to avoid async reads on every operation.
+ * Settings are read fresh from Joplin at each entry point (no cache), so they are never stale.
  */
 
 import joplin from 'api';
@@ -164,68 +164,46 @@ const SETTINGS_CONFIG = {
 type WidenSettingValue<T extends string | boolean> = T extends boolean ? boolean : T extends string ? string : never;
 type SettingKey = keyof typeof SETTINGS_CONFIG;
 
-export type SettingsCache = {
+export type Settings = {
     -readonly [K in SettingKey]: WidenSettingValue<(typeof SETTINGS_CONFIG)[K]['defaultValue']>;
 };
 
-function createSettingsCacheFromDefaults(): SettingsCache {
+export function getDefaultSettings(): Settings {
     return Object.fromEntries(
         Object.entries(SETTINGS_CONFIG).map(([key, config]) => [key, config.defaultValue])
-    ) as SettingsCache;
+    ) as Settings;
 }
 
 /**
- * Module-level settings cache for synchronous access
- */
-export const settingsCache = createSettingsCacheFromDefaults();
-
-/**
- * Updates the settings cache by reading all values from Joplin settings.
+ * Reads all plugin settings from Joplin.
  *
+ * Call once at an entry point (menu filter, command) and pass the snapshot down.
  * Uses `values()` rather than repeated `value()` calls: each `value()` is a
  * separate IPC round-trip, so a single batched read is significantly faster.
  */
-async function updateSettingsCache(): Promise<void> {
+export async function getSettings(): Promise<Settings> {
+    const settings = getDefaultSettings();
     const keys = Object.keys(SETTINGS_CONFIG) as SettingKey[];
     const values = await joplin.settings.values(keys.map((key) => SETTINGS_CONFIG[key].key));
     for (const key of keys) {
-        setSettingCacheValue(key, values[SETTINGS_CONFIG[key].key]);
+        setSettingValue(settings, key, values[SETTINGS_CONFIG[key].key]);
     }
+    return settings;
 }
 
-function setSettingCacheValue<K extends SettingKey>(key: K, value: unknown): void {
+/**
+ * Reads a single plugin setting from Joplin.
+ */
+export async function getSetting<K extends SettingKey>(key: K): Promise<Settings[K]> {
+    const value = await joplin.settings.value(SETTINGS_CONFIG[key].key);
+    // Joplin returns undefined for unknown keys; fall back to the registered default.
+    return (value === undefined ? SETTINGS_CONFIG[key].defaultValue : value) as Settings[K];
+}
+
+function setSettingValue<K extends SettingKey>(settings: Settings, key: K, value: unknown): void {
     // Joplin omits unknown keys from values(); keep the registered default in that case.
     if (value === undefined) return;
-    settingsCache[key] = value as SettingsCache[K];
-}
-
-/**
- * Reads a setting directly from Joplin, bypassing the cache.
- *
- * Use when the caller may run before `onChange` has refreshed the cache, e.g. the
- * content script requesting settings as the editor reloads after the Options screen closes.
- */
-export async function readSettingValue<K extends SettingKey>(key: K): Promise<SettingsCache[K]> {
-    const value = await joplin.settings.value(SETTINGS_CONFIG[key].key);
-    setSettingCacheValue(key, value);
-    return settingsCache[key];
-}
-
-/**
- * Initializes the settings cache and registers change listener.
- * Must be called once during plugin initialization, after registerSettings().
- */
-export async function initializeSettingsCache(): Promise<void> {
-    // Initial cache population
-    await updateSettingsCache();
-
-    // Listen for settings changes and update cache
-    joplin.settings.onChange(async (event) => {
-        const settingKeys = Object.values(SETTINGS_CONFIG).map((c) => c.key);
-        if (event.keys.some((key) => (settingKeys as string[]).includes(key))) {
-            await updateSettingsCache();
-        }
-    });
+    settings[key] = value as Settings[K];
 }
 
 export async function registerSettings(): Promise<void> {

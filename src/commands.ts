@@ -30,7 +30,7 @@ import {
     linkContextToLinkInfo,
 } from './utils/linkTitleUtils';
 import { formatInternalHeadingLink, formatExternalHeadingLink } from './utils/headingLinkFormatting';
-import { settingsCache } from './settings';
+import { getSetting, getSettings } from './settings';
 import { resolveContextualCopyTarget } from './utils/contextualCopyResolver';
 
 /**
@@ -339,7 +339,7 @@ async function handleContextualCopy(): Promise<void> {
             await handleCopyPath(target.context);
             break;
         case 'heading':
-            if (settingsCache.defaultHeadingCopyMode === 'external') {
+            if ((await getSetting('defaultHeadingCopyMode')) === 'external') {
                 await handleCopyHeadingLinkExternal(target.context);
             } else {
                 await handleCopyHeadingLinkInternal(target.context);
@@ -488,14 +488,13 @@ async function handleFetchLinkTitles(links?: LinkInfo[]): Promise<void> {
         return;
     }
 
+    const { linkPreviewApiKey, linkTitleRules } = await getSettings();
+
     // Fetch all titles in parallel
     const results = await Promise.all(
         resolvedLinks.map(async (link) => ({
             link,
-            result: await fetchLinkTitle(link.url, {
-                linkPreviewApiKey: settingsCache.linkPreviewApiKey,
-                linkTitleRules: settingsCache.linkTitleRules,
-            }),
+            result: await fetchLinkTitle(link.url, { linkPreviewApiKey, linkTitleRules }),
         }))
     );
 

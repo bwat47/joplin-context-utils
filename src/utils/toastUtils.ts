@@ -1,7 +1,7 @@
 import joplin from 'api';
 import { ToastType } from 'api/types';
 import { logger } from '../logger';
-import { settingsCache } from '../settings';
+import { getSetting } from '../settings';
 
 // Re-export ToastType for convenience
 export { ToastType } from 'api/types';
@@ -21,7 +21,7 @@ export async function showToast(
     duration = DEFAULT_TOAST_DURATION
 ): Promise<void> {
     try {
-        if (!settingsCache.showToastMessages) return;
+        if (!(await getSetting('showToastMessages'))) return;
 
         await joplin.views.dialogs.showToast({ message, type, duration });
     } catch (err) {

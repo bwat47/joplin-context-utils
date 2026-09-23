@@ -1,6 +1,6 @@
 import { EditContextMenuFilterObject, FilterHandler, MenuItem } from 'api/types';
 import { registerContextMenuFilter } from './menus';
-import { settingsCache } from './settings';
+import { getDefaultSettings, Settings } from './settings';
 import { COMMAND_IDS, EditorContext, LinkType } from './types';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { logger } from './logger';
@@ -11,6 +11,7 @@ const apiMocks = vi.hoisted(() => ({
     dataGet: vi.fn(),
     filterEditorContextMenu: vi.fn(),
     createMenuItem: vi.fn(),
+    settingsValues: vi.fn(),
 }));
 
 vi.mock('api', () => ({
@@ -19,13 +20,14 @@ vi.mock('api', () => ({
         data: { get: apiMocks.dataGet },
         workspace: { filterEditorContextMenu: apiMocks.filterEditorContextMenu },
         views: { menuItems: { create: apiMocks.createMenuItem } },
+        settings: { values: apiMocks.settingsValues },
     },
 }));
 
-type ShowSettingKey = Extract<keyof typeof settingsCache, `show${string}`>;
+type ShowSettingKey = Extract<keyof Settings, `show${string}`>;
 type MenuSettingKey = Exclude<ShowSettingKey, 'showToastMessages'>;
 
-const MENU_SETTING_KEYS = Object.keys(settingsCache).filter(
+const MENU_SETTING_KEYS = Object.keys(getDefaultSettings()).filter(
     (key): key is MenuSettingKey => key.startsWith('show') && key !== 'showToastMessages'
 );
 
@@ -147,10 +149,21 @@ const LINK_SETTING_CASES = [
     expectedCommand: string;
 }>;
 
-function disableAllMenuSettings(): void {
+let settings: Settings;
+
+function resetSettingsWithMenusDisabled(): void {
+    settings = getDefaultSettings();
     for (const key of MENU_SETTING_KEYS) {
-        settingsCache[key] = false;
+        settings[key] = false;
     }
+}
+
+function configureSettings(): void {
+    apiMocks.settingsValues.mockImplementation((keys: string[]) =>
+        Promise.resolve(
+            Object.fromEntries(keys.map((key) => [key, settings[key.replace(/^contextUtils\./, '') as keyof Settings]]))
+        )
+    );
 }
 
 function configureEditorCommands(contexts: EditorContext[], editorOrigin = true): void {
@@ -186,16 +199,16 @@ function menuTokens(menuItems: EditContextMenuFilterObject): Array<string | unde
 describe('context menu filter', () => {
     beforeEach(() => {
         vi.resetAllMocks();
-        disableAllMenuSettings();
+        resetSettingsWithMenusDisabled();
+        configureSettings();
     });
 
     afterEach(() => {
-        disableAllMenuSettings();
         vi.restoreAllMocks();
     });
 
     it.each(SIMPLE_CONTEXT_CASES)('builds enabled $name menu items', async ({ setting, context, expectedCommands }) => {
-        settingsCache[setting] = true;
+        settings[setting] = true;
 
         const result = await runFilter([context]);
 
@@ -207,7 +220,7 @@ describe('context menu filter', () => {
     });
 
     it.each(LINK_SETTING_CASES)('builds the enabled $name item', async ({ setting, context, expectedCommand }) => {
-        settingsCache[setting] = true;
+        settings[setting] = true;
 
         const result = await runFilter([context]);
 
@@ -216,7 +229,7 @@ describe('context menu filter', () => {
     });
 
     it('omits disabled context types while building enabled ones', async () => {
-        settingsCache.showCopyCode = true;
+        settings.showCopyCode = true;
         const contexts: EditorContext[] = [
             { contextType: 'link', url: 'https://example.com', type: LinkType.ExternalUrl, from: 0, to: 19 },
             { contextType: 'task', tasks: [], checkedCount: 0, uncheckedCount: 0 },
@@ -233,8 +246,8 @@ describe('context menu filter', () => {
     });
 
     it('skips an unknown context type without dropping valid or global items', async () => {
-        settingsCache.showCopyCode = true;
-        settingsCache.showAddExternalLink = true;
+        settings.showCopyCode = true;
+        settings.showAddExternalLink = true;
         const unknownContext = { contextType: 'somethingNew' } as unknown as EditorContext;
         const codeContext: EditorContext = { contextType: 'code', code: 'value', from: 0, to: 5 };
 
@@ -251,10 +264,10 @@ describe('context menu filter', () => {
     });
 
     it('preserves context order and separates context-sensitive items from global items', async () => {
-        settingsCache.showCopyCode = true;
-        settingsCache.showCopyHeadingLink = true;
-        settingsCache.showAddExternalLink = true;
-        settingsCache.showAddLinkToNote = true;
+        settings.showCopyCode = true;
+        settings.showCopyHeadingLink = true;
+        settings.showAddExternalLink = true;
+        settings.showAddLinkToNote = true;
         const contexts: EditorContext[] = [
             { contextType: 'code', code: 'value', from: 0, to: 5 },
             { contextType: 'heading', headingText: 'Heading', headingAnchor: 'heading', from: 6, to: 15 },
@@ -276,7 +289,7 @@ describe('context menu filter', () => {
     });
 
     it('skips context detection when only global items are enabled', async () => {
-        settingsCache.showAddExternalLink = true;
+        settings.showAddExternalLink = true;
         configureEditorCommands([]);
 
         const result = await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
@@ -299,7 +312,7 @@ describe('context menu filter', () => {
     });
 
     it('returns the original menu outside the markdown editor', async () => {
-        settingsCache.showCopyCode = true;
+        settings.showCopyCode = true;
         const originalMenu = { items: [EXISTING_MENU_ITEM] };
         configureEditorCommands([{ contextType: 'code', code: 'value', from: 0, to: 5 }], false);
 
@@ -310,7 +323,7 @@ describe('context menu filter', () => {
     });
 
     it('returns the original menu when the editor-origin check fails', async () => {
-        settingsCache.showCopyCode = true;
+        settings.showCopyCode = true;
         const originalMenu = { items: [EXISTING_MENU_ITEM] };
         const error = new Error('Editor unavailable');
         const logSpy = vi.spyOn(logger, 'debug').mockImplementation(() => undefined);
@@ -323,9 +336,9 @@ describe('context menu filter', () => {
     });
 
     it('builds external link actions in their established order', async () => {
-        settingsCache.showOpenLink = true;
-        settingsCache.showCopyPath = true;
-        settingsCache.showFetchLinkTitle = true;
+        settings.showOpenLink = true;
+        settings.showCopyPath = true;
+        settings.showFetchLinkTitle = true;
         const context: EditorContext = {
             contextType: 'link',
             url: 'https://example.com',
@@ -355,9 +368,9 @@ describe('context menu filter', () => {
     });
 
     it('builds email actions without offering link-title fetching', async () => {
-        settingsCache.showOpenLink = true;
-        settingsCache.showCopyPath = true;
-        settingsCache.showFetchLinkTitle = true;
+        settings.showOpenLink = true;
+        settings.showCopyPath = true;
+        settings.showFetchLinkTitle = true;
         const context: EditorContext = {
             contextType: 'link',
             url: 'mailto:user@example.com',
@@ -379,7 +392,7 @@ describe('context menu filter', () => {
     });
 
     it('offers pinning only when a Joplin link resolves to a note', async () => {
-        settingsCache.showPinToTabs = true;
+        settings.showPinToTabs = true;
         const noteId = 'a'.repeat(32);
         const context: EditorContext = {
             contextType: 'link',
@@ -399,7 +412,7 @@ describe('context menu filter', () => {
     });
 
     it('skips Joplin ID lookups when pinning is disabled', async () => {
-        settingsCache.showOpenLink = true;
+        settings.showOpenLink = true;
         const resourceId = 'b'.repeat(32);
         const context: EditorContext = {
             contextType: 'link',
@@ -418,7 +431,7 @@ describe('context menu filter', () => {
     });
 
     it('does not offer pinning when a Joplin link resolves to a resource', async () => {
-        settingsCache.showPinToTabs = true;
+        settings.showPinToTabs = true;
         const resourceId = 'b'.repeat(32);
         const context: EditorContext = {
             contextType: 'link',
@@ -441,8 +454,8 @@ describe('context menu filter', () => {
     });
 
     it('builds both link-selection actions with the correct counts and order', async () => {
-        settingsCache.showOpenAllLinksInSelection = true;
-        settingsCache.showFetchLinkTitle = true;
+        settings.showOpenAllLinksInSelection = true;
+        settings.showFetchLinkTitle = true;
         const context: EditorContext = {
             contextType: 'linkSelection',
             links: [
@@ -469,8 +482,8 @@ describe('context menu filter', () => {
     });
 
     it('falls back to global items when context retrieval fails', async () => {
-        settingsCache.showCopyCode = true;
-        settingsCache.showAddExternalLink = true;
+        settings.showCopyCode = true;
+        settings.showAddExternalLink = true;
         const error = new Error('Editor unavailable');
         const logSpy = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
         apiMocks.execute.mockImplementation((_command: string, args: { name: string }) => {

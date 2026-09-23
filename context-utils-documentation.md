@@ -87,8 +87,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Plugin registration and initialization
 - Coordinates all subsystems
-- Initialization order matters (settings → settings cache → content script message handler → content script → commands → menu)
-- Registers a `joplin.contentScripts.onMessage` handler (before the content script, so the first request cannot race it) that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` from `settingsCache`
+- Initialization order matters (settings → content script message handler → content script → commands → menu)
+- Registers a `joplin.contentScripts.onMessage` handler (before the content script, so the first request cannot race it) that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` read via `getSetting()`
 
 **src/types.ts**
 
@@ -124,7 +124,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
     - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
     - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal, re-indentation, list type conversion, and ordered list renumbering) (default `false`; consumed by the content script)
-- Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
+- No settings cache: `getSettings()` returns a fresh snapshot of all settings (one batched `joplin.settings.values()` call) and `getSetting(key)` reads a single value; unknown/missing values fall back to `getDefaultSettings()` / the registered default
 
 **src/menus.ts**
 
@@ -135,7 +135,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Supports multiple contexts at same position (e.g., code + task)
 - Distinguishes between note links and resource links using `getJoplinIdType()` helper
 - Note-specific options are limited to "Open Note as Pinned Tab"
-- Checks settings before adding menu items
+- Reads a settings snapshot with `getSettings()` once per context menu open (in parallel with the editor-origin check) and passes it to the menu builders
 - Adds separators before and after the Context Utils items if ≥1 item will be shown, and between context-sensitive and non-context-sensitive items
 
 **src/commands.ts**
@@ -164,7 +164,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
     - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
-- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed). The `onMessage` handler in `index.ts` reads values with `readSettingValue()` (direct `joplin.settings.value()`) instead of `settingsCache`, because the reload can race ahead of the `onChange` cache refresh
+- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed). The `onMessage` handler in `index.ts` reads values fresh with `getSetting()`
 - Installs the paste cleanup extension from `pasteCleanup.ts`, which reads the cached flag on each paste
 
 **src/contentScripts/pasteCleanup.ts**
@@ -247,7 +247,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 **src/utils/toastUtils.ts**
 
 - Toast notification wrapper
-- Checks `settingsCache.showToastMessages` before showing
+- Reads `showToastMessages` via `getSetting()` before showing
 - Graceful error handling
 
 ## Key Patterns
@@ -509,8 +509,7 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 ### Settings Best Practices
 
 - Menu/toggle settings default to `true`; `linkPreviewApiKey` defaults to an empty string
-- **Use `settingsCache` for synchronous access** (avoids async overhead)
-- Cache is automatically updated via `joplin.settings.onChange`
+- **Read settings at the entry point** (menu filter, command handler, message handler) with `getSettings()`/`getSetting()` and pass the snapshot down; never keep settings in module state (it can go stale)
 - Settings changes apply immediately (no restart needed)
 
 ### Error Handling
