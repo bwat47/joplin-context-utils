@@ -246,7 +246,7 @@ describe('createPasteCleanupExtension', () => {
                 '1. a\n   1. pasted child\n2. b',
                 '1. a\n   1. pasted child\n2. b\n3. y\n   1. child\n   continuation\n4. z',
             ],
-            ['nested target', '1. x\n   1. |\n   2. y\n2. z', '1. a\n   2. b', '1. x\n   1. a\n   2. b\n   3. y\n2. z'],
+            ['nested target', '1. x\n   1. |\n   2. y\n2. z', '1. a\n2. b', '1. x\n   1. a\n   2. b\n   3. y\n2. z'],
         ])('renumbers following items (%s)', (_name, doc, pasted, expected) => {
             expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
         });
@@ -256,7 +256,7 @@ describe('createPasteCleanupExtension', () => {
             ['a bullet sibling', '1. |\n- y\n2. z', '1. a\n2. b', '1. a\n2. b\n- y\n2. z'],
             ['a paragraph', '1. |\n2. y\n\nText\n\n1. other', '1. a\n2. b', '1. a\n2. b\n3. y\n\nText\n\n1. other'],
             ['a fence', '1. |\n```\n1. code\n```', '1. a\n2. b', '1. a\n2. b\n```\n1. code\n```'],
-            ['a less indented line', '1. x\n   1. |\n2. y', '1. a\n   2. b', '1. x\n   1. a\n   2. b\n2. y'],
+            ['a less indented line', '1. x\n   1. |\n2. y', '1. a\n2. b', '1. x\n   1. a\n   2. b\n2. y'],
         ])('stops at %s', (_name, doc, pasted, expected) => {
             expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
         });
@@ -480,8 +480,29 @@ describe('createPasteCleanupExtension', () => {
             );
         });
 
-        it('does not re-indent when the first pasted line may have lost its indentation', () => {
-            expect(pasteAt('- |', '1. a\n   2. b').doc.toString()).toBe('- a\n   2. b');
+        it('re-indents children of an unindented top-level item pasted into a nested item', () => {
+            const doc = ['- Item 75', '    - ads', '        - sda', '        - |', '- Item 76'].join('\n');
+            const pasted = [
+                '- [ ] Parent task',
+                '    - [x] Child',
+                '        - [x] Grandchild',
+                '    - [x] Second child',
+            ].join('\n');
+            const expected = [
+                '- Item 75',
+                '    - ads',
+                '        - sda',
+                '        - [ ] Parent task',
+                '            - [x] Child',
+                '                - [x] Grandchild',
+                '            - [x] Second child',
+                '- Item 76',
+            ].join('\n');
+            expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
+        });
+
+        it('keeps 2-space children of a single item nested under a widened marker', () => {
+            expect(pasteAt('1. |', '- a\n  - child').doc.toString()).toBe('1. a\n   - child');
         });
 
         it('re-indents an unindented first line when a later line confirms the level', () => {

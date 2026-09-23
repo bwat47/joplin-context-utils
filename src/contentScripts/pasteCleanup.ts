@@ -462,9 +462,8 @@ function convertItemMarker(
  *   nested. Items that directly contain an indented code block shift their children by the full
  *   content column change.
  *
- * When the pasted first line has no indentation but every later non-blank line is indented, the
- * copy may have started at the marker and dropped the first line's indentation, so the original
- * level is unknown and no changes are made.
+ * The pasted first line's indentation is taken as its original level. A copy that started at a
+ * nested item's marker lost that indentation, so its later sibling items nest under the first.
  *
  * @param doc - Post-paste document
  * @param pasteFrom - Position where the paste was inserted
@@ -497,9 +496,6 @@ export function getPastedLineChanges(
     const baseIndent = countColumn(pastedFirst.indent, tabSize);
     const indentDelta = countColumn(target.indent, tabSize) - baseIndent;
     const lines = getLaterPastedLines(doc, pasteFrom, pasteFrom + pastedText.length, tabSize);
-    if (baseIndent === 0 && lines.every((line) => line === null || line.indent > 0)) {
-        return [];
-    }
 
     const lessIndented = lines.findIndex((line) => line !== null && line.indent < baseIndent);
     const scopeLines = lessIndented === -1 ? lines.length + 1 : lessIndented + 1;
