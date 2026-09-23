@@ -388,6 +388,15 @@ describe('createPasteCleanupExtension', () => {
             expect(pasteAt('- |', pasted).doc.toString()).toBe(expected);
         });
 
+        it('keeps converting past a lazy continuation line', () => {
+            expect(pasteAt('1. |', '- a\nlazy\n- b').doc.toString()).toBe('1. a\n   lazy\n2. b');
+        });
+
+        it('converts items copied with indentation that would otherwise parse as code', () => {
+            const pasted = '        - x\n            - y\n\n                  code\n        - z';
+            expect(pasteAt('1. |', pasted).doc.toString()).toBe('1. x\n    - y\n\n          code\n2. z');
+        });
+
         it('moves code blocks nested in a child item with that child', () => {
             expect(pasteAt('1. |', '- a\n  - child\n\n        code\n- b').doc.toString()).toBe(
                 '1. a\n   - child\n\n         code\n2. b'
@@ -491,8 +500,14 @@ describe('createPasteCleanupExtension', () => {
 
 describe('getPastedLineChanges', () => {
     const reindent = (doc: string, pasteFrom: number, pasted: string, linePrefix: string) =>
-        getPastedLineChanges(Text.of(doc.split('\n')), pasteFrom, pasted, linePrefix, 4, (columns) =>
-            ' '.repeat(columns)
+        getPastedLineChanges(
+            Text.of(doc.split('\n')),
+            pasteFrom,
+            pasted,
+            linePrefix,
+            4,
+            (columns) => ' '.repeat(columns),
+            markdown({ extensions: [GFM] }).language.parser
         );
 
     it('returns no changes for a single-line paste', () => {

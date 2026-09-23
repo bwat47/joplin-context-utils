@@ -1,8 +1,7 @@
-import { indentString, syntaxTree } from '@codemirror/language';
-import type { SyntaxNode } from '@lezer/common';
-import { parser as markdownParser } from '@lezer/markdown';
-import { ChangeSet, EditorState, Transaction, countColumn } from '@codemirror/state';
-import type { ChangeSpec, Extension, Text, TransactionSpec } from '@codemirror/state';
+import { indentString, language, syntaxTree } from '@codemirror/language';
+import type { Parser, SyntaxNode } from '@lezer/common';
+import { ChangeSet, EditorState, Text, Transaction, countColumn } from '@codemirror/state';
+import type { ChangeSpec, Extension, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
 
 /**
@@ -217,25 +216,33 @@ type PastedLine = {
 };
 
 /**
- * Returns the non-blank lines after the first line of a paste spanning `pasteFrom` to `pasteEnd`.
- * A line starting at `pasteEnd` is document text after a paste ending in a newline, so it is excluded.
+ * Returns the lines after the first line of a paste spanning `pasteFrom` to `pasteEnd`, with null
+ * for blank lines so index `i` is pasted line `i + 1`. A line starting at `pasteEnd` is document
+ * text after a paste ending in a newline, so it is excluded.
  */
-function getLaterPastedLines(doc: Text, pasteFrom: number, pasteEnd: number, tabSize: number): PastedLine[] {
-    const lines: PastedLine[] = [];
+function getLaterPastedLines(
+    doc: Text,
+    pasteFrom: number,
+    pasteEnd: number,
+    tabSize: number
+): Array<PastedLine | null> {
+    const lines: Array<PastedLine | null> = [];
     for (let lineNumber = doc.lineAt(pasteFrom).number + 1; lineNumber <= doc.lines; lineNumber++) {
         const line = doc.line(lineNumber);
         if (line.from >= pasteEnd) {
             break;
         }
         const whitespaceLength = line.text.search(/[^ \t]/);
-        if (whitespaceLength !== -1) {
-            lines.push({
-                from: line.from,
-                text: line.text,
-                whitespaceLength,
-                indent: countColumn(line.text, tabSize, whitespaceLength),
-            });
-        }
+        lines.push(
+            whitespaceLength === -1
+                ? null
+                : {
+                      from: line.from,
+                      text: line.text,
+                      whitespaceLength,
+                      indent: countColumn(line.text, tabSize, whitespaceLength),
+                  }
+        );
     }
     return lines;
 }
@@ -262,22 +269,14 @@ function getLineStartChange(
     return insert === line.text.slice(0, end) ? [] : [{ from: line.from, to: line.from + end, insert }];
 }
 
-/** How the pasted first item maps onto the target line. */
-type PasteLayout = {
-    target: ListItem;
-    /** Pasted first line's original indentation in columns */
-    baseIndent: number;
-    /** Pasted first line's content column; less indented lines are at the sibling level */
-    siblingLimit: number;
-    /** Columns every later pasted line shifts by */
-    indentDelta: number;
-    tabSize: number;
-};
-
-/** Block structure of a pasted list item, from parsing the pasted text. */
-type ItemBlocks = {
+/** A top-level pasted list item, from parsing the pasted text. */
+type PastedItem = {
+    /** Pasted line index of the item's marker line (0 is the pasted first line) */
+    startLine: number;
+    /** Pasted line index of the item's last line */
+    endLine: number;
     /**
-     * Original columns of the item's direct child blocks after its first line, and of each item in
+     * Original columns of the item's direct child blocks after its marker line, and of each item in
      * a direct child list. Excludes indented code blocks.
      */
     childColumns: number[];
@@ -285,69 +284,90 @@ type ItemBlocks = {
     hasCodeBlock: boolean;
 };
 
-/** A pasted list item (or other sibling-level line) with the lines nested under it. */
-type PastedGroup = {
-    /** The sibling-level line; absent for the first pasted item, which is on the target line */
-    line?: PastedLine;
-    item?: ListItem;
-    /** Converted marker token for `item` */
-    token?: string;
-    /** The item's content column after the paste changes; absent when its children never move */
-    contentColumn?: number;
-    /** Columns the content column moved by, beyond `indentDelta`; absent when its children never move */
-    contentShift?: number;
-    /** The item's parsed block structure; absent when the parse found no item on its line */
-    blocks?: ItemBlocks;
-    children: PastedLine[];
-};
+/**
+ * Describes a parsed top-level `ListItem` node: its line span and the columns of its direct children.
+ *
+ * @param lineIndexAt - Maps a parsed position to its pasted line index
+ * @param columnOf - Maps a pasted line index to the line's original indentation in columns
+ */
+function describeItem(
+    node: SyntaxNode,
+    lineIndexAt: (pos: number) => number,
+    columnOf: (lineIndex: number) => number
+): PastedItem {
+    const startLine = lineIndexAt(node.from);
+    const item: PastedItem = { startLine, endLine: lineIndexAt(node.to), childColumns: [], hasCodeBlock: false };
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+        const childLine = lineIndexAt(child.from);
+        if (childLine === startLine) {
+            continue;
+        }
+        if (child.name === 'CodeBlock') {
+            item.hasCodeBlock = true;
+        } else if (LIST_NODE_NAMES.has(child.name)) {
+            for (let nested = child.firstChild; nested; nested = nested.nextSibling) {
+                item.childColumns.push(columnOf(lineIndexAt(nested.from)));
+            }
+        } else {
+            item.childColumns.push(columnOf(childLine));
+        }
+    }
+    return item;
+}
 
 /**
- * Splits the later pasted lines into sibling-level groups and decides each sibling item's marker.
- * Conversion stops at the first sibling-level line that is not a list item, at a less indented
- * line, and at a bullet task item when the target is ordered. Unconverted groups keep their
- * children's positions, since their marker and children shift together.
+ * Parses the pasted text and returns the items of the lists it starts with: the list holding the
+ * pasted first item and any lists directly after it (CommonMark starts a new list when the bullet
+ * character or ordered delimiter changes). Stops at the first top-level block that is not a list.
+ *
+ * Only `scopeLines` lines are parsed, with `baseIndent` columns of indentation removed from each,
+ * so items copied along with their nesting indentation still parse as a list rather than as code.
+ *
+ * @param firstLine - Pasted first line, starting at its list marker's indentation
+ * @param lines - Later pasted lines, as from `getLaterPastedLines`
+ * @param scopeLines - Number of pasted lines to parse, counting the first line
+ * @param baseIndent - Pasted first line's indentation in columns
+ * @param parser - The editor's Markdown parser
+ *
+ * @example
+ * // pasted '- a\n\n      code\n\n  para\n   - b\n* c'
+ * // -> [{ startLine: 0, endLine: 5, childColumns: [2, 3], hasCodeBlock: true },
+ * //     { startLine: 6, endLine: 6, childColumns: [], hasCodeBlock: false }]
  */
-function groupPastedLines(
-    lines: PastedLine[],
-    layout: PasteLayout,
-    firstContentColumn: number,
-    itemBlocks: Map<number, ItemBlocks>,
-    firstLineFrom: number
-): PastedGroup[] {
-    const { target, baseIndent, siblingLimit, indentDelta, tabSize } = layout;
-    const groups: PastedGroup[] = [
-        {
-            contentColumn: firstContentColumn,
-            contentShift: firstContentColumn - siblingLimit - indentDelta,
-            blocks: itemBlocks.get(firstLineFrom),
-            children: [],
-        },
-    ];
-    let converting = true;
-    let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
+function getPastedItems(
+    firstLine: string,
+    lines: Array<PastedLine | null>,
+    scopeLines: number,
+    baseIndent: number,
+    parser: Parser
+): PastedItem[] {
+    const scoped = lines.slice(0, scopeLines - 1);
+    const text = Text.of([
+        firstLine.trimStart(),
+        ...scoped.map((line) =>
+            line ? ' '.repeat(line.indent - baseIndent) + line.text.slice(line.whitespaceLength) : ''
+        ),
+    ]);
+    const lineIndexAt = (pos: number): number => text.lineAt(pos).number - 1;
+    const columnOf = (lineIndex: number): number => scoped[lineIndex - 1]?.indent ?? baseIndent;
 
-    for (const line of lines) {
-        if (line.indent >= siblingLimit) {
-            groups[groups.length - 1].children.push(line);
-            continue;
+    const items: PastedItem[] = [];
+    const tree = parser.parse(text.toString());
+    for (let list = tree.topNode.firstChild; list && LIST_NODE_NAMES.has(list.name); list = list.nextSibling) {
+        for (let node = list.firstChild; node; node = node.nextSibling) {
+            items.push(describeItem(node, lineIndexAt, columnOf));
         }
-
-        const item = converting && line.indent >= baseIndent ? parseListItem(line.text) : null;
-        const token = item ? getConvertedToken(target, item, nextNumber) : undefined;
-        if (!item || token === undefined) {
-            converting = false;
-            groups.push({ line, children: [] });
-            continue;
-        }
-
-        nextNumber++;
-        const contentShift = token.length - item.token.length;
-        const contentColumn = countColumn(line.text, tabSize, item.contentStart) + indentDelta + contentShift;
-        const blocks = itemBlocks.get(line.from);
-        groups.push({ line, item, token, contentColumn, contentShift, blocks, children: [] });
     }
-    return groups;
+    return items;
 }
+
+/** Where a pasted item's content lands after the paste changes. */
+type ItemPlacement = {
+    /** The item's content column after the paste changes */
+    contentColumn: number;
+    /** Columns the content column moved by, beyond `indentDelta` */
+    contentShift: number;
+};
 
 /**
  * Most columns a nested list item may sit past its parent's content column; any further and
@@ -356,14 +376,18 @@ function groupPastedLines(
 const MAX_CHILD_OFFSET = 3;
 
 /**
- * Returns the extra shift that keeps a group's children nested after its marker changed width.
+ * Returns the extra shift that keeps an item's children nested after its marker changed width.
  *
  * - An item that directly contains an indented code block moves its children by exactly its content
  *   column change, since the code block's meaning depends on its exact offset from the content column.
- * - Otherwise, children already within the valid range (content column to `MAX_CHILD_OFFSET` past it)
- *   stay put, and the least indented child moves the minimum amount into range. That shift is then
- *   limited so every parsed child block and child list item also stays in range, since a deeper
- *   child can fall out of range when a less indented one does not.
+ * - Otherwise the children move the minimum amount that keeps every child block and child list
+ *   item within the valid range (content column to `MAX_CHILD_OFFSET` past it). An item whose only
+ *   children are continuation lines keeps the least indented one in range instead.
+ *
+ * @param item - The parsed item
+ * @param placement - Where the item's content lands after the paste changes
+ * @param childIndents - Indentation of the item's non-blank lines after its marker line
+ * @param indentDelta - Columns every later pasted line shifts by
  *
  * @example
  * // '- a\n  - child' -> '1. a': child at 2, content column 3 -> shift +1
@@ -371,75 +395,55 @@ const MAX_CHILD_OFFSET = 3;
  * // '- a\n\n      code' -> '1. a': direct code block -> shift +1
  * // '10. a\n    para\n\n       - item' -> '- a': item at 7 past 2..5 -> shift -2
  */
-function getChildShift(group: PastedGroup, indentDelta: number): number {
-    const { contentColumn, contentShift, blocks, children } = group;
-    if (contentColumn === undefined || contentShift === undefined || children.length === 0) {
+function getChildShift(
+    item: PastedItem,
+    { contentColumn, contentShift }: ItemPlacement,
+    childIndents: number[],
+    indentDelta: number
+): number {
+    if (childIndents.length === 0) {
         return 0;
     }
-    if (blocks?.hasCodeBlock) {
+    if (item.hasCodeBlock) {
         return contentShift;
     }
 
-    const maxColumn = contentColumn + MAX_CHILD_OFFSET;
-    const minIndent = Math.min(...children.map((child) => child.indent)) + indentDelta;
-    const preferred = Math.min(Math.max(0, contentColumn - minIndent), maxColumn - minIndent);
-    if (!blocks || blocks.childColumns.length === 0) {
-        return preferred;
-    }
-
-    const lowest = Math.min(...blocks.childColumns) + indentDelta;
-    const highest = Math.max(...blocks.childColumns) + indentDelta;
-    return Math.min(Math.max(preferred, contentColumn - lowest), maxColumn - highest);
+    const columns = item.childColumns.length > 0 ? item.childColumns : [Math.min(...childIndents)];
+    const lowest = Math.min(...columns) + indentDelta;
+    const highest = Math.max(...columns) + indentDelta;
+    return Math.min(Math.max(0, contentColumn - lowest), contentColumn + MAX_CHILD_OFFSET - highest);
 }
 
+/** The edit planned for a later pasted line, applied on top of the shared `indentDelta`. */
+type LinePlan = {
+    /** Extra columns to shift by */
+    shift: number;
+    /** The line's list item marker and the token it converts to */
+    item?: ListItem;
+    token?: string;
+};
+
 /**
- * Parses the pasted text on its own and returns the block structure of each pasted list item,
- * keyed by the document line start of the item's first line. Child blocks on the item's first line
- * (its marker line) are skipped, and every other child is measured from the first non-whitespace
- * character of its line, which lies entirely within the paste.
+ * Converts a later pasted item's marker to the target's list type.
  *
- * @example
- * // pasted '- a\n\n      code\n\n  para\n   - b'
- * // -> line of '- a': childColumns [2, 3], hasCodeBlock true
+ * @returns The marker line's plan and the item's placement, or null to stop converting
  */
-function getPastedItemBlocks(
-    doc: Text,
-    pasteFrom: number,
-    pastedText: string,
+function convertItemMarker(
+    line: PastedLine | null,
+    target: ListItem,
+    number: number,
+    indentDelta: number,
     tabSize: number
-): Map<number, ItemBlocks> {
-    const columnAt = (pos: number): number => {
-        const line = doc.lineAt(pasteFrom + pos);
-        return countColumn(line.text, tabSize, line.text.search(/[^ \t]/));
-    };
+): (ItemPlacement & { plan: LinePlan }) | null {
+    const item = line && parseListItem(line.text);
+    const token = item ? getConvertedToken(target, item, number) : undefined;
+    if (!line || !item || token === undefined) {
+        return null;
+    }
 
-    const items = new Map<number, ItemBlocks>();
-    markdownParser.parse(pastedText).iterate({
-        enter(node) {
-            if (node.name !== 'ListItem') {
-                return;
-            }
-
-            const itemLine = doc.lineAt(pasteFrom + node.from);
-            const blocks: ItemBlocks = { childColumns: [], hasCodeBlock: false };
-            for (let child = node.node.firstChild; child; child = child.nextSibling) {
-                if (pasteFrom + child.from <= itemLine.to) {
-                    continue;
-                }
-                if (child.name === 'CodeBlock') {
-                    blocks.hasCodeBlock = true;
-                } else if (LIST_NODE_NAMES.has(child.name)) {
-                    for (let item = child.firstChild; item; item = item.nextSibling) {
-                        blocks.childColumns.push(columnAt(item.from));
-                    }
-                } else {
-                    blocks.childColumns.push(columnAt(child.from));
-                }
-            }
-            items.set(itemLine.from, blocks);
-        },
-    });
-    return items;
+    const contentShift = token.length - item.token.length;
+    const contentColumn = countColumn(line.text, tabSize, item.contentStart) + indentDelta + contentShift;
+    return { plan: { shift: 0, item, token }, contentColumn, contentShift };
 }
 
 /**
@@ -448,10 +452,11 @@ function getPastedItemBlocks(
  * - Every later non-blank pasted line is shifted by the target line's indentation minus the pasted
  *   first line's original indentation (clamped at zero). Lines whose indentation width is unchanged
  *   keep their whitespace; moved lines are written via `formatIndent`.
- * - Pasted sibling items (at the pasted first item's level) take the target's list type: its bullet
- *   character, or sequential numbers with its delimiter. Conversion stops at the first sibling-level
- *   line that is not a list item, at a less indented line, and at a bullet task item when the target
- *   is ordered (left as is). Nested children keep their own type.
+ * - The pasted text is parsed with the editor's Markdown parser. Items of the list holding the pasted
+ *   first item, and of lists directly after it, take the target's list type: its bullet character, or
+ *   sequential numbers with its delimiter. Conversion stops where the lists end, at a pasted line less
+ *   indented than the first, and at a bullet task item when the target is ordered (left as is).
+ *   Nested children keep their own type.
  * - When a marker changes width (`- ` to `1. `, `9.` to `10.`) and the item's children would no
  *   longer be nested under it, the children shift the minimum amount to keep every child block
  *   nested. Items that directly contain an indented code block shift their children by the full
@@ -467,6 +472,7 @@ function getPastedItemBlocks(
  * @param linePrefix - Target line's text up to the paste position, e.g. `'   1. '`
  * @param tabSize - Tab size for measuring indentation
  * @param formatIndent - Builds the whitespace for an indentation width in columns
+ * @param parser - The editor's Markdown parser
  * @returns Indentation and marker replacements in `doc` coordinates
  *
  * @example
@@ -479,7 +485,8 @@ export function getPastedLineChanges(
     pastedText: string,
     linePrefix: string,
     tabSize: number,
-    formatIndent: (columns: number) => string
+    formatIndent: (columns: number) => string,
+    parser: Parser
 ): ChangeSpec[] {
     const target = parseListItem(linePrefix);
     const pastedFirst = parseListItem(pastedText);
@@ -488,35 +495,52 @@ export function getPastedLineChanges(
     }
 
     const baseIndent = countColumn(pastedFirst.indent, tabSize);
-    const layout: PasteLayout = {
-        target,
-        baseIndent,
-        siblingLimit: countColumn(pastedText, tabSize, pastedFirst.contentStart),
-        indentDelta: countColumn(target.indent, tabSize) - baseIndent,
-        tabSize,
-    };
-
+    const indentDelta = countColumn(target.indent, tabSize) - baseIndent;
     const lines = getLaterPastedLines(doc, pasteFrom, pasteFrom + pastedText.length, tabSize);
-    if (baseIndent === 0 && lines.every((line) => line.indent > 0)) {
+    if (baseIndent === 0 && lines.every((line) => line === null || line.indent > 0)) {
         return [];
     }
 
-    const changes: ChangeSpec[] = [];
+    const lessIndented = lines.findIndex((line) => line !== null && line.indent < baseIndent);
+    const scopeLines = lessIndented === -1 ? lines.length + 1 : lessIndented + 1;
+    const [firstLine] = pastedText.split('\n', 1);
+    const items = getPastedItems(firstLine, lines, scopeLines, baseIndent, parser);
+
+    const plans: LinePlan[] = lines.map(() => ({ shift: 0 }));
     const firstContentColumn = countColumn(linePrefix, tabSize, target.contentStart);
-    const itemBlocks = getPastedItemBlocks(doc, pasteFrom, pastedText, tabSize);
-    const groups = groupPastedLines(lines, layout, firstContentColumn, itemBlocks, doc.lineAt(pasteFrom).from);
-    for (const group of groups) {
-        const childShift = getChildShift(group, layout.indentDelta);
-        if (group.line) {
-            const columns = group.line.indent + layout.indentDelta;
-            changes.push(...getLineStartChange(group.line, columns, formatIndent, group.item, group.token));
+    const firstPlacement: ItemPlacement = {
+        contentColumn: firstContentColumn,
+        contentShift: firstContentColumn - countColumn(pastedText, tabSize, pastedFirst.contentStart) - indentDelta,
+    };
+    let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
+    for (const item of items) {
+        let placement = firstPlacement;
+        if (item.startLine > 0) {
+            const converted = convertItemMarker(lines[item.startLine - 1], target, nextNumber++, indentDelta, tabSize);
+            if (!converted) {
+                break;
+            }
+            plans[item.startLine - 1] = converted.plan;
+            placement = converted;
         }
-        for (const child of group.children) {
-            const columns = child.indent + layout.indentDelta + childShift;
-            changes.push(...getLineStartChange(child, columns, formatIndent));
+
+        const childIndents = lines
+            .slice(item.startLine, item.endLine)
+            .filter((line) => line !== null)
+            .map((line) => line.indent);
+        const childShift = getChildShift(item, placement, childIndents, indentDelta);
+        for (let index = item.startLine; index < item.endLine; index++) {
+            plans[index].shift = childShift;
         }
     }
-    return changes;
+
+    return lines.flatMap((line, index) => {
+        if (!line) {
+            return [];
+        }
+        const { shift, item, token } = plans[index];
+        return getLineStartChange(line, line.indent + indentDelta + shift, formatIndent, item, token);
+    });
 }
 
 /**
@@ -601,9 +625,18 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
           linePrefix.slice(target.indent.length + target.token.length)
         : linePrefix;
     const removedLength = text.length - cleaned.length;
-    const lineChanges = getPastedLineChanges(newDoc, from, text, effectivePrefix, startState.tabSize, (columns) =>
-        indentString(startState, columns)
-    );
+    const markdownLanguage = startState.facet(language);
+    const lineChanges = markdownLanguage
+        ? getPastedLineChanges(
+              newDoc,
+              from,
+              text,
+              effectivePrefix,
+              startState.tabSize,
+              (columns) => indentString(startState, columns),
+              markdownLanguage.parser
+          )
+        : [];
     if (lineChanges.length > 0) {
         logger.debug(`Re-indented or converted ${lineChanges.length} pasted line(s)`);
     }
