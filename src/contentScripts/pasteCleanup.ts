@@ -191,18 +191,77 @@ export function getListRenumberChanges(
 }
 
 /**
- * Returns the indentation width in columns of the first line of `text`.
+ * Returns the marker token a pasted sibling item converts to, or undefined to stop converting.
+ * Bullet task items are not converted to ordered items, because Joplin's viewer does not render
+ * ordered task lists.
  */
-function leadingIndentColumns(text: string, tabSize: number): number {
-    const whitespaceLength = /^[ \t]*/.exec(text)?.[0].length ?? 0;
-    return countColumn(text, tabSize, whitespaceLength);
+function getConvertedToken(target: ListItem, item: ListItem, number: number): string | undefined {
+    if (!target.ordered) {
+        return target.delimiter;
+    }
+    if (!item.ordered && item.hasTaskBox) {
+        return undefined;
+    }
+    return `${number}${target.delimiter}`;
+}
+
+type PastedLine = {
+    from: number;
+    text: string;
+    /** Characters of leading whitespace */
+    whitespaceLength: number;
+    /** Indentation width in columns */
+    indent: number;
+};
+
+/**
+ * Returns the non-blank lines after the first line of a paste spanning `pasteFrom` to `pasteEnd`.
+ * A line starting at `pasteEnd` is document text after a paste ending in a newline, so it is excluded.
+ */
+function getLaterPastedLines(doc: Text, pasteFrom: number, pasteEnd: number, tabSize: number): PastedLine[] {
+    const lines: PastedLine[] = [];
+    for (let lineNumber = doc.lineAt(pasteFrom).number + 1; lineNumber <= doc.lines; lineNumber++) {
+        const line = doc.line(lineNumber);
+        if (line.from >= pasteEnd) {
+            break;
+        }
+        const whitespaceLength = line.text.search(/[^ \t]/);
+        if (whitespaceLength !== -1) {
+            lines.push({
+                from: line.from,
+                text: line.text,
+                whitespaceLength,
+                indent: countColumn(line.text, tabSize, whitespaceLength),
+            });
+        }
+    }
+    return lines;
 }
 
 /**
- * Computes changes that shift the pasted lines after the first so the pasted list keeps its
- * structure at the target line's indentation. The shift is the target line's indentation minus
- * the pasted first line's original indentation, applied to every later non-blank pasted line
- * (clamped at zero) and written with the editor's indent unit via `formatIndent`.
+ * Returns an edit replacing a line's leading whitespace with `indent`, and its marker token with
+ * `token` when it differs from `item`'s. Unchanged markers are left out of the edit.
+ *
+ * @returns A single-element array with the edit, or an empty array if nothing changes
+ */
+function getLineStartChange(line: PastedLine, indent: string, item?: ListItem, token?: string): ChangeSpec[] {
+    const replacesToken = item !== undefined && token !== undefined && token !== item.token;
+    const end = replacesToken ? item.indent.length + item.token.length : line.whitespaceLength;
+    const insert = replacesToken ? indent + token : indent;
+    return insert === line.text.slice(0, end) ? [] : [{ from: line.from, to: line.from + end, insert }];
+}
+
+/**
+ * Computes changes that fit the pasted lines after the first into the target list item:
+ *
+ * - Every later non-blank pasted line is shifted by the target line's indentation minus the pasted
+ *   first line's original indentation (clamped at zero), written via `formatIndent`.
+ * - Pasted sibling items (at the pasted first item's level) take the target's list type: its bullet
+ *   character, or sequential numbers with its delimiter. Conversion stops at the first sibling-level
+ *   line that is not a list item, at a less indented line, and at a bullet task item when the target
+ *   is ordered (left as is). Nested children keep their own type.
+ * - When a marker changes width (`- ` to `1. `, `9.` to `10.`), the item's children and continuation
+ *   lines shift by the same amount so they stay nested.
  *
  * When the pasted first line has no indentation but every later non-blank line is indented, the
  * copy may have started at the marker and dropped the first line's indentation, so the original
@@ -214,13 +273,13 @@ function leadingIndentColumns(text: string, tabSize: number): number {
  * @param linePrefix - Target line's text up to the paste position, e.g. `'   1. '`
  * @param tabSize - Tab size for measuring indentation
  * @param formatIndent - Builds the whitespace for an indentation width in columns
- * @returns Indentation replacements in `doc` coordinates
+ * @returns Indentation and marker replacements in `doc` coordinates
  *
  * @example
- * // target '   - ', pasted '- a\n  - child\n- b'
- * // -> '   - a\n     - child\n   - b'
+ * // target '   1. ', pasted '- a\n  - child\n- b'
+ * // -> '   1. a\n      - child\n   2. b'
  */
-export function getPasteReindentChanges(
+export function getPastedLineChanges(
     doc: Text,
     pasteFrom: number,
     pastedText: string,
@@ -228,40 +287,49 @@ export function getPasteReindentChanges(
     tabSize: number,
     formatIndent: (columns: number) => string
 ): ChangeSpec[] {
-    const baseIndent = leadingIndentColumns(pastedText, tabSize);
-    const indentDelta = leadingIndentColumns(linePrefix, tabSize) - baseIndent;
-    if (indentDelta === 0) {
+    const target = parseListItem(linePrefix);
+    const pastedFirst = parseListItem(pastedText);
+    if (!target || !pastedFirst) {
         return [];
     }
 
-    const pasteEnd = pasteFrom + pastedText.length;
-    const lines: Array<{ from: number; whitespace: string; indent: number }> = [];
-    for (let lineNumber = doc.lineAt(pasteFrom).number + 1; lineNumber <= doc.lines; lineNumber++) {
-        const line = doc.line(lineNumber);
-        if (line.from >= pasteEnd) {
-            break;
-        }
-        const whitespaceLength = line.text.search(/[^ \t]/);
-        if (whitespaceLength === -1) {
-            continue;
-        }
-        lines.push({
-            from: line.from,
-            whitespace: line.text.slice(0, whitespaceLength),
-            indent: countColumn(line.text, tabSize, whitespaceLength),
-        });
-    }
+    const targetIndent = countColumn(target.indent, tabSize);
+    const baseIndent = countColumn(pastedFirst.indent, tabSize);
+    const siblingLimit = countColumn(pastedText, tabSize, pastedFirst.contentStart);
+    const indentDelta = targetIndent - baseIndent;
 
+    const lines = getLaterPastedLines(doc, pasteFrom, pasteFrom + pastedText.length, tabSize);
     if (baseIndent === 0 && lines.every((line) => line.indent > 0)) {
         return [];
     }
 
     const changes: ChangeSpec[] = [];
+    // The first pasted item's marker was replaced by the target's, so its children shift by the
+    // difference in content column (e.g. '- ' -> '1. ' is +1).
+    let childShift = countColumn(linePrefix, tabSize, target.contentStart) - targetIndent - (siblingLimit - baseIndent);
+    let converting = true;
+    let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
+
     for (const line of lines) {
-        const insert = formatIndent(Math.max(0, line.indent + indentDelta));
-        if (insert !== line.whitespace) {
-            changes.push({ from: line.from, to: line.from + line.whitespace.length, insert });
+        const indentBy = (extra: number): string => formatIndent(Math.max(0, line.indent + indentDelta + extra));
+
+        if (line.indent >= siblingLimit) {
+            changes.push(...getLineStartChange(line, indentBy(childShift)));
+            continue;
         }
+
+        const item = converting && line.indent >= baseIndent ? parseListItem(line.text) : null;
+        const token = item ? getConvertedToken(target, item, nextNumber) : undefined;
+        if (!item || token === undefined) {
+            converting = false;
+            childShift = 0;
+            changes.push(...getLineStartChange(line, indentBy(0)));
+            continue;
+        }
+
+        nextNumber++;
+        childShift = token.length - item.token.length;
+        changes.push(...getLineStartChange(line, indentBy(0), item, token));
     }
     return changes;
 }
@@ -315,8 +383,8 @@ function cleanPastedText(text: string, state: EditorState, from: number): string
 
 /**
  * Rewrites a single-change `input.paste` transaction with cleaned text, or returns it unchanged.
- * Later pasted lines are re-indented to the target line's level, and when the paste lands on an
- * ordered list item, the following items are renumbered as well.
+ * Later pasted lines are re-indented to the target line's level and pasted sibling items take the
+ * target's list type; when the paste lands on an ordered list item, the following items are renumbered.
  */
 function cleanPasteTransaction(tr: Transaction): Transaction | readonly TransactionSpec[] {
     if (!tr.docChanged || !tr.isUserEvent('input.paste')) {
@@ -340,19 +408,19 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
     const { startState, newDoc } = tr;
     const linePrefix = getLinePrefix(startState, from);
     const removedLength = text.length - cleaned.length;
-    const reindentChanges = getPasteReindentChanges(newDoc, from, text, linePrefix, startState.tabSize, (columns) =>
+    const lineChanges = getPastedLineChanges(newDoc, from, text, linePrefix, startState.tabSize, (columns) =>
         indentString(startState, columns)
     );
-    if (reindentChanges.length > 0) {
-        logger.debug(`Re-indented ${reindentChanges.length} pasted line(s)`);
+    if (lineChanges.length > 0) {
+        logger.debug(`Re-indented or converted ${lineChanges.length} pasted line(s)`);
     }
 
-    // The marker deletion is on the first pasted line and the re-indentation at the start of later
+    // The marker deletion is on the first pasted line and the line changes at the start of later
     // lines, so they never overlap and share post-paste coordinates.
-    const cleanupChanges = ChangeSet.of([{ from, to: from + removedLength }, ...reindentChanges], newDoc.length);
+    const cleanupChanges = ChangeSet.of([{ from, to: from + removedLength }, ...lineChanges], newDoc.length);
     const cleanedDoc = cleanupChanges.apply(newDoc);
 
-    // Renumber against the re-indented document so re-indented pasted items count as siblings.
+    // Renumber against the cleaned document so re-indented and converted pasted items count as siblings.
     const renumberChanges = getListRenumberChanges(
         cleanedDoc,
         cleanedDoc.lineAt(from).number,

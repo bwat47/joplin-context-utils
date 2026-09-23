@@ -6,7 +6,7 @@ import { indentUnit } from '@codemirror/language';
 import {
     createPasteCleanupExtension,
     getListRenumberChanges,
-    getPasteReindentChanges,
+    getPastedLineChanges,
     parseListItem,
     stripDuplicateListMarker,
 } from './pasteCleanup';
@@ -278,8 +278,7 @@ describe('createPasteCleanupExtension', () => {
 
         it.each([
             ['a single-line paste', '1. x\n2. |\n3. y', '1. a', '1. x\n2. a\n3. y'],
-            ['a bullet target', '- |\n- y', '1. a\n2. b', '- a\n2. b\n- y'],
-            ['pasted bullets', '1. |\n2. y', '- a\n- b', '1. a\n- b\n2. y'],
+            ['a bullet target', '- |\n1. y', '1. a\n2. b', '- a\n- b\n1. y'],
             ['a paste after item text', '1. x |\n2. y', '1. a\n2. b', '1. x 1. a\n2. b\n2. y'],
         ])('does not renumber for %s', (_name, doc, pasted, expected) => {
             expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
@@ -287,6 +286,52 @@ describe('createPasteCleanupExtension', () => {
 
         it('does not renumber when disabled', () => {
             expect(pasteAt('1. |\n2. y', '1. a\n2. b', false).doc.toString()).toBe('1. 1. a\n2. b\n2. y');
+        });
+    });
+
+    describe('list type conversion', () => {
+        it.each([
+            ['bullets to ordered', '1. x\n2. |\n3. y', '- a\n- b', '1. x\n2. a\n3. b\n4. y'],
+            ['ordered to bullets', '- |', '1. a\n2. b', '- a\n- b'],
+            ['to the target bullet character', '* |', '- a\n+ b', '* a\n* b'],
+            ['to the target delimiter', '1) |', '1. a\n2. b', '1) a\n2) b'],
+            [
+                'shifting children of widened markers',
+                '1. |',
+                '- a\n  - child\n- b\n  more',
+                '1. a\n   - child\n2. b\n   more',
+            ],
+            [
+                'shifting children of narrowed markers',
+                '- |',
+                '1. a\n   1. child\n2. b\n   more',
+                '- a\n  1. child\n- b\n  more',
+            ],
+            [
+                'shifting children past a number width change',
+                '9. |',
+                '- a\n  - c\n- b\n  - d',
+                '9. a\n   - c\n10. b\n    - d',
+            ],
+            ['with re-indentation', '- x\n  1. |', '- a\n  - child\n- b', '- x\n  1. a\n     - child\n  2. b'],
+            ['ordered task items to bullets', '- |', '1. [ ] a\n2. [x] b', '- [ ] a\n- [x] b'],
+            ['plain bullets onto an ordered task item', '1. [ ] |', '- a\n- b', '1. [ ] a\n2. b'],
+        ])('converts pasted siblings (%s)', (_name, doc, pasted, expected) => {
+            expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
+        });
+
+        it('does not convert bullet task items to ordered items', () => {
+            expect(pasteAt('1. |\n2. y', '- [ ] a\n- [ ] b').doc.toString()).toBe('1. [ ] a\n- [ ] b\n2. y');
+        });
+
+        it('stops converting after a sibling-level paragraph', () => {
+            expect(pasteAt('1. |', '- a\n\ntext\n\n- b').doc.toString()).toBe('1. a\n\ntext\n\n- b');
+        });
+
+        it('maps the cursor through marker width changes', () => {
+            const result = pasteAt('9. |', '- a\n- b');
+            expect(result.doc.toString()).toBe('9. a\n10. b');
+            expect(result.selection.main.head).toBe(result.doc.length);
         });
     });
 
@@ -341,9 +386,9 @@ describe('createPasteCleanupExtension', () => {
     });
 });
 
-describe('getPasteReindentChanges', () => {
+describe('getPastedLineChanges', () => {
     const reindent = (doc: string, pasteFrom: number, pasted: string, linePrefix: string) =>
-        getPasteReindentChanges(Text.of(doc.split('\n')), pasteFrom, pasted, linePrefix, 4, (columns) =>
+        getPastedLineChanges(Text.of(doc.split('\n')), pasteFrom, pasted, linePrefix, 4, (columns) =>
             ' '.repeat(columns)
         );
 
