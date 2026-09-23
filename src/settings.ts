@@ -151,6 +151,14 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Note as Pinned Tab" in context menu',
         description: 'Display option to open notes as a pinned tab (requires Note Tabs plugin)',
     },
+    cleanUpListPaste: {
+        key: `${SECTION_ID}.cleanUpListPaste`,
+        defaultValue: false,
+        type: SettingItemType.Bool,
+        label: 'Clean up pasted list items',
+        description:
+            'When pasting onto a line that already starts with a list marker (e.g. "- " or "- [ ] "), remove the list marker from the start of the pasted text re-indent the remaining pasted lines to match that line, and convert pasted items to its list type (bullet or numbered; bulleted task items are not numbered). When pasting an ordered list onto an ordered list item, renumber the items that follow',
+    },
 } as const satisfies Record<string, SettingConfigEntry<string | boolean>>;
 
 type WidenSettingValue<T extends string | boolean> = T extends boolean ? boolean : T extends string ? string : never;
@@ -189,6 +197,18 @@ function setSettingCacheValue<K extends SettingKey>(key: K, value: unknown): voi
     // Joplin omits unknown keys from values(); keep the registered default in that case.
     if (value === undefined) return;
     settingsCache[key] = value as SettingsCache[K];
+}
+
+/**
+ * Reads a setting directly from Joplin, bypassing the cache.
+ *
+ * Use when the caller may run before `onChange` has refreshed the cache, e.g. the
+ * content script requesting settings as the editor reloads after the Options screen closes.
+ */
+export async function readSettingValue<K extends SettingKey>(key: K): Promise<SettingsCache[K]> {
+    const value = await joplin.settings.value(SETTINGS_CONFIG[key].key);
+    setSettingCacheValue(key, value);
+    return settingsCache[key];
 }
 
 /**

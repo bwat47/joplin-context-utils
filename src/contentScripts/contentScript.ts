@@ -1,9 +1,11 @@
 import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
-import type { CodeMirrorControl, MarkdownEditorContentScriptModule } from 'api/types';
+import type { CodeMirrorControl, ContentScriptContext, MarkdownEditorContentScriptModule } from 'api/types';
 import { logger } from '../logger';
 import { detectContextAtPosition } from './contextDetection';
-import type { TextReplacement } from '../types';
+import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE } from '../types';
+import type { ContentScriptMessage, ContentScriptSettings, TextReplacement } from '../types';
+import { createPasteCleanupExtension } from './pasteCleanup';
 
 /**
  * Command name for getting context at cursor
@@ -78,7 +80,7 @@ export function mapPositionThroughReplacements(pos: number, sorted: TextReplacem
 /**
  * Content script entry point
  */
-export default (): MarkdownEditorContentScriptModule => {
+export default (context: ContentScriptContext): MarkdownEditorContentScriptModule => {
     return {
         plugin: (editorControl: CodeMirrorControl) => {
             // Check CM6 availability
@@ -100,6 +102,22 @@ export default (): MarkdownEditorContentScriptModule => {
                 },
                 true
             );
+
+            // Settings are fetched once on load. Joplin reloads the editor (and this content script)
+            // after the Options screen closes, so changed settings are picked up then.
+            let cleanUpListPaste = false;
+            const loadSettings = async (): Promise<void> => {
+                try {
+                    const message: ContentScriptMessage = { type: GET_CONTENT_SCRIPT_SETTINGS_MESSAGE };
+                    const settings = (await context.postMessage(message)) as ContentScriptSettings | undefined;
+                    cleanUpListPaste = settings?.cleanUpListPaste === true;
+                } catch (error) {
+                    logger.warn('Failed to fetch content script settings:', error);
+                }
+            };
+            void loadSettings();
+
+            editorControl.addExtension(createPasteCleanupExtension(() => cleanUpListPaste));
 
             // Register command to get context at cursor (pull architecture)
             // This is called on-demand when the context menu opens

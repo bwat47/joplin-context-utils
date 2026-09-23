@@ -26,6 +26,10 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - Block quotes (`> Quote`) for copying quote contents
 - Contextual Copy command for copying the innermost copy-capable context at the cursor
 
+**Editor behaviors:**
+
+- Optional list paste cleanup: removes a duplicate list marker from pasted text when pasting directly after an existing list marker, re-indents the remaining pasted lines to the target line's level, converts pasted sibling items to the target's list type, and renumbers the following ordered list items when an ordered list is pasted onto an ordered list item
+
 ## Architecture
 
 ### Core Components
@@ -83,7 +87,8 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - Plugin registration and initialization
 - Coordinates all subsystems
-- Initialization order matters (settings → settings cache → content script → commands → menu)
+- Initialization order matters (settings → settings cache → content script message handler → content script → commands → menu)
+- Registers a `joplin.contentScripts.onMessage` handler (before the content script, so the first request cannot race it) that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` from `settingsCache`
 
 **src/types.ts**
 
@@ -94,12 +99,13 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 - `LinkInfo` interface for individual links in selections
 - Command IDs (including task toggle, footnote, fetch title, and batch open commands)
 - `TextReplacement` payload for editor text replacement operations
+- `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE`, `ContentScriptMessage`, `ContentScriptSettings` for content script → plugin settings requests
 
 **src/settings.ts**
 
 - Settings registration using Joplin Settings API
 - Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 14 boolean settings (all default `true`) plus 1 enum string setting and 1 secure string setting:
+- 15 boolean settings (all default `true` except `cleanUpListPaste`) plus 1 enum string setting, 1 secure string setting, and 1 JSON string setting:
     - `showToastMessages` - Show toast notifications
     - `showOpenLink` - Show "Open Link" in context menu
     - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
@@ -117,6 +123,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
     - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
     - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
+    - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal, re-indentation, list type conversion, and ordered list renumbering) (default `false`; consumed by the content script)
 - Settings accessed via `settingsCache` object (e.g., `settingsCache.showToastMessages`)
 
 **src/menus.ts**
@@ -157,6 +164,25 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
     - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
     - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
+- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed). The `onMessage` handler in `index.ts` reads values with `readSettingValue()` (direct `joplin.settings.value()`) instead of `settingsCache`, because the reload can race ahead of the `onChange` cache refresh
+- Installs the paste cleanup extension from `pasteCleanup.ts`, which reads the cached flag on each paste
+
+**src/contentScripts/pasteCleanup.ts**
+
+- `createPasteCleanupExtension(isEnabled)` - `EditorState.transactionFilter` that runs `cleanPasteTransaction` when enabled. A transaction filter is used instead of `EditorView.clipboardInputFilter` because Joplin desktop's Paste command (Ctrl+V / Edit > Paste) reads the clipboard itself and calls `insertText(text, 'input.paste')` (`replaceSelection`), bypassing CodeMirror's paste handler; CodeMirror's native paste uses the same `input.paste` user event, so both paths are covered
+- `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text; when the marker was removed, also applies `getPastedLineChanges` and `getListRenumberChanges`. The deletion and pasted line changes form one `ChangeSet` (post-paste coordinates, non-overlapping); renumbering is computed against the result of that `ChangeSet` so re-indented and converted pasted items count as siblings, and is appended as a second `sequential` spec. It all stays one transaction (single undo step); preserves annotations and maps the original selection and position-dependent effects through the edits
+- `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is not inside code. A `ListItem` node is not required, because an empty marker line directly after a paragraph parses as a setext heading underline or paragraph continuation
+- `stripDuplicateListMarker(linePrefix, pastedText)` - pure regex logic; strips the leading marker from the first pasted line. If the line has a task box, a pasted task box is also stripped; otherwise a pasted task box is kept
+- `parseListItem(text)` - single parser for a line's list marker (indentation, token, ordered, delimiter, content start, task box), shared by the renumbering and pasted line logic
+- `getListRenumberChanges(doc, firstLineNumber, linePrefix, tabSize, parser)` - line walk over the post-paste document; only applies when `linePrefix` is an ordered marker (`N.` / `N)`, optional task box). Continues numbering from `N` for following lines: blank lines and lines indented at or past the item's content column (children, continuation lines) are skipped. For a less indented or non-matching line, it consults the editor's Markdown parser to skip lazy continuation lines belonging to the previous list item; otherwise the walk ends. The document is parsed only if such a line is encountered. Pasted and existing items are handled alike, and existing numbers are replaced unconditionally (matching Joplin's own renumbering, so `1. 1. 1.` lists become sequential)
+- `getPastedLineChanges(doc, pasteFrom, pastedText, linePrefix, tabSize, formatIndent, parser)` - plans at most one edit per later non-blank pasted line (leading whitespace, plus the marker token when it changes). `parser` is the editor's own Markdown parser (`state.facet(language).parser`), so pasted text parses exactly as the editor would parse it; line changes are skipped if the state has no language:
+    - Every line shifts by (target line indentation − pasted first line's original indentation), clamped at zero. Lines whose indentation width is unchanged keep their whitespace (so tabs aren't converted to spaces or vice versa); moved lines are written with the editor's indent unit (`indentString`)
+    - The pasted text is parsed (`getPastedItems`) up to the first later line less indented than the pasted first line, with the first line's indentation removed from every line so items copied with deep nesting indentation still parse as a list rather than as code. The items of the list holding the pasted first item, and of any lists directly after it (CommonMark starts a new list when the bullet character or ordered delimiter changes), are the sibling items; each item's lines are its children. Sibling items take the target's list type: its bullet character, or sequential numbers with its delimiter (so pasted ordered items are numbered here too). Conversion stops where those lists end (a non-list top-level block), at the less indented line, or at a bullet task item when the target is ordered (left as a bullet, because Joplin's viewer does not render ordered task lists). Lazy continuation lines belong to their item, so they no longer stop conversion. Nested children keep their own type. Marker text is still read with `parseListItem`, since edits need the exact token
+    - If the first pasted item is a bulleted task item and the target marker is numbered, the target marker becomes the pasted bullet. Later pasted siblings use that bullet, and ordered-list renumbering does not cross the new bullet item
+    - A converted item's child lines move only if they would no longer be nested under its new marker (`getChildShift`). `describeItem` records each item's direct child blocks and the items of its direct child lists; the children shift the minimum amount that keeps all of them between the new content column and `MAX_CHILD_OFFSET` (3) columns past it. So 4-space or tab-indented children stay put when a marker changes between `- ` and `N. `, 2-space children under a widened marker move out by one column, and a deeper child is kept in range when narrowing (e.g. a child item 3 columns past a `10. ` marker's content, below a paragraph, when narrowing to `- `). An item whose only children are continuation lines keeps the least indented one in range instead. An item that directly contains an indented code block shifts its children by exactly the content column change, because a code block's meaning depends on its exact offset from the content column. Code blocks nested in a child item move with that child
+    - Blank lines and document text after a paste ending in a newline are left alone. The pasted text is taken at face value: the first line's indentation is its original level. A copy that started at a nested item's marker (e.g. Home, then Shift+Down) lost that indentation and can't be told apart from a top-level item copied with its children, so its later sibling items nest under the first item. The reverse choice (leaving such pastes alone) left every child of a pasted top-level item at the wrong level, which is the more damaging failure
+- Known limitations: pastes whose first line lost its indentation (copy started at a nested item's marker) nest their later sibling items under the first item, and a number width change (`9.` → `10.`) on existing items below the paste does not adjust their child indentation
+- Blockquote prefixes are intentionally out of scope
 
 **src/contentScripts/contextDetection.ts**
 
