@@ -373,8 +373,23 @@ describe('createPasteCleanupExtension', () => {
             );
         });
 
-        it('does not convert bullet task items to ordered items', () => {
-            expect(pasteAt('1. |\n2. y', '- [ ] a\n- [ ] b').doc.toString()).toBe('1. [ ] a\n- [ ] b\n2. y');
+        it('keeps the first bulleted task item and its siblings as bullets on a numbered target', () => {
+            expect(pasteAt('1. |\n2. y', '- [ ] a\n- b').doc.toString()).toBe('- [ ] a\n- b\n2. y');
+            expect(pasteAt('1. |\n2. y', '- [ ] a\n- [ ] b').doc.toString()).toBe('- [ ] a\n- [ ] b\n2. y');
+        });
+
+        it('uses the pasted bullet for the first task item and later siblings', () => {
+            expect(pasteAt('9. |\n10. y', '* [x] a\n  - child\n+ b').doc.toString()).toBe(
+                '* [x] a\n  - child\n* b\n10. y'
+            );
+        });
+
+        it('keeps the target task box when replacing a numbered task marker', () => {
+            expect(pasteAt('2. [ ] |', '- [x] a\n- b').doc.toString()).toBe('- [ ] a\n- b');
+        });
+
+        it('handles a shorter empty task item after a wide numbered marker', () => {
+            expect(pasteAt('123456789. |', '- [ ] ').doc.toString()).toBe('- [ ] ');
         });
 
         it('stops converting after a sibling-level paragraph', () => {

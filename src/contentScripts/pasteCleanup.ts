@@ -492,24 +492,44 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
 
     const { startState, newDoc } = tr;
     const linePrefix = getLinePrefix(startState, from);
+    const target = parseListItem(linePrefix);
+    const pastedFirst = parseListItem(text);
+    const keepBulletTask = target?.ordered && pastedFirst !== null && !pastedFirst.ordered && pastedFirst.hasTaskBox;
+    const effectivePrefix = keepBulletTask
+        ? linePrefix.slice(0, target.indent.length) +
+          pastedFirst.token +
+          linePrefix.slice(target.indent.length + target.token.length)
+        : linePrefix;
     const removedLength = text.length - cleaned.length;
-    const lineChanges = getPastedLineChanges(newDoc, from, text, linePrefix, startState.tabSize, (columns) =>
+    const lineChanges = getPastedLineChanges(newDoc, from, text, effectivePrefix, startState.tabSize, (columns) =>
         indentString(startState, columns)
     );
     if (lineChanges.length > 0) {
         logger.debug(`Re-indented or converted ${lineChanges.length} pasted line(s)`);
     }
 
-    // The marker deletion is on the first pasted line and the line changes at the start of later
-    // lines, so they never overlap and share post-paste coordinates.
-    const cleanupChanges = ChangeSet.of([{ from, to: from + removedLength }, ...lineChanges], newDoc.length);
+    // The target marker, pasted marker, and later line edits do not overlap and share
+    // post-paste coordinates.
+    const targetMarkerChange: ChangeSpec[] = keepBulletTask
+        ? [
+              {
+                  from: from - linePrefix.length + target.indent.length,
+                  to: from - linePrefix.length + target.indent.length + target.token.length,
+                  insert: pastedFirst.token,
+              },
+          ]
+        : [];
+    const cleanupChanges = ChangeSet.of(
+        [...targetMarkerChange, { from, to: from + removedLength }, ...lineChanges],
+        newDoc.length
+    );
     const cleanedDoc = cleanupChanges.apply(newDoc);
 
     // Renumber against the cleaned document so re-indented and converted pasted items count as siblings.
     const renumberChanges = getListRenumberChanges(
         cleanedDoc,
-        cleanedDoc.lineAt(from).number,
-        linePrefix,
+        startState.doc.lineAt(from).number,
+        effectivePrefix,
         startState.tabSize
     );
     if (renumberChanges.length > 0) {
