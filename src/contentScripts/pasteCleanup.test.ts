@@ -7,6 +7,7 @@ import {
     createPasteCleanupExtension,
     getListRenumberChanges,
     getPasteReindentChanges,
+    parseListItem,
     stripDuplicateListMarker,
 } from './pasteCleanup';
 
@@ -54,6 +55,45 @@ describe('stripDuplicateListMarker', () => {
         expect(stripDuplicateListMarker('- ', '**bold**')).toBe('**bold**');
         expect(stripDuplicateListMarker('- ', '-foo')).toBe('-foo');
         expect(stripDuplicateListMarker('- ', '---')).toBe('---');
+    });
+});
+
+describe('parseListItem', () => {
+    it.each([
+        [
+            '- foo',
+            { indent: '', token: '-', ordered: false, delimiter: '-', contentStart: 2, hasTaskBox: false, length: 2 },
+        ],
+        [
+            '  12) bar',
+            {
+                indent: '  ',
+                token: '12)',
+                ordered: true,
+                delimiter: ')',
+                contentStart: 6,
+                hasTaskBox: false,
+                length: 6,
+            },
+        ],
+        [
+            '1. [x] done',
+            { indent: '', token: '1.', ordered: true, delimiter: '.', contentStart: 3, hasTaskBox: true, length: 7 },
+        ],
+        [
+            '\t* [ ]',
+            { indent: '\t', token: '*', ordered: false, delimiter: '*', contentStart: 3, hasTaskBox: true, length: 6 },
+        ],
+        [
+            '5.',
+            { indent: '', token: '5.', ordered: true, delimiter: '.', contentStart: 2, hasTaskBox: false, length: 2 },
+        ],
+    ])('parses %j', (text, expected) => {
+        expect(parseListItem(text)).toEqual(expected);
+    });
+
+    it.each(['5.5 apples', '-foo', '---', 'text', '1234567890. too long'])('returns null for %j', (text) => {
+        expect(parseListItem(text)).toBeNull();
     });
 });
 

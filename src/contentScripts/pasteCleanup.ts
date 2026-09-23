@@ -44,27 +44,58 @@ const LEADING_LIST_MARKER_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}`);
 const LEADING_LIST_MARKER_AND_TASK_REGEX = new RegExp(`^${LIST_MARKER_SOURCE}(?:${TASK_BOX_SOURCE})?`);
 
 /**
- * Matches a line prefix consisting only of an ordered list marker and an optional task box.
- * Group 1 = marker with indentation and trailing whitespace, 2 = indentation, 3 = number, 4 = delimiter.
+ * Matches the list item marker at the start of a line: indentation, a bullet or ordered marker,
+ * its trailing whitespace (or the line end), and an optional task box.
+ * Group 1 = indentation, 2 = marker token, 3 = trailing whitespace, 4 = task box.
  *
  * @example
- * '3. '        // matches (number '3', delimiter '.')
- * '  2) [ ] '  // matches (indent '  ', number '2', delimiter ')')
- * '- '         // no match (bullet)
+ * '- foo'        // token '-'
+ * '  12) bar'    // indentation '  ', token '12)'
+ * '1. [x] done'  // token '1.', task box '[x] '
+ * '5.'           // token '5.' (empty item)
+ * '5.5 apples'   // no match
+ * '-foo'         // no match
  */
-const ORDERED_PREFIX_ONLY_REGEX = new RegExp(String.raw`^(([ \t]*)(\d{1,9})([.)])[ \t]+)(?:${TASK_BOX_SOURCE})?$`);
+const LIST_ITEM_REGEX = /^([ \t]*)([-*+]|\d{1,9}[.)])([ \t]+|$)(\[[ xX]\](?:[ \t]+|$))?/;
+
+/** A list item marker parsed from the start of a line. */
+type ListItem = {
+    /** Leading whitespace */
+    indent: string;
+    /** Marker token: `-`, `*`, `+`, or a number with its delimiter such as `12.` or `3)` */
+    token: string;
+    ordered: boolean;
+    /** Last character of the token: the bullet character, or `.` / `)` for ordered markers */
+    delimiter: string;
+    /** Characters from the line start to the item content, excluding any task box */
+    contentStart: number;
+    hasTaskBox: boolean;
+    /** Characters matched, including any task box */
+    length: number;
+};
 
 /**
- * Matches an ordered list marker at the start of a line.
- * Group 1 = indentation, 2 = number, 3 = delimiter.
+ * Parses the list item marker at the start of `text`.
  *
- * @example
- * '4. foo'     // matches
- * '  10) bar'  // matches
- * '5.'         // matches (empty item)
- * '5.5 apples' // no match
+ * @returns The parsed marker, or null if `text` does not start with a list item
  */
-const ORDERED_LINE_MARKER_REGEX = /^([ \t]*)(\d{1,9})([.)])(?:[ \t]|$)/;
+export function parseListItem(text: string): ListItem | null {
+    const match = LIST_ITEM_REGEX.exec(text);
+    if (!match) {
+        return null;
+    }
+
+    const [matched, indent, token, trailingWhitespace, taskBox] = match;
+    return {
+        indent,
+        token,
+        ordered: /\d/.test(token),
+        delimiter: token.slice(-1),
+        contentStart: indent.length + token.length + trailingWhitespace.length,
+        hasTaskBox: taskBox !== undefined,
+        length: matched.length,
+    };
+}
 
 const CODE_NODE_NAMES = new Set(['FencedCode', 'CodeBlock', 'InlineCode']);
 
@@ -119,15 +150,14 @@ export function getListRenumberChanges(
     linePrefix: string,
     tabSize: number
 ): ChangeSpec[] {
-    const prefixMatch = ORDERED_PREFIX_ONLY_REGEX.exec(linePrefix);
-    if (!prefixMatch) {
+    const target = parseListItem(linePrefix);
+    if (!target?.ordered || target.length !== linePrefix.length) {
         return [];
     }
 
-    const [, marker, indent, number, delimiter] = prefixMatch;
-    const markerIndent = countColumn(indent, tabSize);
-    const contentIndent = countColumn(marker, tabSize);
-    let nextNumber = Number(number) + 1;
+    const markerIndent = countColumn(target.indent, tabSize);
+    const contentIndent = countColumn(linePrefix, tabSize, target.contentStart);
+    let nextNumber = parseInt(target.token, 10) + 1;
     const changes: ChangeSpec[] = [];
 
     for (let lineNumber = firstLineNumber + 1; lineNumber <= doc.lines; lineNumber++) {
@@ -145,15 +175,15 @@ export function getListRenumberChanges(
             break;
         }
 
-        const lineMatch = ORDERED_LINE_MARKER_REGEX.exec(line.text);
-        if (!lineMatch || lineMatch[3] !== delimiter) {
+        const item = parseListItem(line.text);
+        if (!item?.ordered || item.delimiter !== target.delimiter) {
             break;
         }
 
-        const insert = String(nextNumber++);
-        if (lineMatch[2] !== insert) {
-            const numberFrom = line.from + lineMatch[1].length;
-            changes.push({ from: numberFrom, to: numberFrom + lineMatch[2].length, insert });
+        const insert = `${nextNumber++}${target.delimiter}`;
+        if (item.token !== insert) {
+            const tokenFrom = line.from + item.indent.length;
+            changes.push({ from: tokenFrom, to: tokenFrom + item.token.length, insert });
         }
     }
 
