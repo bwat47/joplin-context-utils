@@ -1,5 +1,6 @@
 import { indentString, syntaxTree } from '@codemirror/language';
 import type { SyntaxNode } from '@lezer/common';
+import { parser as markdownParser } from '@lezer/markdown';
 import { ChangeSet, EditorState, Transaction, countColumn } from '@codemirror/state';
 import type { ChangeSpec, Extension, Text, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
@@ -98,6 +99,7 @@ export function parseListItem(text: string): ListItem | null {
 }
 
 const CODE_NODE_NAMES = new Set(['FencedCode', 'CodeBlock', 'InlineCode']);
+const LIST_NODE_NAMES = new Set(['BulletList', 'OrderedList']);
 
 /**
  * Removes a duplicate list marker from the start of pasted text when the paste lands
@@ -272,6 +274,17 @@ type PasteLayout = {
     tabSize: number;
 };
 
+/** Block structure of a pasted list item, from parsing the pasted text. */
+type ItemBlocks = {
+    /**
+     * Original columns of the item's direct child blocks after its first line, and of each item in
+     * a direct child list. Excludes indented code blocks.
+     */
+    childColumns: number[];
+    /** Whether the item directly contains an indented code block */
+    hasCodeBlock: boolean;
+};
+
 /** A pasted list item (or other sibling-level line) with the lines nested under it. */
 type PastedGroup = {
     /** The sibling-level line; absent for the first pasted item, which is on the target line */
@@ -281,6 +294,10 @@ type PastedGroup = {
     token?: string;
     /** The item's content column after the paste changes; absent when its children never move */
     contentColumn?: number;
+    /** Columns the content column moved by, beyond `indentDelta`; absent when its children never move */
+    contentShift?: number;
+    /** The item's parsed block structure; absent when the parse found no item on its line */
+    blocks?: ItemBlocks;
     children: PastedLine[];
 };
 
@@ -290,9 +307,22 @@ type PastedGroup = {
  * line, and at a bullet task item when the target is ordered. Unconverted groups keep their
  * children's positions, since their marker and children shift together.
  */
-function groupPastedLines(lines: PastedLine[], layout: PasteLayout, firstContentColumn: number): PastedGroup[] {
+function groupPastedLines(
+    lines: PastedLine[],
+    layout: PasteLayout,
+    firstContentColumn: number,
+    itemBlocks: Map<number, ItemBlocks>,
+    firstLineFrom: number
+): PastedGroup[] {
     const { target, baseIndent, siblingLimit, indentDelta, tabSize } = layout;
-    const groups: PastedGroup[] = [{ contentColumn: firstContentColumn, children: [] }];
+    const groups: PastedGroup[] = [
+        {
+            contentColumn: firstContentColumn,
+            contentShift: firstContentColumn - siblingLimit - indentDelta,
+            blocks: itemBlocks.get(firstLineFrom),
+            children: [],
+        },
+    ];
     let converting = true;
     let nextNumber = target.ordered ? parseInt(target.token, 10) + 1 : 0;
 
@@ -311,9 +341,10 @@ function groupPastedLines(lines: PastedLine[], layout: PasteLayout, firstContent
         }
 
         nextNumber++;
-        const contentColumn =
-            countColumn(line.text, tabSize, item.contentStart) + indentDelta + token.length - item.token.length;
-        groups.push({ line, item, token, contentColumn, children: [] });
+        const contentShift = token.length - item.token.length;
+        const contentColumn = countColumn(line.text, tabSize, item.contentStart) + indentDelta + contentShift;
+        const blocks = itemBlocks.get(line.from);
+        groups.push({ line, item, token, contentColumn, contentShift, blocks, children: [] });
     }
     return groups;
 }
@@ -326,24 +357,89 @@ const MAX_CHILD_OFFSET = 3;
 
 /**
  * Returns the extra shift that keeps a group's children nested after its marker changed width.
- * Children already within the valid range (content column to `MAX_CHILD_OFFSET` past it) stay put;
- * otherwise the whole subtree moves the minimum amount into range.
+ *
+ * - An item that directly contains an indented code block moves its children by exactly its content
+ *   column change, since the code block's meaning depends on its exact offset from the content column.
+ * - Otherwise, children already within the valid range (content column to `MAX_CHILD_OFFSET` past it)
+ *   stay put, and the least indented child moves the minimum amount into range. That shift is then
+ *   limited so every parsed child block and child list item also stays in range, since a deeper
+ *   child can fall out of range when a less indented one does not.
  *
  * @example
  * // '- a\n  - child' -> '1. a': child at 2, content column 3 -> shift +1
  * // '- a\n    - child' -> '1. a': child at 4, within 3..6 -> no shift
+ * // '- a\n\n      code' -> '1. a': direct code block -> shift +1
+ * // '10. a\n    para\n\n       - item' -> '- a': item at 7 past 2..5 -> shift -2
  */
 function getChildShift(group: PastedGroup, indentDelta: number): number {
-    if (group.contentColumn === undefined || group.children.length === 0) {
+    const { contentColumn, contentShift, blocks, children } = group;
+    if (contentColumn === undefined || contentShift === undefined || children.length === 0) {
         return 0;
     }
-
-    const minIndent = Math.min(...group.children.map((child) => child.indent)) + indentDelta;
-    const maxIndent = group.contentColumn + MAX_CHILD_OFFSET;
-    if (minIndent < group.contentColumn) {
-        return group.contentColumn - minIndent;
+    if (blocks?.hasCodeBlock) {
+        return contentShift;
     }
-    return minIndent > maxIndent ? maxIndent - minIndent : 0;
+
+    const maxColumn = contentColumn + MAX_CHILD_OFFSET;
+    const minIndent = Math.min(...children.map((child) => child.indent)) + indentDelta;
+    const preferred = Math.min(Math.max(0, contentColumn - minIndent), maxColumn - minIndent);
+    if (!blocks || blocks.childColumns.length === 0) {
+        return preferred;
+    }
+
+    const lowest = Math.min(...blocks.childColumns) + indentDelta;
+    const highest = Math.max(...blocks.childColumns) + indentDelta;
+    return Math.min(Math.max(preferred, contentColumn - lowest), maxColumn - highest);
+}
+
+/**
+ * Parses the pasted text on its own and returns the block structure of each pasted list item,
+ * keyed by the document line start of the item's first line. Child blocks on the item's first line
+ * (its marker line) are skipped, and every other child is measured from the first non-whitespace
+ * character of its line, which lies entirely within the paste.
+ *
+ * @example
+ * // pasted '- a\n\n      code\n\n  para\n   - b'
+ * // -> line of '- a': childColumns [2, 3], hasCodeBlock true
+ */
+function getPastedItemBlocks(
+    doc: Text,
+    pasteFrom: number,
+    pastedText: string,
+    tabSize: number
+): Map<number, ItemBlocks> {
+    const columnAt = (pos: number): number => {
+        const line = doc.lineAt(pasteFrom + pos);
+        return countColumn(line.text, tabSize, line.text.search(/[^ \t]/));
+    };
+
+    const items = new Map<number, ItemBlocks>();
+    markdownParser.parse(pastedText).iterate({
+        enter(node) {
+            if (node.name !== 'ListItem') {
+                return;
+            }
+
+            const itemLine = doc.lineAt(pasteFrom + node.from);
+            const blocks: ItemBlocks = { childColumns: [], hasCodeBlock: false };
+            for (let child = node.node.firstChild; child; child = child.nextSibling) {
+                if (pasteFrom + child.from <= itemLine.to) {
+                    continue;
+                }
+                if (child.name === 'CodeBlock') {
+                    blocks.hasCodeBlock = true;
+                } else if (LIST_NODE_NAMES.has(child.name)) {
+                    for (let item = child.firstChild; item; item = item.nextSibling) {
+                        blocks.childColumns.push(columnAt(item.from));
+                    }
+                } else {
+                    blocks.childColumns.push(columnAt(child.from));
+                }
+            }
+            items.set(itemLine.from, blocks);
+        },
+    });
+    return items;
 }
 
 /**
@@ -357,7 +453,9 @@ function getChildShift(group: PastedGroup, indentDelta: number): number {
  *   line that is not a list item, at a less indented line, and at a bullet task item when the target
  *   is ordered (left as is). Nested children keep their own type.
  * - When a marker changes width (`- ` to `1. `, `9.` to `10.`) and the item's children would no
- *   longer be nested under it, the children shift the minimum amount to stay nested.
+ *   longer be nested under it, the children shift the minimum amount to keep every child block
+ *   nested. Items that directly contain an indented code block shift their children by the full
+ *   content column change.
  *
  * When the pasted first line has no indentation but every later non-blank line is indented, the
  * copy may have started at the marker and dropped the first line's indentation, so the original
@@ -405,7 +503,9 @@ export function getPastedLineChanges(
 
     const changes: ChangeSpec[] = [];
     const firstContentColumn = countColumn(linePrefix, tabSize, target.contentStart);
-    for (const group of groupPastedLines(lines, layout, firstContentColumn)) {
+    const itemBlocks = getPastedItemBlocks(doc, pasteFrom, pastedText, tabSize);
+    const groups = groupPastedLines(lines, layout, firstContentColumn, itemBlocks, doc.lineAt(pasteFrom).from);
+    for (const group of groups) {
         const childShift = getChildShift(group, layout.indentDelta);
         if (group.line) {
             const columns = group.line.indent + layout.indentDelta;

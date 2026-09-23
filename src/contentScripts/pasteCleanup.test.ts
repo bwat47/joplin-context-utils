@@ -359,6 +359,41 @@ describe('createPasteCleanupExtension', () => {
             );
         });
 
+        it.each([
+            ['an unchanged marker', '- |', '- a\n\n      code\n- b', '- a\n\n      code\n- b'],
+            ['a widened marker', '1. |', '- a\n\n      code\n- b', '1. a\n\n       code\n2. b'],
+            [
+                'a narrowed marker with a paragraph child',
+                '- |',
+                '10. a\n    para\n\n        code\n11. b',
+                '- a\n  para\n\n      code\n- b',
+            ],
+            ['a converted sibling item', '1. |', '- a\n- b\n\n      code', '1. a\n2. b\n\n       code'],
+        ])('keeps indented code blocks at their offset under %s', (_name, doc, pasted, expected) => {
+            expect(pasteAt(doc, pasted).doc.toString()).toBe(expected);
+        });
+
+        it.each([
+            [
+                'a child item below a less indented paragraph',
+                '10. a\n    para\n\n       - item\n11. b',
+                '- a\n  para\n\n     - item\n- b',
+            ],
+            [
+                'child list items at different indentations',
+                '10. a\n\n       - c1\n    - c2\n11. b',
+                '- a\n\n     - c1\n  - c2\n- b',
+            ],
+        ])('keeps every child nested under a narrowed marker: %s', (_name, pasted, expected) => {
+            expect(pasteAt('- |', pasted).doc.toString()).toBe(expected);
+        });
+
+        it('moves code blocks nested in a child item with that child', () => {
+            expect(pasteAt('1. |', '- a\n  - child\n\n        code\n- b').doc.toString()).toBe(
+                '1. a\n   - child\n\n         code\n2. b'
+            );
+        });
+
         it('keeps tab-indented children as tabs', () => {
             const tabs = [indentUnit.of('\t'), EditorState.tabSize.of(4)];
             expect(pasteAt('1. x\n2. |', '- a\n\t- child\n\t\t- grandchild\n- b', true, tabs).doc.toString()).toBe(
