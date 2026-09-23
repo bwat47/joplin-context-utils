@@ -76,179 +76,21 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 - ✅ Zero race conditions (context always matches cursor position)
 - ✅ Zero overhead (detection only runs on right-click, not every cursor movement)
-- ✅ Simpler code (no message passing, no global state)
+- ✅ Simpler context flow (no background context synchronization)
 - ✅ Multi-context support (can show multiple relevant options simultaneously)
 
 ## File Structure
 
-### Core Files
+| Area | Responsibility |
+| --- | --- |
+| `src/index.ts` | Plugin entry point; registers settings, the content script, commands, and the editor menu filter. |
+| `src/types.ts` and `src/settings.ts` | Shared context and command types, plus settings registration and reads. |
+| `src/menus.ts` and `src/commands.ts` | Build menu items from detected contexts and handle the actions they trigger. |
+| `src/contentScripts/` | CodeMirror-side integration: context detection and parsing, heading and quote extraction, editor text replacement, and optional paste cleanup. `contentScript.ts` connects this work to the main plugin. |
+| `src/utils/` | Focused helpers for task toggling, contextual copy, link titles, heading links, URLs, and toasts. |
+| `src/logger.ts` | Shared, prefixed logging. |
 
-**src/index.ts**
-
-- Plugin registration and initialization
-- Coordinates all subsystems
-- Initialization order matters (settings → content script message handler → content script → commands → menu)
-- Registers a `joplin.contentScripts.onMessage` handler (before the content script, so the first request cannot race it) that answers `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE` with `ContentScriptSettings` read via `getSetting()`
-
-**src/types.ts**
-
-- Type definitions with discriminated unions
-- `EditorContext = LinkContext | CodeContext | TaskContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext`
-- `LinkType` enum (ExternalUrl, JoplinResource, Email, InternalAnchor)
-- `TaskInfo` interface for individual tasks in task contexts
-- `LinkInfo` interface for individual links in selections
-- Command IDs (including task toggle, footnote, fetch title, and batch open commands)
-- `TextReplacement` payload for editor text replacement operations
-- `GET_CONTENT_SCRIPT_SETTINGS_MESSAGE`, `ContentScriptMessage`, `ContentScriptSettings` for content script → plugin settings requests
-
-**src/settings.ts**
-
-- Settings registration using Joplin Settings API
-- Centralized `SETTINGS_CONFIG` object defines all settings with metadata (key, defaultValue, type, label, description)
-- 15 boolean settings (all default `true` except `cleanUpListPaste`) plus 1 enum string setting, 1 secure string setting, and 1 JSON string setting:
-    - `showToastMessages` - Show toast notifications
-    - `showOpenLink` - Show "Open Link" in context menu
-    - `showAddExternalLink` - Display option to insert a hyperlink at the cursor
-    - `showAddLinkToNote` - Display option to link to another note at the cursor
-    - `showCopyPath` - Show "Copy URL/Email" in context menu
-    - `showCopyCode` - Show "Copy Code" in context menu
-    - `showToggleTask` - Show task toggle options in context menu
-    - `showGoToFootnote` - Show "Go to footnote" in context menu
-    - `showGoToHeading` - Show "Go to heading" in context menu
-    - `showPinToTabs` - Show "Open Note as Pinned Tab" in context menu (requires Note Tabs plugin)
-    - `showFetchLinkTitle` - Show "Fetch Link Title" in context menu
-    - `showCopyHeadingLink` - Show "Copy Heading Link" (internal/external) in context menu
-    - `showCopyQuote` - Show "Copy Quote" in context menu
-    - `defaultHeadingCopyMode` - Heading link format used by Contextual Copy (`internal` or `external`; defaults to `internal`)
-    - `showOpenAllLinksInSelection` - Show "Open All Links" in context menu
-    - `linkPreviewApiKey` - Optional secure `linkpreview.net` API key used as the primary title provider
-    - `linkTitleRules` - JSON array of `{pattern, title, flags?}` rules for deriving a link title from the URL without fetching; defaults to a Jira issue-link rule
-    - `cleanUpListPaste` - Clean up pasted list items (duplicate list marker removal, re-indentation, list type conversion, and ordered list renumbering) (default `false`; consumed by the content script)
-- No settings cache: `getSettings()` returns a fresh snapshot of all settings (one batched `joplin.settings.values()` call) and `getSetting(key)` reads a single value; unknown/missing values fall back to `getDefaultSettings()` / the registered default
-
-**src/menus.ts**
-
-- Context menu filter (`joplin.workspace.filterEditorContextMenu`)
-- Registers `Toggle Task` in the application Edit menu with `Ctrl+Shift+Space`
-- Registers `Contextual Copy` in the application Edit menu with `CmdOrCtrl+Shift+X`
-- Pulls contexts on-demand from content script via `editor.execCommand` (returns array) **only when** at least one context-sensitive menu option is enabled; otherwise it skips context detection and only adds non-context-sensitive (“global”) menu items
-- Supports multiple contexts at same position (e.g., code + task)
-- Distinguishes between note links and resource links using `getJoplinIdType()` helper
-- Note-specific options are limited to "Open Note as Pinned Tab"
-- Reads a settings snapshot with `getSettings()` once per context menu open (in parallel with the editor-origin check) and passes it to the menu builders
-- Adds separators before and after the Context Utils items if ≥1 item will be shown, and between context-sensitive and non-context-sensitive items
-
-**src/commands.ts**
-
-- Command handlers for:
-    - Open Link (external URLs → browser, emails → default mail app)
-    - Copy URL/Email (URLs/emails → clipboard)
-    - Copy Code (code blocks → clipboard)
-    - Toggle Task (single task, selected tasks, or multiple cursors/selections)
-    - Go to Footnote (scrolls to footnote definition)
-    - Go to Heading (navigates to heading via Joplin's `jumpToHash` command)
-    - Open Note as Pinned Tab (opens note as pinned tab via Note Tabs plugin)
-    - Fetch Link Title(s) (unified: fetches web page titles for the single HTTP(S) link at the cursor or every HTTP(S) link in the selection; one handler, one atomic batch replace)
-    - Open All Links (batch opens all HTTP(S) links in selection in order)
-    - Copy Heading Link (internal) (copies `[Heading](#anchor)` to clipboard)
-    - Copy Heading Link (external) (copies `[Heading @ Note](:/noteId#anchor)`; resolves note via `joplin.workspace.selectedNote()`)
-    - Copy Quote (copies block quote contents without quote markers)
-    - Contextual Copy (pulls contexts at cursor and copies the first copy-capable target by priority: code → external/email link → heading → quote)
-- All commands show toast notifications (if enabled)
-
-**src/contentScripts/contentScript.ts**
-
-- CodeMirror 6 content script entry point (type: CodeMirrorPlugin)
-- Registers commands:
-    - `contextUtils-getContextAtCursor` - delegates to `contextDetection.ts`
-    - `contextUtils-isEditorContextMenuOrigin` - returns true only when right-click originated in editor recently
-    - `contextUtils-batchReplace` - atomic batch replacement for all in-place edits (task toggles, link-title updates), one or many ranges
-    - `contextUtils-scrollToPosition` - scrolls editor to specific position (for footnotes)
-- Receives `ContentScriptContext` and fetches `ContentScriptSettings` once via `context.postMessage` on load (Joplin reloads the editor and content script when the Options screen closes, so no live push/refresh is needed). The `onMessage` handler in `index.ts` reads values fresh with `getSetting()`
-- Installs the paste cleanup extension from `pasteCleanup.ts`, which reads the cached flag on each paste
-
-**src/contentScripts/pasteCleanup.ts**
-
-- `createPasteCleanupExtension(isEnabled)` - `EditorState.transactionFilter` that runs `cleanPasteTransaction` when enabled. A transaction filter is used instead of `EditorView.clipboardInputFilter` because Joplin desktop's Paste command (Ctrl+V / Edit > Paste) reads the clipboard itself and calls `insertText(text, 'input.paste')` (`replaceSelection`), bypassing CodeMirror's paste handler; CodeMirror's native paste uses the same `input.paste` user event, so both paths are covered
-- `cleanPasteTransaction(tr)` - rewrites a single-change `input.paste` transaction with cleaned text; when the marker was removed, also applies `getPastedLineChanges` and `getListRenumberChanges`. The deletion and pasted line changes form one `ChangeSet` (post-paste coordinates, non-overlapping); renumbering is computed against the result of that `ChangeSet` so re-indented and converted pasted items count as siblings, and is appended as a second `sequential` spec. It all stays one transaction (single undo step); preserves annotations and maps the original selection and position-dependent effects through the edits
-- `cleanPastedText(text, state, from)` - applies only for a single selection range whose line prefix (up to the paste position) is only indentation + list marker + optional task box, and whose syntax tree position is not inside code. A `ListItem` node is not required, because an empty marker line directly after a paragraph parses as a setext heading underline or paragraph continuation
-- `stripDuplicateListMarker(linePrefix, pastedText)` - pure regex logic; strips the leading marker from the first pasted line. If the line has a task box, a pasted task box is also stripped; otherwise a pasted task box is kept
-- `parseListItem(text)` - single parser for a line's list marker (indentation, token, ordered, delimiter, content start, task box), shared by the renumbering and pasted line logic
-- `getListRenumberChanges(doc, firstLineNumber, linePrefix, tabSize, parser)` - line walk over the post-paste document; only applies when `linePrefix` is an ordered marker (`N.` / `N)`, optional task box). Continues numbering from `N` for following lines: blank lines and lines indented at or past the item's content column (children, continuation lines) are skipped. For a less indented or non-matching line, it consults the editor's Markdown parser to skip lazy continuation lines belonging to the previous list item; otherwise the walk ends. The document is parsed only if such a line is encountered. Pasted and existing items are handled alike, and existing numbers are replaced unconditionally (matching Joplin's own renumbering, so `1. 1. 1.` lists become sequential)
-- `getPastedLineChanges(doc, pasteFrom, pastedText, linePrefix, tabSize, formatIndent, parser)` - plans at most one edit per later non-blank pasted line (leading whitespace, plus the marker token when it changes). `parser` is the editor's own Markdown parser (`state.facet(language).parser`), so pasted text parses exactly as the editor would parse it; line changes are skipped if the state has no language:
-    - Every line shifts by (target line indentation − pasted first line's original indentation), clamped at zero. Lines whose indentation width is unchanged keep their whitespace (so tabs aren't converted to spaces or vice versa); moved lines are written with the editor's indent unit (`indentString`)
-    - The pasted text is parsed (`getPastedItems`) up to the first later line less indented than the pasted first line, with the first line's indentation removed from every line so items copied with deep nesting indentation still parse as a list rather than as code. The items of the list holding the pasted first item, and of any lists directly after it (CommonMark starts a new list when the bullet character or ordered delimiter changes), are the sibling items; each item's lines are its children. Sibling items take the target's list type: its bullet character, or sequential numbers with its delimiter (so pasted ordered items are numbered here too). Conversion stops where those lists end (a non-list top-level block), at the less indented line, or at a bullet task item when the target is ordered (left as a bullet, because Joplin's viewer does not render ordered task lists). Lazy continuation lines belong to their item, so they no longer stop conversion. Nested children keep their own type. Marker text is still read with `parseListItem`, since edits need the exact token
-    - If the first pasted item is a bulleted task item and the target marker is numbered, the target marker becomes the pasted bullet. Later pasted siblings use that bullet, and ordered-list renumbering does not cross the new bullet item
-    - A converted item's child lines move only if they would no longer be nested under its new marker (`getChildShift`). `describeItem` records each item's direct child blocks and the items of its direct child lists; the children shift the minimum amount that keeps all of them between the new content column and `MAX_CHILD_OFFSET` (3) columns past it. So 4-space or tab-indented children stay put when a marker changes between `- ` and `N. `, 2-space children under a widened marker move out by one column, and a deeper child is kept in range when narrowing (e.g. a child item 3 columns past a `10. ` marker's content, below a paragraph, when narrowing to `- `). An item whose only children are continuation lines keeps the least indented one in range instead. An item that directly contains an indented code block shifts its children by exactly the content column change, because a code block's meaning depends on its exact offset from the content column. Code blocks nested in a child item move with that child
-    - Blank lines and document text after a paste ending in a newline are left alone. The pasted text is taken at face value: the first line's indentation is its original level. A copy that started at a nested item's marker (e.g. Home, then Shift+Down) lost that indentation and can't be told apart from a top-level item copied with its children, so its later sibling items nest under the first item. The reverse choice (leaving such pastes alone) left every child of a pasted top-level item at the wrong level, which is the more damaging failure
-- Known limitations: pastes whose first line lost its indentation (copy started at a nested item's marker) nest their later sibling items under the first item, and a number width change (`9.` → `10.`) on existing items below the paste does not adjust their child indentation
-- Blockquote prefixes are intentionally out of scope
-
-**src/contentScripts/contextDetection.ts**
-
-- Multi-context detection logic (returns array of contexts)
-- Delegates parsing to `parsingUtils.ts`
-- Detection priority: Code > Links > Images > Footnotes (tasks, headings, and block quotes run alongside as secondary contexts)
-- Uses text scanning for footnotes (syntax tree doesn't detect them)
-- Heading detection delegated to `headingExtraction.ts` (also a secondary context, so it coexists with code/links in a heading)
-- Block quote detection delegated to `quoteExtraction.ts` (also a secondary context, so it coexists with code/links/headings inside quotes)
-
-**src/contentScripts/parsingUtils.ts**
-
-- Pure utility functions for parsing:
-    - `extractUrl` (syntax tree traversal, includes position and optional link title)
-    - `extractReferenceLabel` (syntax tree traversal for reference links)
-    - `findReferenceDefinition` (finds URL for reference label, case-insensitive, first occurrence wins)
-    - `parseImageTag` (regex)
-    - `classifyUrl` (regex)
-    - `classifyEmailAutolink` (regex; angle-bracket email autolinks only, with reserved local-part characters encoded in the `mailto:` URL and the original address retained for copying)
-    - `parseInlineCode` (regex)
-    - `parseCodeBlock` (syntax tree + regex fallback)
-    - `findFootnoteDefinition` (RegExpCursor with code block filtering)
-
-**src/contentScripts/headingExtraction.ts**
-
-- Detects the heading at the cursor and generates its anchor/slug
-- `getHeadingAtPosition(view, pos)` walks the whole syntax tree to build the ordered anchor list (so duplicate slugs get `-2`, `-3`, ... suffixes) and returns the heading under the cursor
-- Slugify (`@joplin/fork-uslug`), duplicate handling, and inline-text extraction are kept in sync with the [joplin-heading-navigator](https://github.com/bwat47/joplin-heading-navigator/blob/main/src/headingExtractor.ts) plugin so anchors match Joplin's rendered heading IDs
-- Math nodes (`InlineMath` / `BlockMath`) are copied verbatim rather than walked, since Joplin re-parses their content with a TeX parser and slugs the raw source for its own heading links; the test file approximates that grammar with a local inline-math markdown extension
-
-**src/contentScripts/quoteExtraction.ts**
-
-- Detects the outermost block quote at the cursor
-- `getQuoteAtPosition(view, pos)` returns quote text with leading `>` markers removed from every quoted line
-- Nested quote markers are normalized away while preserving inner markdown source such as links, code, headings, lists, and fenced blocks
-- Leading alert markers matching `[!TEXT]` are removed from copied quote text; an inline title (e.g. `[!NOTE] Custom Title`) is preserved
-
-**src/utils/headingLinkFormatting.ts**
-
-- Pure formatters for heading links (kept in sync with joplin-heading-navigator's `linkFormatting.ts`):
-    - `formatInternalHeadingLink(text, anchor)` → `[text](#anchor)`
-    - `formatExternalHeadingLink(text, noteTitle, noteId, anchor)` → `[text @ noteTitle](:/noteId#anchor)`
-    - `escapeLinkText` escapes `\ & < > [ ]` in link text
-
-**src/utils/linkTitleUtils.ts**
-
-- Title fetching utilities:
-    - `fetchLinkTitle` - Applies custom link title rules first, then optionally tries `linkpreview.net`, falls back to direct page fetch, then domain fallback
-    - `parseLinkTitleRules` - Parses/validates/compiles the `linkTitleRules` JSON string; logs and skips invalid JSON or individual rules (never throws)
-    - `applyLinkTitleRules` - Returns the first matching rule whose title template produces a non-empty result (`$1`–`$9`, `$&`), or null
-    - `sanitizeLinkTitle` - Removes square brackets and normalizes line breaks in titles for safe markdown link text
-    - `extractDomain` - Extracts domain from URL for fallback title
-
-### Utilities
-
-**src/logger.ts**
-
-- Centralized logging with log levels (DEBUG, INFO, WARN, ERROR)
-- Exposes runtime controls via `console.contextUtils.setLogLevel()`
-- Default level: WARN
-
-**src/utils/toastUtils.ts**
-
-- Toast notification wrapper
-- Reads `showToastMessages` via `getSetting()` before showing
-- Graceful error handling
+Tests live beside the modules they cover as `*.test.ts` files.
 
 ## Key Patterns
 
