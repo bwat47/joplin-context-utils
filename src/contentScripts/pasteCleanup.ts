@@ -1,5 +1,5 @@
 import { indentString, language, syntaxTree } from '@codemirror/language';
-import type { Parser, SyntaxNode } from '@lezer/common';
+import type { Parser, SyntaxNode, Tree } from '@lezer/common';
 import { ChangeSet, EditorState, Text, Transaction, countColumn } from '@codemirror/state';
 import type { ChangeSpec, Extension, TransactionSpec } from '@codemirror/state';
 import { logger } from '../logger';
@@ -128,17 +128,29 @@ export function stripDuplicateListMarker(linePrefix: string, pastedText: string)
     return pastedText.replace(markerRegex, '');
 }
 
+/** Whether a line belongs to the preceding list item's Markdown syntax node. */
+function isContinuationOfItem(tree: Tree, doc: Text, pos: number, itemLineNumber: number): boolean {
+    for (let node: SyntaxNode | null = tree.resolveInner(pos, 1); node; node = node.parent) {
+        if (node.name === 'ListItem') {
+            return doc.lineAt(node.from).number === itemLineNumber;
+        }
+    }
+    return false;
+}
+
 /**
  * Computes changes that renumber the ordered list items following a list item line, continuing
  * from that item's number. Walks sibling items at the item's indentation, skipping blank lines and
- * more deeply indented lines (children, continuation lines), and stops at the first line that ends
- * the list: less indented text, or sibling-level text that is not an ordered marker with the same
- * delimiter. Existing numbers are replaced unconditionally, so `1. 1. 1.` style lists become sequential.
+ * more deeply indented lines (children, continuation lines). Before stopping at a non-matching line,
+ * checks the Markdown tree: a lazy paragraph continuation can be unindented while
+ * still belonging to the preceding item. Existing numbers are replaced unconditionally, so
+ * `1. 1. 1.` style lists become sequential.
  *
  * @param doc - Document to renumber (the post-paste document)
  * @param firstLineNumber - Line number of the list item to continue numbering from
  * @param linePrefix - That line's text up to the paste position, e.g. `'3. '`
  * @param tabSize - Tab size for measuring indentation
+ * @param parser - The editor's Markdown parser, when available, to identify lazy continuations
  * @returns Number replacements in `doc` coordinates; empty if the prefix is not an ordered marker
  *
  * @example
@@ -149,7 +161,8 @@ export function getListRenumberChanges(
     doc: Text,
     firstLineNumber: number,
     linePrefix: string,
-    tabSize: number
+    tabSize: number,
+    parser?: Parser
 ): ChangeSpec[] {
     const target = parseListItem(linePrefix);
     if (!target?.ordered || target.length !== linePrefix.length) {
@@ -159,7 +172,9 @@ export function getListRenumberChanges(
     const markerIndent = countColumn(target.indent, tabSize);
     const contentIndent = countColumn(linePrefix, tabSize, target.contentStart);
     let nextNumber = parseInt(target.token, 10) + 1;
+    let previousItemLineNumber = firstLineNumber;
     const changes: ChangeSpec[] = [];
+    let tree: Tree | undefined;
 
     for (let lineNumber = firstLineNumber + 1; lineNumber <= doc.lines; lineNumber++) {
         const line = doc.line(lineNumber);
@@ -172,16 +187,17 @@ export function getListRenumberChanges(
         if (lineIndent >= contentIndent) {
             continue;
         }
-        if (lineIndent < markerIndent) {
-            break;
-        }
-
         const item = parseListItem(line.text);
-        if (!item?.ordered || item.delimiter !== target.delimiter) {
+        if (lineIndent < markerIndent || !item?.ordered || item.delimiter !== target.delimiter) {
+            tree ??= parser?.parse(doc.toString());
+            if (tree && isContinuationOfItem(tree, doc, line.from + leadingWhitespaceLength, previousItemLineNumber)) {
+                continue;
+            }
             break;
         }
 
         const insert = `${nextNumber++}${target.delimiter}`;
+        previousItemLineNumber = lineNumber;
         if (item.token !== insert) {
             const tokenFrom = line.from + item.indent.length;
             changes.push({ from: tokenFrom, to: tokenFrom + item.token.length, insert });
@@ -659,7 +675,8 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
         cleanedDoc,
         startState.doc.lineAt(from).number,
         effectivePrefix,
-        startState.tabSize
+        startState.tabSize,
+        markdownLanguage?.parser
     );
     if (renumberChanges.length > 0) {
         logger.debug(`Renumbered ${renumberChanges.length} ordered list item(s) after paste`);

@@ -100,7 +100,13 @@ describe('parseListItem', () => {
 describe('getListRenumberChanges', () => {
     const renumber = (lines: string[], linePrefix: string, tabSize = 4) => {
         const doc = Text.of(lines);
-        const changes = getListRenumberChanges(doc, 1, linePrefix, tabSize);
+        const changes = getListRenumberChanges(
+            doc,
+            1,
+            linePrefix,
+            tabSize,
+            markdown({ extensions: [GFM] }).language.parser
+        );
         return ChangeSet.of(changes, doc.length).apply(doc).toString();
     };
 
@@ -116,6 +122,12 @@ describe('getListRenumberChanges', () => {
 
     it('returns no changes when numbers are already sequential', () => {
         expect(getListRenumberChanges(Text.of(['1. a', '2. b']), 1, '1. ', 4)).toEqual([]);
+    });
+
+    it('continues renumbering past an unindented lazy continuation', () => {
+        expect(renumber(['1. a', '2. b', 'lazy continuation', '2. c'], '1. ')).toBe(
+            '1. a\n2. b\nlazy continuation\n3. c'
+        );
     });
 
     it('measures tab indentation in columns', () => {
@@ -269,6 +281,12 @@ describe('createPasteCleanupExtension', () => {
             const result = pasteAt('9. |\n10. y', '1. a\n2. b');
             expect(result.doc.toString()).toBe('9. a\n10. b\n11. y');
             expect(result.selection.main.head).toBe('9. a\n10. b'.length);
+        });
+
+        it('renumbers existing items after a lazy continuation', () => {
+            expect(pasteAt('1. |\nlazy continuation\n2. next', '1. a\n2. b').doc.toString()).toBe(
+                '1. a\n2. b\nlazy continuation\n3. next'
+            );
         });
 
         it('renumbers when the paste replaces a selection spanning lines', () => {
