@@ -157,7 +157,7 @@ const SETTINGS_CONFIG = {
         type: SettingItemType.Bool,
         label: 'Clean up pasted list items',
         description:
-            'When pasting onto a line that already starts with a list marker (e.g. "- " or "- [ ] "), remove the list marker from the start of the pasted text re-indent the remaining pasted lines to match that line, and convert pasted items to its list type (bullet or numbered; bulleted task items are not numbered). When pasting an ordered list onto an ordered list item, renumber the items that follow',
+            'When pasting onto a line that already starts with a list marker (e.g. "- " or "- [ ] "), remove the list marker from the start of the pasted text, re-indent the remaining pasted lines to match that line, and convert pasted items to its list type (bullet or numbered; bulleted task items are not numbered). When pasting an ordered list onto an ordered list item, renumber the items that follow',
     },
 } as const satisfies Record<string, SettingConfigEntry<string | boolean>>;
 
