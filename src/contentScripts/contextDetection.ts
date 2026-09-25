@@ -1,4 +1,4 @@
-import { syntaxTree } from '@codemirror/language';
+import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import { EditorView } from '@codemirror/view';
 import type { SyntaxNodeRef } from '@lezer/common';
 import {
@@ -14,6 +14,7 @@ import {
     QuoteContext,
     LinkType,
 } from '../types';
+import type { ViewerTask } from '../viewerTasks';
 import { getHeadingAtPosition } from './headingExtraction';
 import { getQuoteAtPosition } from './quoteExtraction';
 import {
@@ -35,6 +36,9 @@ import {
  * Group 1: the full prefix up to the checkbox. Group 2: the checkbox state char.
  */
 const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
+
+// Keep viewer context menus responsive when parsing a very large note.
+const VIEWER_TASK_PARSE_TIMEOUT_MS = 200;
 
 /**
  * Detects context at cursor position using CodeMirror 6 syntax tree
@@ -462,10 +466,9 @@ function detectTasksInSelectionRanges(view: EditorView): TaskContext | null {
     return buildTaskContext(sortedTasks);
 }
 
-function collectTasksInRange(view: EditorView, from: number, to: number): TaskInfo[] {
+function collectTasksInRange(view: EditorView, from: number, to: number, tree = syntaxTree(view.state)): TaskInfo[] {
     const tasks: TaskInfo[] = [];
     const doc = view.state.doc;
-    const tree = syntaxTree(view.state);
 
     // OPTIMIZATION: Iterate the tree ONCE for this selected range
     tree.iterate({
@@ -499,6 +502,42 @@ function collectTasksInRange(view: EditorView, from: number, to: number): TaskIn
     });
 
     return tasks;
+}
+
+/**
+ * Resolves tasks selected in the markdown viewer to tasks in the note source.
+ *
+ * Fails safe: returns null when any line is outside the document, is not a
+ * task line, or has a different checkbox state than the viewer rendered (the
+ * viewer is showing an older render of the note), or when the syntax tree
+ * cannot be parsed in time.
+ *
+ * @param view - CodeMirror EditorView
+ * @param viewerTasks - Tasks reported by the viewer (0-based source lines)
+ * @returns TaskContext for the viewer tasks, or null
+ */
+export function resolveViewerTasks(view: EditorView, viewerTasks: ViewerTask[]): TaskContext | null {
+    const doc = view.state.doc;
+    const lines = [...new Map(viewerTasks.map((task) => [task.line, task])).values()].sort((a, b) => a.line - b.line);
+    if (lines.length === 0 || lines[lines.length - 1].line >= doc.lines) return null;
+
+    // The editor may not have parsed this part of a long note yet (e.g. viewer-only layout).
+    const tree = ensureSyntaxTree(
+        view.state,
+        doc.line(lines[lines.length - 1].line + 1).to,
+        VIEWER_TASK_PARSE_TIMEOUT_MS
+    );
+    if (!tree) return null;
+
+    const tasks: TaskInfo[] = [];
+    for (const viewerTask of lines) {
+        const line = doc.line(viewerTask.line + 1);
+        const task = collectTasksInRange(view, line.from, line.to, tree).find((found) => found.from === line.from);
+        if (!task || task.checked !== viewerTask.checked) return null;
+        tasks.push(task);
+    }
+
+    return buildTaskContext(tasks);
 }
 
 function buildTaskContext(tasks: TaskInfo[]): TaskContext {

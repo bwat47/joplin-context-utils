@@ -1,0 +1,136 @@
+/**
+ * Viewer-origin context menu support for toggling tasks.
+ *
+ * The markdown viewer script posts one message per right-click with the click
+ * time and the task items the text selection covers, or null tasks when it
+ * covers none. The context menu filter resolves those tasks in the editor
+ * without changing the editor selection, and the toggle item carries the
+ * resolved TaskContext as its command argument.
+ *
+ * The message and Joplin's context menu request travel separately. The click
+ * timestamp lets the filter reject a delayed message after its menu timed out,
+ * while still accepting messages that arrived before the filter started.
+ */
+
+import joplin from 'api';
+import { ContentScriptType } from 'api/types';
+import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, ViewerTask } from './viewerTasks';
+import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/contentScript';
+import type { TaskContext } from './types';
+import { logger } from './logger';
+
+/** Maximum time between a viewer click and the start of its menu request. */
+const VIEWER_MESSAGE_GRACE_MS = 400;
+
+/** How long the context menu filter waits for a viewer message that has not arrived yet. */
+const VIEWER_MESSAGE_WAIT_MS = 300;
+
+interface ViewerMessage {
+    tasks: ViewerTask[] | null;
+    clickedAt: number;
+}
+
+let latestMessage: ViewerMessage | null = null;
+let discardedThrough = -Infinity;
+const messageWaiters = new Set<() => void>();
+
+/** Record a message from the viewer script. Exported for tests. */
+export function receiveViewerMessage(message: unknown): void {
+    if (typeof message !== 'object' || message === null) return;
+
+    const candidate = message as Partial<ViewerMessage>;
+    if (typeof candidate.clickedAt !== 'number' || !Number.isFinite(candidate.clickedAt)) return;
+    if (candidate.clickedAt <= discardedThrough || candidate.clickedAt > Date.now()) return;
+    if (latestMessage && candidate.clickedAt <= latestMessage.clickedAt) return;
+
+    latestMessage = {
+        tasks: isViewerTaskList(candidate.tasks) ? candidate.tasks : null,
+        clickedAt: candidate.clickedAt,
+    };
+    for (const notify of messageWaiters) notify();
+}
+
+/**
+ * Drop clicks at or before `throughTime`, including messages still in transit.
+ * Callers pass the menu's start time, so a click during that menu's awaits stays valid.
+ */
+export function discardViewerMessagesThrough(throughTime: number): void {
+    discardedThrough = Math.max(discardedThrough, throughTime);
+    if (latestMessage && latestMessage.clickedAt <= discardedThrough) latestMessage = null;
+}
+
+const belongsToRequest = (message: ViewerMessage | null, requestStartedAt: number): message is ViewerMessage =>
+    message !== null &&
+    message.clickedAt > discardedThrough &&
+    message.clickedAt >= requestStartedAt - VIEWER_MESSAGE_GRACE_MS &&
+    message.clickedAt <= requestStartedAt;
+
+function waitForMessage(requestStartedAt: number): Promise<void> {
+    return new Promise((resolve) => {
+        const done = (): void => {
+            clearTimeout(timer);
+            messageWaiters.delete(done);
+            resolve();
+        };
+        const timer = setTimeout(() => {
+            discardViewerMessagesThrough(requestStartedAt);
+            done();
+        }, VIEWER_MESSAGE_WAIT_MS);
+        messageWaiters.add(done);
+    });
+}
+
+/**
+ * Take the viewer message for the context menu being built, waiting briefly if
+ * it has not arrived. Consumes the message so it applies to one menu only.
+ */
+async function takeViewerTasks(requestStartedAt: number): Promise<ViewerTask[] | null> {
+    if (!belongsToRequest(latestMessage, requestStartedAt)) {
+        await waitForMessage(requestStartedAt);
+    }
+
+    const message = latestMessage;
+    if (!belongsToRequest(message, requestStartedAt)) return null;
+
+    latestMessage = null;
+    discardedThrough = Math.max(discardedThrough, message.clickedAt);
+    return message.tasks;
+}
+
+const isTaskContext = (value: unknown): value is TaskContext =>
+    typeof value === 'object' &&
+    value !== null &&
+    (value as Partial<TaskContext>).contextType === 'task' &&
+    Array.isArray((value as Partial<TaskContext>).tasks) &&
+    (value as TaskContext).tasks.length > 0;
+
+/**
+ * Resolve the tasks selected in the viewer for the context menu being built.
+ * Returns null when the right-click selected no tasks or the editor could not
+ * match them to the note source.
+ */
+export async function getViewerTaskContext(requestStartedAt: number): Promise<TaskContext | null> {
+    const viewerTasks = await takeViewerTasks(requestStartedAt);
+    if (!viewerTasks) return null;
+
+    try {
+        const result = await joplin.commands.execute('editor.execCommand', {
+            name: RESOLVE_VIEWER_TASKS_COMMAND,
+            args: [viewerTasks],
+        });
+        logger.debug('Viewer context menu tasks', viewerTasks, 'resolved to', result);
+        return isTaskContext(result) ? result : null;
+    } catch (error) {
+        logger.debug('Resolving viewer tasks in editor failed:', error);
+        return null;
+    }
+}
+
+export async function registerViewerContentScript(): Promise<void> {
+    await joplin.contentScripts.onMessage(VIEWER_CONTENT_SCRIPT_ID, receiveViewerMessage);
+    await joplin.contentScripts.register(
+        ContentScriptType.MarkdownItPlugin,
+        VIEWER_CONTENT_SCRIPT_ID,
+        './contentScripts/viewerContentScript.js'
+    );
+}

@@ -2,7 +2,8 @@ import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import type { CodeMirrorControl, ContentScriptContext, MarkdownEditorContentScriptModule } from 'api/types';
 import { logger } from '../logger';
-import { detectContextAtPosition } from './contextDetection';
+import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
+import { isViewerTaskList } from '../viewerTasks';
 import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE } from '../types';
 import type { ContentScriptMessage, ContentScriptSettings, TextReplacement } from '../types';
 import { createPasteCleanupExtension } from './pasteCleanup';
@@ -12,6 +13,11 @@ import { createPasteCleanupExtension } from './pasteCleanup';
  */
 export const GET_CONTEXT_AT_CURSOR_COMMAND = 'contextUtils-getContextAtCursor';
 export const IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND = 'contextUtils-isEditorContextMenuOrigin';
+
+/**
+ * Command name for resolving tasks selected in the markdown viewer to a task context
+ */
+export const RESOLVE_VIEWER_TASKS_COMMAND = 'contextUtils-resolveViewerTasks';
 
 // Time window to consider context menu events as originating from the editor, in milliseconds
 const EDITOR_CONTEXT_MENU_EVENT_GRACE_MS = 400;
@@ -139,6 +145,17 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
                 }
 
                 return isEditorOrigin;
+            });
+
+            // Resolve viewer-selected task lines without changing the editor selection
+            editorControl.registerCommand(RESOLVE_VIEWER_TASKS_COMMAND, (viewerTasks: unknown) => {
+                if (!isViewerTaskList(viewerTasks)) {
+                    logger.warn('resolveViewerTasks: invalid viewer tasks', viewerTasks);
+                    return null;
+                }
+                const taskContext = resolveViewerTasks(view, viewerTasks);
+                logger.debug('Viewer tasks resolved:', taskContext);
+                return taskContext;
             });
 
             // Register command to batch replace multiple ranges

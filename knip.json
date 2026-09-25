@@ -1,6 +1,13 @@
 {
     "$schema": "https://unpkg.com/knip@6/schema.json",
-    "entry": ["webpack.config.js", "src/index.ts", "src/contentScripts/contentScript.ts", "src/**/*.test.ts"],
+    "entry": [
+        "webpack.config.js",
+        "src/index.ts",
+        "src/contentScripts/contentScript.ts",
+        "src/contentScripts/viewerContentScript.ts",
+        "src/contentScripts/viewerContextMenu.js",
+        "src/**/*.test.ts"
+    ],
     "project": ["src/**/*.ts"],
     "ignoreBinaries": ["yo"],
     "ignoreDependencies": ["ts-loader"],
