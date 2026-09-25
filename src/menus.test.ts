@@ -12,7 +12,15 @@ const apiMocks = vi.hoisted(() => ({
     filterEditorContextMenu: vi.fn(),
     createMenuItem: vi.fn(),
     settingsValues: vi.fn(),
+    settingsGlobalValues: vi.fn(),
 }));
+
+const viewerMocks = vi.hoisted(() => ({
+    getViewerTaskContext: vi.fn(),
+    discardViewerMessagesThrough: vi.fn(),
+}));
+
+vi.mock('./viewerContextMenu', () => viewerMocks);
 
 vi.mock('api', () => ({
     default: {
@@ -20,7 +28,7 @@ vi.mock('api', () => ({
         data: { get: apiMocks.dataGet },
         workspace: { filterEditorContextMenu: apiMocks.filterEditorContextMenu },
         views: { menuItems: { create: apiMocks.createMenuItem } },
-        settings: { values: apiMocks.settingsValues },
+        settings: { values: apiMocks.settingsValues, globalValues: apiMocks.settingsGlobalValues },
     },
 }));
 
@@ -195,6 +203,81 @@ async function runFilter(
 function menuTokens(menuItems: EditContextMenuFilterObject): Array<string | undefined> {
     return menuItems.items.map((item) => item.commandName ?? item.type);
 }
+
+describe('viewer context menu filter', () => {
+    const viewerTaskContext: EditorContext = {
+        contextType: 'task',
+        tasks: [
+            { lineText: '- [ ] first', checked: false, from: 0, to: 11 },
+            { lineText: '- [ ] second', checked: false, from: 12, to: 24 },
+        ],
+        checkedCount: 0,
+        uncheckedCount: 2,
+    };
+
+    beforeEach(() => {
+        vi.resetAllMocks();
+        resetSettingsWithMenusDisabled();
+        configureSettings();
+        configureEditorCommands([], false);
+        apiMocks.settingsGlobalValues.mockResolvedValue([true]);
+        viewerMocks.getViewerTaskContext.mockResolvedValue(viewerTaskContext);
+    });
+
+    it('offers only the task toggle for tasks selected in the viewer', async () => {
+        settings.showToggleTask = true;
+        settings.showAddExternalLink = true;
+
+        const result = await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
+
+        expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.TOGGLE_CHECKBOX, 'separator']);
+        expect(result.items[2].commandArgs).toEqual([viewerTaskContext]);
+        expect(result.items[2].label).toBe('Toggle Tasks (2)');
+        expect(apiMocks.settingsGlobalValues).toHaveBeenCalledWith(['editor.codeView']);
+    });
+
+    it('returns the original menu when the viewer selection has no resolvable tasks', async () => {
+        settings.showToggleTask = true;
+        viewerMocks.getViewerTaskContext.mockResolvedValue(null);
+        const originalMenu = { items: [EXISTING_MENU_ITEM] };
+
+        const result = await getRegisteredFilter()(originalMenu);
+
+        expect(result).toBe(originalMenu);
+    });
+
+    it('does not wait for a viewer message in the Rich Text editor', async () => {
+        settings.showToggleTask = true;
+        apiMocks.settingsGlobalValues.mockResolvedValue([false]);
+        const originalMenu = { items: [EXISTING_MENU_ITEM] };
+
+        const result = await getRegisteredFilter()(originalMenu);
+
+        expect(result).toBe(originalMenu);
+        expect(viewerMocks.getViewerTaskContext).not.toHaveBeenCalled();
+        expect(viewerMocks.discardViewerMessagesThrough).toHaveBeenCalledOnce();
+    });
+
+    it('does not check the viewer when task toggling is disabled', async () => {
+        const originalMenu = { items: [EXISTING_MENU_ITEM] };
+
+        const result = await getRegisteredFilter()(originalMenu);
+
+        expect(result).toBe(originalMenu);
+        expect(viewerMocks.getViewerTaskContext).not.toHaveBeenCalled();
+        expect(apiMocks.settingsGlobalValues).not.toHaveBeenCalled();
+    });
+
+    it('discards viewer messages for editor-origin menus', async () => {
+        settings.showToggleTask = true;
+        configureEditorCommands([]);
+
+        await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
+
+        expect(viewerMocks.discardViewerMessagesThrough).toHaveBeenCalledOnce();
+        expect(viewerMocks.getViewerTaskContext).not.toHaveBeenCalled();
+    });
+});
 
 describe('context menu filter', () => {
     beforeEach(() => {

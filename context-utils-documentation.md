@@ -62,7 +62,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
     - Returns **array of contexts** (supports multiple simultaneous contexts)
 
 2. **Main Plugin** (menus.ts):
-    - First calls `contextUtils-isEditorContextMenuOrigin`; if false, injects no plugin menu items
+    - First calls `contextUtils-isEditorContextMenuOrigin`; if false, only the viewer task toggle can be added (see Viewer Task Toggle)
     - When context menu opens, calls `joplin.commands.execute('editor.execCommand', { name: 'contextUtils-getContextAtCursor' })`
     - Awaits contexts directly from editor (guaranteed to match cursor position)
     - Iterates through returned contexts array
@@ -88,6 +88,7 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 | `src/menus.ts` and `src/commands.ts` | Build menu items from detected contexts and handle the actions they trigger. |
 | `src/contentScripts/` | CodeMirror-side integration: context detection and parsing, heading and quote extraction, editor text replacement, and optional paste cleanup. `contentScript.ts` connects this work to the main plugin. |
 | `src/utils/` | Focused helpers for task toggling, contextual copy, link titles, heading links, URLs, and toasts. |
+| `src/viewerContextMenu.ts` and `src/viewerTasks.ts` | Markdown viewer task toggling: viewer message handling and the viewer/editor task contract. |
 | `src/logger.ts` | Shared, prefixed logging. |
 
 Tests live beside the modules they cover as `*.test.ts` files.
@@ -264,6 +265,17 @@ Features:
 2. If any affected task is unchecked, only unchecked tasks are checked
 3. If all affected tasks are checked, checked tasks are unchecked
 4. Mixed multi-cursor or multi-selection task sets do not invert checked tasks; they check unchecked tasks and leave checked tasks unchanged
+
+**Viewer Task Toggle:**
+
+Selecting text across tasks in the desktop markdown viewer and right-clicking offers the same toggle item as the editor. The editor selection does not change.
+
+- `contentScripts/viewerContentScript.ts` is a markdown-it content script whose only job is loading the `viewerContextMenu.js` asset. No render changes are needed: Joplin stamps every task `<li>` with `source-line` (0-based source line) when rendering the viewer.
+- `contentScripts/viewerContextMenu.js` (plain script, capture-phase `contextmenu`) posts `{ tasks, clickedAt }` on every viewer right-click. `tasks` lists `{ line, checked }` for each `li.md-checkbox` whose checkbox wrapper has selected text, or is null. It tests the wrapper rather than the `<li>` so a parent item is not included when only its nested task is selected, and requires selected text so a selection that only touches an item's start boundary (triple-click) does not include it.
+- `viewerContextMenu.ts` receives those messages. For a non-editor-origin menu (in Code View, with Toggle Task enabled), the filter takes the click message from at or before that menu's start, waiting briefly if Joplin's menu request arrived first. Each message is consumed by one menu, and timed-out or editor-origin menus discard older messages so a delayed message cannot target a later menu. The logic mirrors the viewer image support in the Simple Image Resize plugin.
+- `contextUtils-resolveViewerTasks` (`resolveViewerTasks` in `contextDetection.ts`) parses the syntax tree through the last line (`ensureSyntaxTree`, 200ms budget), then maps each line to a task. It returns null if any line is not a task or its checkbox state differs from what the viewer rendered (stale render). The resulting `TaskContext` becomes the toggle item's `commandArgs`, so the command runs the normal batch replace with `expectedText` checks.
+- Only the task toggle is offered in the viewer; global items (Add External Link, etc.) are editor-only.
+- Joplin's viewer only opens a context menu over a text selection, link, or resource, so a single task cannot be toggled from the viewer without selecting some of its text.
 
 **Link Selection Detection:**
 

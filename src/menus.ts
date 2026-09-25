@@ -7,6 +7,7 @@ import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
 import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { getSettings, Settings } from './settings';
+import { discardViewerMessagesThrough, getViewerTaskContext } from './viewerContextMenu';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';
 const TOGGLE_TASK_EDIT_MENU_ITEM_ID = 'contextUtilsToggleTaskEditMenuItem';
@@ -270,25 +271,47 @@ function combineMenuItems(contextItems: MenuItem[], globalItems: MenuItem[]): Me
 }
 
 /**
+ * Builds menu items for a context menu opened in the markdown viewer.
+ * Only task toggling is offered there, for the tasks selected in the viewer.
+ */
+async function buildViewerMenuItems(settings: Settings, requestStartedAt: number): Promise<MenuItem[]> {
+    // Skip the viewer message wait in the Rich Text editor, which has no markdown viewer.
+    const canToggleFromViewer =
+        settings.showToggleTask && (await joplin.settings.globalValues(['editor.codeView']))[0] === true;
+    if (!canToggleFromViewer) {
+        discardViewerMessagesThrough(requestStartedAt);
+        return [];
+    }
+
+    const taskContext = await getViewerTaskContext(requestStartedAt);
+    logger.debug('Building viewer context menu for tasks:', taskContext);
+    return taskContext ? buildMenuItemsForContext(taskContext, settings) : [];
+}
+
+/**
  * Registers context menu filter
  * This is called BEFORE the context menu opens
  */
 export function registerContextMenuFilter(): void {
     joplin.workspace.filterEditorContextMenu(async (menuItems) => {
+        const requestStartedAt = Date.now();
         try {
-            // Skip all plugin menu items when the context menu did not originate from the editor
-            // (for example, right-clicking in the markdown viewer pane).
             const [editorOrigin, settings] = await Promise.all([isEditorContextMenuOrigin(), getSettings()]);
-            if (!editorOrigin) {
-                return menuItems;
+
+            let finalContextItems: MenuItem[];
+            if (editorOrigin) {
+                discardViewerMessagesThrough(requestStartedAt);
+
+                const globalItems = buildGlobalMenuItems(settings);
+                const contexts = await getEditorContexts(settings);
+                logger.debug('Building context menu for contexts:', contexts);
+
+                const contextSensitiveItems = await buildContextSensitiveMenuItems(contexts, settings);
+                finalContextItems = combineMenuItems(contextSensitiveItems, globalItems);
+            } else {
+                // Not from the editor, e.g. right-clicking in the markdown viewer pane.
+                finalContextItems = await buildViewerMenuItems(settings, requestStartedAt);
             }
-
-            const globalItems = buildGlobalMenuItems(settings);
-            const contexts = await getEditorContexts(settings);
-            logger.debug('Building context menu for contexts:', contexts);
-
-            const contextSensitiveItems = await buildContextSensitiveMenuItems(contexts, settings);
-            const finalContextItems = combineMenuItems(contextSensitiveItems, globalItems);
 
             // Only add items if we have any menu items to show
             if (finalContextItems.length === 0) {
@@ -304,6 +327,7 @@ export function registerContextMenuFilter(): void {
                 items: [...menuItems.items, separator, ...finalContextItems, separator],
             };
         } catch (error) {
+            discardViewerMessagesThrough(requestStartedAt);
             logger.error('Error in context menu filter:', error);
             // Return original menu on error to avoid breaking context menu.
             return menuItems;

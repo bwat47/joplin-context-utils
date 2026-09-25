@@ -28,6 +28,7 @@ Context Utils is a Joplin plugin that adds various options to the right-click co
 
 - **Toggle Task(s)** - Toggle task on selected line or Toggle all tasks in selection(s).
     - Can be assigned a keyboard shortcut (uses `CmdOrCtrl+Shift+Space` by default).
+    - Also available in the markdown viewer: select text across one or more tasks, then right-click the selection. Joplin only shows a context menu in the viewer over selected text, so select at least part of a task's text to toggle it from there.
 
 - **Go to Footnote** - Scroll editor to defintion associated with the selected Footnote reference.
 

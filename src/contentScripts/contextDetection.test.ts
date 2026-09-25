@@ -2,7 +2,7 @@
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
-import { detectContextAtPosition } from './contextDetection';
+import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
 import { EditorContext } from '../types';
 
 describe('contextDetection', () => {
@@ -580,5 +580,59 @@ describe('contextDetection', () => {
         expect(taskContext).toBeDefined();
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.uncheckedCount).toBe(1);
+    });
+
+    describe('resolveViewerTasks', () => {
+        const doc = ['### Heading', '', '- [x] first', '- [ ] second', '    - [x] nested', '- plain item'].join('\n');
+
+        it('resolves viewer source lines to tasks without changing the selection', () => {
+            const view = createViewWithCursor(doc, 0);
+
+            const taskContext = resolveViewerTasks(view, [
+                { line: 4, checked: true },
+                { line: 2, checked: true },
+                { line: 3, checked: false },
+                { line: 2, checked: true },
+            ]);
+
+            expect(taskContext?.tasks.map((task) => task.lineText)).toEqual([
+                '- [x] first',
+                '- [ ] second',
+                '    - [x] nested',
+            ]);
+            expect(taskContext?.checkedCount).toBe(2);
+            expect(taskContext?.uncheckedCount).toBe(1);
+            expect(view.state.selection.main.head).toBe(0);
+        });
+
+        it('returns null when a line is not a task', () => {
+            const view = createViewWithCursor(doc, 0);
+
+            expect(resolveViewerTasks(view, [{ line: 5, checked: false }])).toBeNull();
+            expect(resolveViewerTasks(view, [{ line: 0, checked: false }])).toBeNull();
+        });
+
+        it('returns null when the viewer checkbox state no longer matches the source', () => {
+            const view = createViewWithCursor(doc, 0);
+
+            expect(
+                resolveViewerTasks(view, [
+                    { line: 2, checked: true },
+                    { line: 3, checked: true },
+                ])
+            ).toBeNull();
+        });
+
+        it('returns null when a line is outside the document', () => {
+            const view = createViewWithCursor(doc, 0);
+
+            expect(resolveViewerTasks(view, [{ line: 6, checked: false }])).toBeNull();
+        });
+
+        it('does not treat task syntax inside a code block as a task', () => {
+            const view = createViewWithCursor('```\n- [ ] not a task\n```', 0);
+
+            expect(resolveViewerTasks(view, [{ line: 1, checked: false }])).toBeNull();
+        });
     });
 });

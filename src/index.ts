@@ -5,6 +5,7 @@ import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT
 import { registerSettings, getSetting } from './settings';
 import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, ContentScriptMessage, ContentScriptSettings } from './types';
 import { logger } from './logger';
+import { registerViewerContentScript } from './viewerContextMenu';
 
 joplin.plugins.register({
     onStart: async function () {
@@ -34,6 +35,10 @@ joplin.plugins.register({
                 './contentScripts/contentScript.js' // .js extension (webpack output)
             );
             logger.debug('Link detection content script registered');
+
+            // Register markdown viewer script so viewer right-clicks can toggle selected tasks
+            await registerViewerContentScript();
+            logger.debug('Viewer content script registered');
 
             // 3. Register commands
             await registerCommands();
