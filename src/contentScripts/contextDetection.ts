@@ -28,14 +28,7 @@ import {
     findReferenceDefinition,
     findFootnoteDefinition,
 } from './parsingUtils';
-
-/**
- * Matches a task list checkbox at the start of a line.
- * Allows optional leading blockquote markers (e.g. `> - [ ] Task`, including
- * nested `> > `) and indentation before the list marker.
- * Group 1: the full prefix up to the checkbox. Group 2: the checkbox state char.
- */
-const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
+import { TASK_CHECKBOX_PATTERN } from '../utils/checkboxUtils';
 
 // Keep viewer context menus responsive when parsing a very large note.
 const VIEWER_TASK_PARSE_TIMEOUT_MS = 200;

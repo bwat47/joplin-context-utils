@@ -233,13 +233,13 @@ tree.iterate({
     },
 });
 
-// Shared pattern used by single-line and selection detection.
+// Shared pattern (utils/checkboxUtils.ts) used by single-line and selection detection.
 // Matches: "  - [ ] Task", "    * [x] Done", "> - [ ] Quoted",
 // and nested block quotes like "> > - [x] Done".
 const TASK_CHECKBOX_PATTERN = /^(\s*(?:>\s*)*[-*+]\s+)\[([x ])\]/;
 
 // Step 2: Only if in task list, match checkbox pattern
-const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
+const checkboxMatch = TASK_CHECKBOX_PATTERN.exec(lineText);
 ```
 
 Features:
@@ -248,6 +248,7 @@ Features:
 - Supports indentation (nested task lists)
 - Supports task lists inside block quotes, including nested quote markers (`> - [ ] Task`, `> > - [x] Task`)
 - Checkbox states: lowercase `x` (checked) or space (unchecked)
+- `checkCheckboxInLine` / `uncheckCheckboxInLine` replace only the checkbox after the task marker, never a later `[ ]` or `[x]` in the task text
 - Detects anywhere on the task line (not just on the checkbox)
 - Prevents false positives by only checking `Task` nodes (not plain text in code blocks)
 
