@@ -11,7 +11,7 @@ import globals from 'globals';
 
 export default [
     {
-        ignores: ['api/**', 'dist/**'],
+        ignores: ['api/**', 'dist/**', 'webpack.config.js', '.prettierrc.js'],
     },
 
     js.configs.recommended,
