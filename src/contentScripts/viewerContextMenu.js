@@ -44,6 +44,7 @@
         /** @type {import('../viewerTasks').ViewerTask[]} */
         const tasks = [];
         for (const item of document.querySelectorAll('li.md-checkbox[source-line]')) {
+            if (!(item instanceof HTMLElement)) continue;
             const line = item.getAttribute('source-line');
             // The item's own checkbox comes before any nested task list.
             const checkbox = item.querySelector('input[type="checkbox"]');

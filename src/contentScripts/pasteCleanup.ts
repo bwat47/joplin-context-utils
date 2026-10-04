@@ -92,7 +92,7 @@ export function parseListItem(text: string): ListItem | null {
         ordered: /\d/.test(token),
         delimiter: token.slice(-1),
         contentStart: indent.length + token.length + trailingWhitespace.length,
-        hasTaskBox: taskBox !== undefined,
+        hasTaskBox: Boolean(taskBox),
         length: matched.length,
     };
 }
