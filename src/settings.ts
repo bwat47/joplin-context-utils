@@ -195,7 +195,7 @@ export async function getSettings(): Promise<Settings> {
  * Reads a single plugin setting from Joplin.
  */
 export async function getSetting<K extends SettingKey>(key: K): Promise<Settings[K]> {
-    const value = await joplin.settings.value(SETTINGS_CONFIG[key].key);
+    const value: unknown = await joplin.settings.value(SETTINGS_CONFIG[key].key);
     // Joplin returns undefined for unknown keys; fall back to the registered default.
     return (value === undefined ? SETTINGS_CONFIG[key].defaultValue : value) as Settings[K];
 }

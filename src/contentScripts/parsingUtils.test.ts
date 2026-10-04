@@ -1,4 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { SyntaxNode } from '@lezer/common';
+import type { EditorView } from '@codemirror/view';
 import {
     classifyUrl,
     classifyEmailAutolink,
@@ -144,10 +145,13 @@ describe('parsingUtils', () => {
                 extensions: [markdown()],
             });
             // Mock EditorView since we only need state
-            return { state } as any;
+            return { state } as EditorView;
         };
 
-        const extractFromFirstLink = <T>(doc: string, extractor: (node: any, view: any) => T): T | null => {
+        const extractFromFirstLink = <T>(
+            doc: string,
+            extractor: (node: SyntaxNode, view: EditorView) => T
+        ): T | null => {
             const { state } = createView(doc);
             const tree = syntaxTree(state);
             let foundLink = false;
@@ -157,7 +161,7 @@ describe('parsingUtils', () => {
                 enter: (node) => {
                     if (!foundLink && node.name === 'Link') {
                         foundLink = true;
-                        extracted = extractor(node.node, { state } as any);
+                        extracted = extractor(node.node, { state } as EditorView);
                     }
                 },
             });
@@ -265,7 +269,7 @@ describe('parsingUtils', () => {
                 },
             ])('$name', ({ text, label, expectedUrl }) => {
                 const { state } = createView(text);
-                const url = findReferenceDefinition({ state } as any, label);
+                const url = findReferenceDefinition({ state } as EditorView, label);
 
                 expect(url).toBe(expectedUrl);
             });
@@ -275,16 +279,16 @@ describe('parsingUtils', () => {
                 const { state } = createView(text);
 
                 // All of these should match the [upper] definition
-                expect(findReferenceDefinition({ state } as any, '[upper]')).toBe(
+                expect(findReferenceDefinition({ state } as EditorView, '[upper]')).toBe(
                     'https://example.com/case-insensitive'
                 );
-                expect(findReferenceDefinition({ state } as any, '[UPPER]')).toBe(
+                expect(findReferenceDefinition({ state } as EditorView, '[UPPER]')).toBe(
                     'https://example.com/case-insensitive'
                 );
-                expect(findReferenceDefinition({ state } as any, '[UpPeR]')).toBe(
+                expect(findReferenceDefinition({ state } as EditorView, '[UpPeR]')).toBe(
                     'https://example.com/case-insensitive'
                 );
-                expect(findReferenceDefinition({ state } as any, '[Upper]')).toBe(
+                expect(findReferenceDefinition({ state } as EditorView, '[Upper]')).toBe(
                     'https://example.com/case-insensitive'
                 );
             });
@@ -293,7 +297,7 @@ describe('parsingUtils', () => {
                 const text = '[Google]\n\n[Google]: https://google.com';
                 const { state } = createView(text);
                 // For shortcut links [foo], the label is the link text itself
-                const url = findReferenceDefinition({ state } as any, '[Google]');
+                const url = findReferenceDefinition({ state } as EditorView, '[Google]');
                 expect(url).toBe('https://google.com');
             });
 
@@ -301,7 +305,7 @@ describe('parsingUtils', () => {
                 const text = '[Google][]\n\n[Google]: https://google.com';
                 const { state } = createView(text);
                 // For collapsed links [foo][], the label should be the link text
-                const url = findReferenceDefinition({ state } as any, '[Google]');
+                const url = findReferenceDefinition({ state } as EditorView, '[Google]');
                 expect(url).toBe('https://google.com');
             });
         });
@@ -310,14 +314,14 @@ describe('parsingUtils', () => {
             it('should find footnote definition', () => {
                 const text = 'Some text[^1] here.\n\n[^1]: This is the footnote.';
                 const { state } = createView(text);
-                const pos = findFootnoteDefinition({ state } as any, '1');
+                const pos = findFootnoteDefinition({ state } as EditorView, '1');
                 expect(pos).toBe(text.indexOf('[^1]:'));
             });
 
             it('should return null if definition not found', () => {
                 const text = 'Some text[^1] here.\n\nNo definition.';
                 const { state } = createView(text);
-                const pos = findFootnoteDefinition({ state } as any, '1');
+                const pos = findFootnoteDefinition({ state } as EditorView, '1');
                 expect(pos).toBeNull();
             });
 
@@ -326,16 +330,16 @@ describe('parsingUtils', () => {
                 const { state } = createView(text);
 
                 // All case variations should find the same definition
-                expect(findFootnoteDefinition({ state } as any, 'Note')).toBe(text.indexOf('[^note]:'));
-                expect(findFootnoteDefinition({ state } as any, 'NOTE')).toBe(text.indexOf('[^note]:'));
-                expect(findFootnoteDefinition({ state } as any, 'note')).toBe(text.indexOf('[^note]:'));
-                expect(findFootnoteDefinition({ state } as any, 'NoTe')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as EditorView, 'Note')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as EditorView, 'NOTE')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as EditorView, 'note')).toBe(text.indexOf('[^note]:'));
+                expect(findFootnoteDefinition({ state } as EditorView, 'NoTe')).toBe(text.indexOf('[^note]:'));
             });
 
             it('should handle footnotes with complex labels', () => {
                 const text = 'Text[^my-note-1] here.\n\n[^my-note-1]: Complex label footnote.';
                 const { state } = createView(text);
-                const pos = findFootnoteDefinition({ state } as any, 'my-note-1');
+                const pos = findFootnoteDefinition({ state } as EditorView, 'my-note-1');
                 expect(pos).toBe(text.indexOf('[^my-note-1]:'));
             });
 
@@ -347,7 +351,7 @@ describe('parsingUtils', () => {
                     '```\n\n' +
                     '[^1]: This is the real footnote definition.';
                 const { state } = createView(text);
-                const pos = findFootnoteDefinition({ state } as any, '1');
+                const pos = findFootnoteDefinition({ state } as EditorView, '1');
                 // Should find the definition AFTER the code block, not inside it
                 expect(pos).toBe(text.lastIndexOf('[^1]:'));
             });
@@ -355,7 +359,7 @@ describe('parsingUtils', () => {
             it('should return null if only match is inside code block', () => {
                 const text = 'Reference[^1] here.\n\n' + '```\n' + '[^1]: This is inside a code block\n' + '```';
                 const { state } = createView(text);
-                const pos = findFootnoteDefinition({ state } as any, '1');
+                const pos = findFootnoteDefinition({ state } as EditorView, '1');
                 expect(pos).toBeNull();
             });
         });

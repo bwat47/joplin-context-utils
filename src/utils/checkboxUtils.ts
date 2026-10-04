@@ -3,15 +3,22 @@
  */
 
 /**
- * Toggles a checkbox in a task list line
+ * Checks a checkbox in a task list line
  * @param lineText - The complete line text containing the checkbox
- * @param toChecked - If true, checks the box ([ ] → [x]); if false, unchecks it ([x] → [ ])
- * @returns The line text with the checkbox toggled
+ * @returns The line text with the checkbox checked
  *
  * @example
- * toggleCheckboxInLine('- [ ] Task', true)  // Returns: '- [x] Task'
- * toggleCheckboxInLine('- [x] Done', false) // Returns: '- [ ] Done'
+ * checkCheckboxInLine('- [ ] Task') // Returns: '- [x] Task'
  */
-export function toggleCheckboxInLine(lineText: string, toChecked: boolean): string {
-    return toChecked ? lineText.replace(/\[ \]/, '[x]') : lineText.replace(/\[x\]/, '[ ]');
+export function checkCheckboxInLine(lineText: string): string {
+    return lineText.replace(/\[ \]/, '[x]');
+}
+
+/**
+ * Unchecks a checkbox in a task list line.
+ * @example
+ * uncheckCheckboxInLine('- [x] Done') // Returns: '- [ ] Done'
+ */
+export function uncheckCheckboxInLine(lineText: string): string {
+    return lineText.replace(/\[x\]/, '[ ]');
 }

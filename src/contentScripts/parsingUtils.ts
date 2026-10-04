@@ -78,12 +78,12 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
  */
 export function parseImageTag(htmlText: string): LinkParseResult {
     // Check if this is an img tag
-    if (!htmlText.match(/<img\s/i)) {
+    if (!/<img\s/i.test(htmlText)) {
         return null;
     }
 
     // Extract src attribute value
-    const srcMatch = htmlText.match(/\ssrc=["']([^"']+)["']/i);
+    const srcMatch = /\ssrc=["']([^"']+)["']/i.exec(htmlText);
     if (!srcMatch) {
         return null;
     }
@@ -99,13 +99,13 @@ export function parseImageTag(htmlText: string): LinkParseResult {
  */
 export function classifyUrl(url: string): LinkParseResult {
     // Determine link type
-    if (url.match(/^:\/[a-f0-9]{32}(#[^\s]*)?$/i)) {
+    if (/^:\/[a-f0-9]{32}(#[^\s]*)?$/i.test(url)) {
         return { url, type: LinkType.JoplinResource };
-    } else if (url.match(/^mailto:/i)) {
+    } else if (/^mailto:/i.test(url)) {
         return { url, type: LinkType.Email };
-    } else if (url.match(/^https?:\/\//)) {
+    } else if (/^https?:\/\//.test(url)) {
         return { url, type: LinkType.ExternalUrl };
-    } else if (url.match(/^#[^\s]+$/)) {
+    } else if (/^#[^\s]+$/.test(url)) {
         // Internal anchor link (e.g., #heading-slug)
         return { url, type: LinkType.InternalAnchor };
     }
@@ -142,7 +142,7 @@ export function classifyEmailAutolink(address: string): LinkParseResult {
  */
 export function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 'to' | 'contextType'> | null {
     // Remove backticks from inline code
-    const match = codeText.match(/^`(.+)`$/s);
+    const match = /^`(.+)`$/s.exec(codeText);
     if (!match) {
         return null;
     }
@@ -182,7 +182,7 @@ export function parseCodeBlock(
     // Fallback: If no CodeText child found, use regex to strip fence markers
     // This handles cases where FencedCode is a flat node
     const codeText = view.state.doc.sliceString(node.from, node.to);
-    const match = codeText.match(/^```[^\n]*\n([\s\S]*?)```\s*$/m) || codeText.match(/^~~~[^\n]*\n([\s\S]*?)~~~\s*$/m);
+    const match = /^```[^\n]*\n([\s\S]*?)```\s*$/m.exec(codeText) || /^~~~[^\n]*\n([\s\S]*?)~~~\s*$/m.exec(codeText);
 
     if (!match) {
         return null;

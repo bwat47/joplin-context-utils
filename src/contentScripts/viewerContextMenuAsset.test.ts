@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { vi } from 'vitest';
 import { VIEWER_CONTENT_SCRIPT_ID } from '../viewerTasks';
+import type { ViewerWebviewApi } from './viewerContextMenuTypes';
 
 const script = readFileSync(resolve(process.cwd(), 'src/contentScripts/viewerContextMenu.js'), 'utf8');
 
@@ -23,7 +24,7 @@ const VIEWER_HTML =
     renderTask(5, 'Last', false) +
     '</ul>';
 
-const postMessage = vi.fn<(id: string, message: unknown) => Promise<void>>(() => Promise.resolve());
+const postMessage = vi.fn<ViewerWebviewApi['postMessage']>(() => Promise.resolve());
 
 const label = (text: string): Text =>
     [...document.querySelectorAll('label')].find((element) => element.textContent === text)!.firstChild as Text;
@@ -48,7 +49,8 @@ function rightClick(): unknown {
 describe('viewerContextMenu.js', () => {
     beforeAll(() => {
         Object.assign(window, { webviewApi: { postMessage } });
-        window.eval(script);
+        // Exercise a lexical host global without leaving a webviewApi property on window.
+        window.eval(`const webviewApi = window.webviewApi; delete window.webviewApi;\n${script}`);
     });
 
     beforeEach(() => {
@@ -66,14 +68,14 @@ describe('viewerContextMenu.js', () => {
                 { line: 4, checked: true },
                 { line: 5, checked: false },
             ],
-            clickedAt: expect.any(Number),
+            clickedAt: expect.any(Number) as unknown,
         });
     });
 
     it('does not report a parent task when only its nested task is selected', () => {
         select(label('Child'), 0, label('Child'), 5);
 
-        expect(rightClick()).toEqual({ tasks: [{ line: 4, checked: true }], clickedAt: expect.any(Number) });
+        expect(rightClick()).toEqual({ tasks: [{ line: 4, checked: true }], clickedAt: expect.any(Number) as unknown });
     });
 
     it('ignores a task the selection only touches at its start', () => {
@@ -88,10 +90,10 @@ describe('viewerContextMenu.js', () => {
         const heading = document.querySelector('h3')!.firstChild!;
         select(heading, 0, heading, 4);
 
-        expect(rightClick()).toEqual({ tasks: null, clickedAt: expect.any(Number) });
+        expect(rightClick()).toEqual({ tasks: null, clickedAt: expect.any(Number) as unknown });
     });
 
     it('reports null tasks without a selection', () => {
-        expect(rightClick()).toEqual({ tasks: null, clickedAt: expect.any(Number) });
+        expect(rightClick()).toEqual({ tasks: null, clickedAt: expect.any(Number) as unknown });
     });
 });

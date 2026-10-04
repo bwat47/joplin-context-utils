@@ -7,55 +7,59 @@ import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, ContentScriptMessage, ContentScrip
 import { logger } from './logger';
 import { registerViewerContentScript } from './viewerContextMenu';
 
-joplin.plugins.register({
-    onStart: async function () {
-        logger.debug('Context Utils plugin starting...');
+joplin.plugins
+    .register({
+        onStart: async function () {
+            logger.debug('Context Utils plugin starting...');
 
-        try {
-            // 1. Register settings
-            await registerSettings();
-            logger.debug('Settings registered');
+            try {
+                // 1. Register settings
+                await registerSettings();
+                logger.debug('Settings registered');
 
-            // Serve settings the content script needs (it fetches them once on load).
-            // Registered before the content script so an already-open editor never posts before a handler exists.
-            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (message: ContentScriptMessage) => {
-                if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
-                    const settings: ContentScriptSettings = {
-                        cleanUpListPaste: await getSetting('cleanUpListPaste'),
-                    };
-                    return settings;
-                }
-                return undefined;
-            });
+                // Serve settings the content script needs (it fetches them once on load).
+                // Registered before the content script so an already-open editor never posts before a handler exists.
+                await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (message: ContentScriptMessage) => {
+                    if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
+                        const settings: ContentScriptSettings = {
+                            cleanUpListPaste: await getSetting('cleanUpListPaste'),
+                        };
+                        return settings;
+                    }
+                    return undefined;
+                });
 
-            // 2. Register content script for link detection
-            await joplin.contentScripts.register(
-                ContentScriptType.CodeMirrorPlugin,
-                CONTENT_SCRIPT_ID,
-                './contentScripts/contentScript.js' // .js extension (webpack output)
-            );
-            logger.debug('Link detection content script registered');
+                // 2. Register content script for link detection
+                await joplin.contentScripts.register(
+                    ContentScriptType.CodeMirrorPlugin,
+                    CONTENT_SCRIPT_ID,
+                    './contentScripts/contentScript.js' // .js extension (webpack output)
+                );
+                logger.debug('Link detection content script registered');
 
-            // Register markdown viewer script so viewer right-clicks can toggle selected tasks
-            await registerViewerContentScript();
-            logger.debug('Viewer content script registered');
+                // Register markdown viewer script so viewer right-clicks can toggle selected tasks
+                await registerViewerContentScript();
+                logger.debug('Viewer content script registered');
 
-            // 3. Register commands
-            await registerCommands();
-            logger.debug('Commands registered');
+                // 3. Register commands
+                await registerCommands();
+                logger.debug('Commands registered');
 
-            // 4. Register context menu filter
-            registerContextMenuFilter();
-            logger.debug('Context menu filter registered');
+                // 4. Register context menu filter
+                registerContextMenuFilter();
+                logger.debug('Context menu filter registered');
 
-            // 5. Register application menu items
-            await registerApplicationMenuItems();
-            logger.debug('Application menu items registered');
+                // 5. Register application menu items
+                await registerApplicationMenuItems();
+                logger.debug('Application menu items registered');
 
-            logger.debug('Context Utils plugin started successfully');
-        } catch (error) {
-            logger.error('Failed to start Context Utils plugin:', error);
-            throw error;
-        }
-    },
-});
+                logger.debug('Context Utils plugin started successfully');
+            } catch (error) {
+                logger.error('Failed to start Context Utils plugin:', error);
+                throw error;
+            }
+        },
+    })
+    .catch((error: unknown) => {
+        logger.error('Failed to register Context Utils plugin:', error);
+    });

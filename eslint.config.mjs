@@ -1,8 +1,9 @@
-// Flat config (ESM). Adds ignores, Node + Vitest globals, and TS-friendly rule tweaks.
+// Flat config (ESM). Enables typed linting and Vitest rules alongside project tweaks.
 
 import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
+import vitest from '@vitest/eslint-plugin';
 import importPlugin from 'eslint-plugin-import-x';
 import sonarjs from 'eslint-plugin-sonarjs';
 import prettier from 'eslint-config-prettier';
@@ -15,12 +16,20 @@ export default [
 
     js.configs.recommended,
     sonarjs.configs.recommended,
+    ...tsPlugin.configs['flat/recommended-type-checked'].map((config) => ({
+        ...config,
+        files: ['**/*.{ts,tsx,js}'],
+    })),
 
     // Project TS/JS sources
     {
         files: ['**/*.{ts,tsx,js}'],
         languageOptions: {
             parser: tsParser,
+            parserOptions: {
+                projectService: true,
+                tsconfigRootDir: import.meta.dirname,
+            },
             ecmaVersion: 2020,
             sourceType: 'module',
             globals: {
@@ -34,7 +43,6 @@ export default [
         rules: {
             // Turn off rules TypeScript handles (prevents NodeJS / type-only false positives)
             'no-undef': 'off',
-            ...tsPlugin.configs.recommended.rules,
             // report an error if any circular dependency is found
             'import/no-cycle': ['error', { maxDepth: Infinity }],
             'no-useless-escape': 'off',
@@ -51,6 +59,9 @@ export default [
             '**/__tests__/**/*.{ts,tsx,js}',
             'src/testHelpers.ts',
         ],
+        plugins: {
+            vitest,
+        },
         languageOptions: {
             globals: {
                 ...globals.node,
@@ -58,7 +69,10 @@ export default [
             },
         },
         rules: {
-            // You can add test-specific overrides here later
+            ...vitest.configs.recommended.rules,
+            // Vitest permits unbound methods in expect assertions.
+            '@typescript-eslint/unbound-method': 'off',
+            'vitest/unbound-method': 'error',
         },
     },
 

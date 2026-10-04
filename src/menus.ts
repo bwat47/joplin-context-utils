@@ -41,7 +41,7 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
  */
 async function isEditorContextMenuOrigin(): Promise<boolean> {
     try {
-        const result = await joplin.commands.execute('editor.execCommand', {
+        const result: unknown = await joplin.commands.execute('editor.execCommand', {
             name: IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
         });
         return result === true;
@@ -94,7 +94,7 @@ async function getEditorContexts(settings: Settings): Promise<EditorContext[]> {
     }
 
     try {
-        const result = await joplin.commands.execute('editor.execCommand', {
+        const result: unknown = await joplin.commands.execute('editor.execCommand', {
             name: GET_CONTEXT_AT_CURSOR_COMMAND,
         });
 
