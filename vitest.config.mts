@@ -1,4 +1,5 @@
 import { defineConfig } from 'vitest/config';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
     test: {
@@ -13,7 +14,7 @@ export default defineConfig({
     },
     resolve: {
         alias: {
-            api: new URL('./api', import.meta.url).pathname,
+            api: fileURLToPath(new URL('./api', import.meta.url)),
         },
     },
 });
