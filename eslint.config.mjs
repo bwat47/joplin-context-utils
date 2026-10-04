@@ -1,8 +1,8 @@
 // Flat config (ESM). Enables typed linting and Vitest rules alongside project tweaks.
 
+import { defineConfig } from 'eslint/config';
 import js from '@eslint/js';
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
+import tseslint from 'typescript-eslint';
 import vitest from '@vitest/eslint-plugin';
 import importPlugin from 'eslint-plugin-import-x';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
@@ -10,35 +10,28 @@ import sonarjs from 'eslint-plugin-sonarjs';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
-export default [
+export default defineConfig(
     {
         ignores: ['api/**', 'dist/**', 'webpack.config.js', '.prettierrc.js'],
     },
 
     js.configs.recommended,
     sonarjs.configs.recommended,
-    ...tsPlugin.configs['flat/recommended-type-checked'].map((config) => ({
-        ...config,
-        files: ['**/*.{ts,tsx,js}'],
-    })),
 
     // Project TS/JS sources
     {
         files: ['**/*.{ts,tsx,js}'],
+        extends: [tseslint.configs.recommendedTypeChecked],
         languageOptions: {
-            parser: tsParser,
             parserOptions: {
                 projectService: true,
                 tsconfigRootDir: import.meta.dirname,
             },
-            ecmaVersion: 2020,
-            sourceType: 'module',
             globals: {
                 ...globals.node,
             },
         },
         plugins: {
-            '@typescript-eslint': tsPlugin,
             'import-x': importPlugin,
         },
         settings: {
@@ -86,5 +79,5 @@ export default [
     },
 
     // Prettier compatibility
-    prettier,
-];
+    prettier
+);

@@ -27,8 +27,6 @@
         "@eslint/js": "^10.0.1",
         "@lezer/markdown": "^1.6.3",
         "@types/node": "^24.13.2",
-        "@typescript-eslint/eslint-plugin": "^8.66.0",
-        "@typescript-eslint/parser": "^8.66.0",
         "@vitest/coverage-v8": "^5.0.2",
         "@vitest/eslint-plugin": "^1.6.27",
         "chalk": "^4.1.0",
@@ -47,6 +45,7 @@
         "tar": "^7.5.16",
         "ts-loader": "^9.3.1",
         "typescript": "^6.0.3",
+        "typescript-eslint": "^8.66.0",
         "vitest": "^5.0.2",
         "webpack": "^5.102.1",
         "webpack-cli": "^6.0.1"
