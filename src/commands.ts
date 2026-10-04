@@ -20,7 +20,7 @@ import {
     BATCH_REPLACE_COMMAND,
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/contentScript';
-import { toggleCheckboxInLine } from './utils/checkboxUtils';
+import { checkCheckboxInLine, uncheckCheckboxInLine } from './utils/checkboxUtils';
 import { getTaskTogglePlan } from './utils/taskToggleUtils';
 import {
     fetchLinkTitle,
@@ -375,11 +375,13 @@ async function handleToggleTasks(taskContext?: TaskContext): Promise<void> {
 
     if (tasksToUpdate.length === 0) return;
 
+    const updateCheckbox = targetChecked ? checkCheckboxInLine : uncheckCheckboxInLine;
+
     // Map to the replacement format
     const replacements = tasksToUpdate.map((task) => ({
         from: task.from,
         to: task.to,
-        text: toggleCheckboxInLine(task.lineText, targetChecked),
+        text: updateCheckbox(task.lineText),
         expectedText: task.lineText, // Include for optimistic concurrency check
     }));
 
