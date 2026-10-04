@@ -424,7 +424,7 @@ function detectTaskAtPosition(view: EditorView, pos: number): TaskInfo | null {
 
     // Match task list checkbox: "  - [ ] Task" or "    * [x] Done"
     // (also matches checkboxes inside block quotes, e.g. "> - [ ] Task")
-    const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
+    const checkboxMatch = TASK_CHECKBOX_PATTERN.exec(lineText);
     if (!checkboxMatch) {
         return null;
     }
@@ -485,7 +485,7 @@ function collectTasksInRange(view: EditorView, from: number, to: number, tree = 
 
                 const lineText = line.text;
                 // Strict Regex: Matches "- [ ] " or "* [x] " (incl. inside block quotes)
-                const checkboxMatch = lineText.match(TASK_CHECKBOX_PATTERN);
+                const checkboxMatch = TASK_CHECKBOX_PATTERN.exec(lineText);
 
                 if (checkboxMatch) {
                     const checked = checkboxMatch[2] === 'x';

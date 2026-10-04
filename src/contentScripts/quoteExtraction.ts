@@ -56,7 +56,7 @@ function stripLeadingAlertMarker(lines: string[]): string[] {
         return lines;
     }
 
-    const match = lines[0].trim().match(ALERT_MARKER_PATTERN);
+    const match = ALERT_MARKER_PATTERN.exec(lines[0].trim());
     if (!match) {
         return lines;
     }
