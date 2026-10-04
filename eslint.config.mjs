@@ -47,7 +47,6 @@ export default defineConfig(
             'no-undef': 'off',
             // report an error if any circular dependency is found
             'import-x/no-cycle': ['error', { maxDepth: Infinity }],
-            'no-useless-escape': 'off',
             '@typescript-eslint/no-inferrable-types': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'error',
         },

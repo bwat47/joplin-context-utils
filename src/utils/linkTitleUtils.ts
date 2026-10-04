@@ -44,7 +44,7 @@ export function sanitizeLinkTitle(title: string): string {
     return title
         .replace(/[\r\n]+/g, ' ')
         .replace(/\s{2,}/g, ' ')
-        .replace(/[\[\]]/g, '')
+        .replace(/[[\]]/g, '')
         .trim();
 }
 
