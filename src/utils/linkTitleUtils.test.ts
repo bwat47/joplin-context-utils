@@ -45,7 +45,7 @@ function createTextResponse(ok: boolean, html: string): Response {
 describe('linkTitleUtils', () => {
     beforeEach(() => {
         mockFetch.mockReset();
-        global.fetch = mockFetch as unknown as typeof fetch;
+        global.fetch = mockFetch;
     });
 
     describe('sanitizeLinkTitle', () => {
