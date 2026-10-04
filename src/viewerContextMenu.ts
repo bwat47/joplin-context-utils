@@ -114,7 +114,7 @@ export async function getViewerTaskContext(requestStartedAt: number): Promise<Ta
     if (!viewerTasks) return null;
 
     try {
-        const result = await joplin.commands.execute('editor.execCommand', {
+        const result: unknown = await joplin.commands.execute('editor.execCommand', {
             name: RESOLVE_VIEWER_TASKS_COMMAND,
             args: [viewerTasks],
         });

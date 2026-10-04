@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
@@ -14,7 +14,7 @@ describe('quoteExtraction', () => {
                 }),
             ],
         });
-        return { state } as any;
+        return { state } as EditorView;
     };
 
     const quoteAt = (doc: string, needle: string) => {

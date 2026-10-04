@@ -296,9 +296,18 @@ async function handleCopyHeadingLinkInternal(headingContext: HeadingContext): Pr
  * Copies a markdown link to the heading in the current note: [Heading @ Note](:/noteId#anchor)
  */
 async function handleCopyHeadingLinkExternal(headingContext: HeadingContext): Promise<void> {
-    const note = await joplin.workspace.selectedNote();
+    const note: unknown = await joplin.workspace.selectedNote();
     if (!note) {
         throw new Error('No note is currently selected');
+    }
+    if (
+        typeof note !== 'object' ||
+        !('title' in note) ||
+        typeof note.title !== 'string' ||
+        !('id' in note) ||
+        typeof note.id !== 'string'
+    ) {
+        throw new Error('Selected note is missing its title or ID');
     }
 
     const link = formatExternalHeadingLink(
@@ -399,7 +408,7 @@ async function getCurrentTaskContext(): Promise<TaskContext | null> {
 
 async function getCurrentEditorContexts(): Promise<EditorContext[]> {
     try {
-        const contextsResult = await joplin.commands.execute('editor.execCommand', {
+        const contextsResult: unknown = await joplin.commands.execute('editor.execCommand', {
             name: GET_CONTEXT_AT_CURSOR_COMMAND,
         });
         return (Array.isArray(contextsResult) ? contextsResult : []) as EditorContext[];
@@ -428,7 +437,7 @@ async function handleGoToHeading(linkContext: LinkContext): Promise<void> {
     // Remove the leading # from the anchor URL
     const hash = linkContext.url.slice(1);
 
-    const success = await joplin.commands.execute('editor.execCommand', {
+    const success: unknown = await joplin.commands.execute('editor.execCommand', {
         name: 'jumpToHash',
         args: [hash],
     });

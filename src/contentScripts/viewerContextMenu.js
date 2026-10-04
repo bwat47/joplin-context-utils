@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Markdown viewer asset: reports the task items selected at a right-click.
  *
@@ -11,8 +12,9 @@
  * only ever toggled from a selection.
  */
 (function () {
-    if (window.contextUtilsViewerContextMenuLoaded) return;
-    window.contextUtilsViewerContextMenuLoaded = true;
+    const viewerWindow = /** @type {import('./viewerContextMenuTypes').ViewerWindow} */ (window);
+    if (viewerWindow.contextUtilsViewerContextMenuLoaded) return;
+    viewerWindow.contextUtilsViewerContextMenuLoaded = true;
 
     const CONTENT_SCRIPT_ID = 'contextUtilsViewerTasks';
 
@@ -20,6 +22,8 @@
      * True when the selection range covers some text of the element.
      * Touching the element's boundary (for example a triple-click selection
      * that ends at the start of the next item) does not count.
+     * @param {Range} range
+     * @param {Node} element
      */
     const selectsTextIn = (range, element) => {
         const overlap = document.createRange();
@@ -37,12 +41,19 @@
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) return null;
 
+        /** @type {import('../viewerTasks').ViewerTask[]} */
         const tasks = [];
         for (const item of document.querySelectorAll('li.md-checkbox[source-line]')) {
             const line = item.getAttribute('source-line');
             // The item's own checkbox comes before any nested task list.
             const checkbox = item.querySelector('input[type="checkbox"]');
-            if (!checkbox || !/^\d+$/.test(line)) continue;
+            if (
+                !(checkbox instanceof HTMLInputElement) ||
+                !checkbox.parentElement ||
+                line === null ||
+                !/^\d+$/.test(line)
+            )
+                continue;
 
             // Test the checkbox's wrapper (checkbox + label), not the whole item:
             // a parent item contains its nested list, which is selected on its own.
@@ -62,13 +73,22 @@
     document.addEventListener(
         'contextmenu',
         () => {
+            // Joplin injects a lexical global, which need not be a window property.
+            /** @type {unknown} */
+            const hostApi =
+                // @ts-expect-error This name exists only in Joplin's viewer runtime.
+                typeof webviewApi === 'undefined' ? undefined : webviewApi;
+            const viewerApi = /** @type {import('./viewerContextMenuTypes').ViewerWebviewApi | undefined} */ (hostApi);
+            if (!viewerApi || typeof viewerApi.postMessage !== 'function') return;
+
+            /** @type {import('../viewerTasks').ViewerTask[] | null} */
             let tasks = null;
             try {
                 tasks = findSelectedTasks();
             } catch (error) {
                 console.warn('[Context Utils] Could not read viewer task selection:', error);
             }
-            webviewApi.postMessage(CONTENT_SCRIPT_ID, { tasks, clickedAt: Date.now() }).catch((error) => {
+            viewerApi.postMessage(CONTENT_SCRIPT_ID, { tasks, clickedAt: Date.now() }).catch((error) => {
                 console.warn('[Context Utils] Could not report viewer context menu tasks:', error);
             });
         },

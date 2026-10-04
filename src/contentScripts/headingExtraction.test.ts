@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { EditorView } from '@codemirror/view';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM, type InlineContext, type MarkdownConfig } from '@lezer/markdown';
@@ -67,7 +67,7 @@ describe('headingExtraction', () => {
                 }),
             ],
         });
-        return { state } as any;
+        return { state } as EditorView;
     };
 
     // Returns the heading detected when the cursor sits inside the line containing `needle`

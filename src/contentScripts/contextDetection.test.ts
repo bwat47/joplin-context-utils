@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
+import type { EditorView } from '@codemirror/view';
 import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
@@ -17,7 +17,7 @@ describe('contextDetection', () => {
                 }),
             ],
         });
-        return { state } as any;
+        return { state } as EditorView;
     };
 
     const createViewWithRanges = (doc: string, ranges: Array<[number, number]>, mainIndex = 0) => {
@@ -34,7 +34,7 @@ describe('contextDetection', () => {
                 }),
             ],
         });
-        return { state } as any;
+        return { state } as EditorView;
     };
 
     const createViewWithCursor = (doc: string, pos: number) => {
