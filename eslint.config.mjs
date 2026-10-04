@@ -39,7 +39,7 @@ export default [
         },
         plugins: {
             '@typescript-eslint': tsPlugin,
-            import: importPlugin,
+            'import-x': importPlugin,
         },
         settings: {
             // Without these, import-x silently skips TS imports and rules like no-cycle never fire.
@@ -53,7 +53,7 @@ export default [
             // Turn off rules TypeScript handles (prevents NodeJS / type-only false positives)
             'no-undef': 'off',
             // report an error if any circular dependency is found
-            'import/no-cycle': ['error', { maxDepth: Infinity }],
+            'import-x/no-cycle': ['error', { maxDepth: Infinity }],
             'no-useless-escape': 'off',
             '@typescript-eslint/no-inferrable-types': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'error',
