@@ -1,4 +1,4 @@
-import { EditorContext, LinkType } from '../types';
+import { type EditorContext, LinkType } from '../types';
 import { resolveContextualCopyTarget } from './contextualCopyResolver';
 
 describe('resolveContextualCopyTarget', () => {

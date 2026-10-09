@@ -1,6 +1,6 @@
 import { syntaxTree } from '@codemirror/language';
-import { EditorView } from '@codemirror/view';
-import { SyntaxNode } from '@lezer/common';
+import type { EditorView } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
 
 export interface ExtractedQuote {
     text: string;

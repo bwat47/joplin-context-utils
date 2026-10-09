@@ -14,7 +14,7 @@
 
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
-import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, ViewerTask } from './viewerTasks';
+import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, type ViewerTask } from './viewerTasks';
 import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/contentScript';
 import type { TaskContext } from './types';
 import { logger } from './logger';

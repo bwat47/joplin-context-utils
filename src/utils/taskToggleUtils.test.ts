@@ -1,4 +1,4 @@
-import { TaskInfo } from '../types';
+import type { TaskInfo } from '../types';
 import { getTaskToggleMenuLabel, getTaskTogglePlan } from './taskToggleUtils';
 
 function task(checked: boolean): TaskInfo {

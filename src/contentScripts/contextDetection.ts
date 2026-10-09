@@ -1,17 +1,17 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
-import { EditorView } from '@codemirror/view';
+import type { EditorView } from '@codemirror/view';
 import type { SyntaxNodeRef } from '@lezer/common';
 import {
-    LinkContext,
-    CodeContext,
-    TaskContext,
-    TaskInfo,
-    EditorContext,
-    FootnoteContext,
-    LinkSelectionContext,
-    LinkInfo,
-    HeadingContext,
-    QuoteContext,
+    type LinkContext,
+    type CodeContext,
+    type TaskContext,
+    type TaskInfo,
+    type EditorContext,
+    type FootnoteContext,
+    type LinkSelectionContext,
+    type LinkInfo,
+    type HeadingContext,
+    type QuoteContext,
     LinkType,
 } from '../types';
 import type { ViewerTask } from '../viewerTasks';

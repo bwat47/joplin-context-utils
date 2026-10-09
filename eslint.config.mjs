@@ -47,6 +47,9 @@ export default defineConfig(
             'no-undef': 'off',
             // report an error if any circular dependency is found
             'import-x/no-cycle': ['error', { maxDepth: Infinity }],
+            '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
+            // Use `import type { A }` rather than `import { type A }` when every specifier is a type
+            '@typescript-eslint/no-import-type-side-effects': 'error',
             '@typescript-eslint/no-inferrable-types': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'error',
         },

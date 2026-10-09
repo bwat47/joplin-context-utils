@@ -3,7 +3,7 @@
  */
 
 import { logger } from '../logger';
-import { LinkContext, LinkInfo, LinkType } from '../types';
+import { type LinkContext, type LinkInfo, LinkType } from '../types';
 
 const FETCH_TIMEOUT_MS = 5000;
 const LINK_PREVIEW_API_URL = 'https://api.linkpreview.net/';

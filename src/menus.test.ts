@@ -1,7 +1,7 @@
-import { EditContextMenuFilterObject, FilterHandler, MenuItem } from 'api/types';
+import type { EditContextMenuFilterObject, FilterHandler, MenuItem } from 'api/types';
 import { registerContextMenuFilter } from './menus';
-import { getDefaultSettings, Settings } from './settings';
-import { COMMAND_IDS, EditorContext, LinkType } from './types';
+import { getDefaultSettings, type Settings } from './settings';
+import { COMMAND_IDS, type EditorContext, LinkType } from './types';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
 import { logger } from './logger';
 import { vi } from 'vitest';

@@ -3,7 +3,7 @@ import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
 import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
-import { EditorContext } from '../types';
+import type { EditorContext } from '../types';
 
 describe('contextDetection', () => {
     const createViewWithSelection = (doc: string, from: number, to: number) => {

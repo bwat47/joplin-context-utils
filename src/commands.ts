@@ -1,16 +1,16 @@
 import joplin from 'api';
 import {
     COMMAND_IDS,
-    EditorContext,
-    LinkContext,
-    LinkInfo,
-    CodeContext,
-    TaskContext,
+    type EditorContext,
+    type LinkContext,
+    type LinkInfo,
+    type CodeContext,
+    type TaskContext,
     LinkType,
-    FootnoteContext,
-    LinkSelectionContext,
-    HeadingContext,
-    QuoteContext,
+    type FootnoteContext,
+    type LinkSelectionContext,
+    type HeadingContext,
+    type QuoteContext,
 } from './types';
 import { showToast, ToastType } from './utils/toastUtils';
 import { logger } from './logger';

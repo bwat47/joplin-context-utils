@@ -3,7 +3,7 @@ import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
 import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
 import { registerSettings, getSetting } from './settings';
-import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, ContentScriptMessage, ContentScriptSettings } from './types';
+import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, type ContentScriptMessage, type ContentScriptSettings } from './types';
 import { logger } from './logger';
 import { registerViewerContentScript } from './viewerContextMenu';
 

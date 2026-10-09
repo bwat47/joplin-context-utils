@@ -1,12 +1,12 @@
 import joplin from 'api';
-import { LinkContext, EditorContext, LinkType, COMMAND_IDS } from './types';
-import { MenuItem, MenuItemLocation } from 'api/types';
+import { type LinkContext, type EditorContext, LinkType, COMMAND_IDS } from './types';
+import { type MenuItem, MenuItemLocation } from 'api/types';
 import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
 import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
 import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
-import { getSettings, Settings } from './settings';
+import { getSettings, type Settings } from './settings';
 import { discardViewerMessagesThrough, getViewerTaskContext } from './viewerContextMenu';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';

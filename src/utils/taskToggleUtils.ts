@@ -1,4 +1,4 @@
-import { TaskInfo } from '../types';
+import type { TaskInfo } from '../types';
 
 export interface TaskTogglePlan {
     targetChecked: boolean;
