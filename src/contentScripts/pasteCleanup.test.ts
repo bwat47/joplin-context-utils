@@ -1,5 +1,13 @@
-import type { Extension } from '@codemirror/state';
-import { Annotation, ChangeSet, EditorSelection, EditorState, StateEffect, Text, Transaction } from '@codemirror/state';
+import {
+    type Extension,
+    Annotation,
+    ChangeSet,
+    EditorSelection,
+    EditorState,
+    StateEffect,
+    Text,
+    Transaction,
+} from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
 import { indentUnit } from '@codemirror/language';

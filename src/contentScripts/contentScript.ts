@@ -4,8 +4,12 @@ import type { CodeMirrorControl, ContentScriptContext, MarkdownEditorContentScri
 import { logger } from '../logger';
 import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
 import { isViewerTaskList } from '../viewerTasks';
-import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE } from '../types';
-import type { ContentScriptMessage, ContentScriptSettings, TextReplacement } from '../types';
+import {
+    GET_CONTENT_SCRIPT_SETTINGS_MESSAGE,
+    type ContentScriptMessage,
+    type ContentScriptSettings,
+    type TextReplacement,
+} from '../types';
 import { createPasteCleanupExtension } from './pasteCleanup';
 
 /**

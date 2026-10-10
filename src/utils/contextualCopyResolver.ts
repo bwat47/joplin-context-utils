@@ -1,4 +1,11 @@
-import { type CodeContext, type EditorContext, type HeadingContext, type LinkContext, LinkType, type QuoteContext } from '../types';
+import {
+    type CodeContext,
+    type EditorContext,
+    type HeadingContext,
+    type LinkContext,
+    LinkType,
+    type QuoteContext,
+} from '../types';
 
 export type ContextualCopyTarget =
     | { kind: 'code'; context: CodeContext }
