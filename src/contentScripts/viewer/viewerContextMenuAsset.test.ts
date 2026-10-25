@@ -1,10 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { vi } from 'vitest';
-import { VIEWER_CONTENT_SCRIPT_ID } from '../viewerTasks';
+import { VIEWER_CONTENT_SCRIPT_ID } from '../../viewerTasks';
 import type { ViewerWebviewApi } from './viewerContextMenuTypes';
 
-const script = readFileSync(resolve(process.cwd(), 'src/contentScripts/viewerContextMenu.js'), 'utf8');
+const script = readFileSync(resolve(process.cwd(), 'src/contentScripts/viewer/viewerContextMenu.js'), 'utf8');
 
 function renderTask(line: number, label: string, checked: boolean, nested = ''): string {
     const id = `md-checkbox-${line}`;

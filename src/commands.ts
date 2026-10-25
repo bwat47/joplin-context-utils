@@ -19,7 +19,7 @@ import {
     GET_CONTEXT_AT_CURSOR_COMMAND,
     BATCH_REPLACE_COMMAND,
     SCROLL_TO_POSITION_COMMAND,
-} from './contentScripts/contentScript';
+} from './contentScripts/editor/contentScript';
 import { checkCheckboxInLine, uncheckCheckboxInLine } from './utils/checkboxUtils';
 import { getTaskTogglePlan } from './utils/taskToggleUtils';
 import {

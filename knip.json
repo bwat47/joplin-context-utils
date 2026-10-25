@@ -3,9 +3,9 @@
     "entry": [
         "webpack.config.js",
         "src/index.ts",
-        "src/contentScripts/contentScript.ts",
-        "src/contentScripts/viewerContentScript.ts",
-        "src/contentScripts/viewerContextMenu.js",
+        "src/contentScripts/editor/contentScript.ts",
+        "src/contentScripts/viewer/viewerContentScript.ts",
+        "src/contentScripts/viewer/viewerContextMenu.js",
         "src/**/*.test.ts"
     ],
     "project": ["src/**/*.ts"],

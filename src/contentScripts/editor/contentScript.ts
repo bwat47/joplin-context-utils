@@ -1,15 +1,15 @@
 import { EditorView } from '@codemirror/view';
 import { EditorSelection } from '@codemirror/state';
 import type { CodeMirrorControl, ContentScriptContext, MarkdownEditorContentScriptModule } from 'api/types';
-import { logger } from '../logger';
+import { logger } from '../../logger';
 import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
-import { isViewerTaskList } from '../viewerTasks';
+import { isViewerTaskList } from '../../viewerTasks';
 import {
     GET_CONTENT_SCRIPT_SETTINGS_MESSAGE,
     type ContentScriptMessage,
     type ContentScriptSettings,
     type TextReplacement,
-} from '../types';
+} from '../../types';
 import { createPasteCleanupExtension } from './pasteCleanup';
 
 /**

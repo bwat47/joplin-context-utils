@@ -10,7 +10,7 @@ import {
     type Extension,
     type TransactionSpec,
 } from '@codemirror/state';
-import { logger } from '../logger';
+import { logger } from '../../logger';
 
 /**
  * Indentation plus a bullet (`-`, `*`, `+`) or ordered (`1.`, `1)`) marker and its trailing

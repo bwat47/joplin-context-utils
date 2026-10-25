@@ -1,6 +1,6 @@
 {
     "extraScripts": [
-        "contentScripts/contentScript.ts",
-        "contentScripts/viewerContentScript.ts"
+        "contentScripts/editor/contentScript.ts",
+        "contentScripts/viewer/viewerContentScript.ts"
     ]
 }

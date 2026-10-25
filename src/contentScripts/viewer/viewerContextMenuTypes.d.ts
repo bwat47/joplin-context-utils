@@ -1,4 +1,4 @@
-import type { ViewerTask } from '../viewerTasks';
+import type { ViewerTask } from '../../viewerTasks';
 
 /** Local access to the viewer environment, without global declarations. */
 export type ViewerWindow = Window & {

@@ -2,7 +2,10 @@ import type { EditContextMenuFilterObject, FilterHandler, MenuItem } from 'api/t
 import { registerContextMenuFilter } from './menus';
 import { getDefaultSettings, type Settings } from './settings';
 import { COMMAND_IDS, type EditorContext, LinkType } from './types';
-import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
+import {
+    GET_CONTEXT_AT_CURSOR_COMMAND,
+    IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
+} from './contentScripts/editor/contentScript';
 import { logger } from './logger';
 import { vi } from 'vitest';
 

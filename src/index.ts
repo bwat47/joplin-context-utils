@@ -27,7 +27,7 @@ void joplin.plugins.register({
             await joplin.contentScripts.register(
                 ContentScriptType.CodeMirrorPlugin,
                 CONTENT_SCRIPT_ID,
-                './contentScripts/contentScript.js'
+                './contentScripts/editor/contentScript.js'
             );
 
             await registerViewerContentScript();

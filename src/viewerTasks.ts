@@ -10,7 +10,7 @@
  * Kept runtime dependency-free so the plugin and the CodeMirror content script
  * can both import it.
  *
- * `src/contentScripts/viewerContextMenu.js` runs as a plain script in the
+ * `src/contentScripts/viewer/viewerContextMenu.js` runs as a plain script in the
  * viewer and cannot import this module, so it repeats the content script ID.
  * Keep them in sync.
  */

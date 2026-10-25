@@ -41,7 +41,7 @@
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) return null;
 
-        /** @type {import('../viewerTasks').ViewerTask[]} */
+        /** @type {import('../../viewerTasks').ViewerTask[]} */
         const tasks = [];
         for (const item of document.querySelectorAll('li.md-checkbox[source-line]')) {
             if (!(item instanceof HTMLElement)) continue;
@@ -82,7 +82,7 @@
             const viewerApi = /** @type {import('./viewerContextMenuTypes').ViewerWebviewApi | undefined} */ (hostApi);
             if (!viewerApi || typeof viewerApi.postMessage !== 'function') return;
 
-            /** @type {import('../viewerTasks').ViewerTask[] | null} */
+            /** @type {import('../../viewerTasks').ViewerTask[] | null} */
             let tasks = null;
             try {
                 tasks = findSelectedTasks();

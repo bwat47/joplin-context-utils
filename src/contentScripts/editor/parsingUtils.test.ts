@@ -10,7 +10,7 @@ import {
     findFootnoteDefinition,
     extractUrl,
 } from './parsingUtils';
-import { LinkType } from '../types';
+import { LinkType } from '../../types';
 import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxTree } from '@codemirror/language';

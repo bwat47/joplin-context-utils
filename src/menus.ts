@@ -5,7 +5,10 @@ import { logger } from './logger';
 import { extractJoplinResourceId } from './utils/urlUtils';
 import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
 import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
-import { GET_CONTEXT_AT_CURSOR_COMMAND, IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND } from './contentScripts/contentScript';
+import {
+    GET_CONTEXT_AT_CURSOR_COMMAND,
+    IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
+} from './contentScripts/editor/contentScript';
 import { getSettings, type Settings } from './settings';
 import { discardViewerMessagesThrough, getViewerTaskContext } from './viewerContextMenu';
 

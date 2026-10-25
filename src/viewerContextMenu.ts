@@ -15,7 +15,7 @@
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, type ViewerTask } from './viewerTasks';
-import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/contentScript';
+import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/editor/contentScript';
 import type { TaskContext } from './types';
 import { logger } from './logger';
 
@@ -131,6 +131,6 @@ export async function registerViewerContentScript(): Promise<void> {
     await joplin.contentScripts.register(
         ContentScriptType.MarkdownItPlugin,
         VIEWER_CONTENT_SCRIPT_ID,
-        './contentScripts/viewerContentScript.js'
+        './contentScripts/viewer/viewerContentScript.js'
     );
 }

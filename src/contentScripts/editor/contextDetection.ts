@@ -13,8 +13,8 @@ import {
     type HeadingContext,
     type QuoteContext,
     LinkType,
-} from '../types';
-import type { ViewerTask } from '../viewerTasks';
+} from '../../types';
+import type { ViewerTask } from '../../viewerTasks';
 import { getHeadingAtPosition } from './headingExtraction';
 import { getQuoteAtPosition } from './quoteExtraction';
 import {
@@ -28,7 +28,7 @@ import {
     findReferenceDefinition,
     findFootnoteDefinition,
 } from './parsingUtils';
-import { TASK_CHECKBOX_PATTERN } from '../utils/checkboxUtils';
+import { TASK_CHECKBOX_PATTERN } from '../../utils/checkboxUtils';
 
 // Keep viewer context menus responsive when parsing a very large note.
 const VIEWER_TASK_PARSE_TIMEOUT_MS = 200;
