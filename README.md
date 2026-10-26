@@ -6,7 +6,7 @@
 
 # Context Utils
 
-Context Utils is a Joplin plugin that adds various options to the right-click context menu in the Markdown Editor and commands for toggling task list items, contextual copy, and fetching link titles.
+Context Utils is a Joplin plugin that adds various options to the right-click context menu in the Markdown Editor, along with commands for toggling task list items, contextual copy, fetching link titles, and automatically cleaning up pasted list items.
 
 ## Context Menu Options
 
