@@ -293,7 +293,7 @@ async function handleCopyHeadingLinkInternal(headingContext: HeadingContext): Pr
 
 /**
  * "Copy Heading Link (external)" handler
- * Copies a markdown link to the heading in the current note: [Heading @ Note](:/noteId#anchor)
+ * Copies a markdown link to the heading in the current note: `[Heading @ Note](:/noteId#anchor)`
  */
 async function handleCopyHeadingLinkExternal(headingContext: HeadingContext): Promise<void> {
     const note: unknown = await joplin.workspace.selectedNote();

@@ -36,7 +36,7 @@ export const BATCH_REPLACE_COMMAND = 'contextUtils-batchReplace';
 export const SCROLL_TO_POSITION_COMMAND = 'contextUtils-scrollToPosition';
 
 /**
- * Validates that a range has valid finite numbers with from <= to
+ * Validates that a range has valid finite numbers with `from <= to`
  * @returns true if valid, false otherwise (logs error on failure)
  */
 function validateRange(from: number, to: number, context: string): boolean {

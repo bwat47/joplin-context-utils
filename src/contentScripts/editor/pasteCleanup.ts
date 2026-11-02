@@ -162,8 +162,10 @@ function isContinuationOfItem(tree: Tree, doc: Text, pos: number, itemLineNumber
  * @returns Number replacements in `doc` coordinates; empty if the prefix is not an ordered marker
  *
  * @example
+ * ```ts
  * // doc: '2. a\n1. b\n   1. child\n1. c', prefix '2. '
  * // -> '2. a\n3. b\n   1. child\n4. c'
+ * ```
  */
 export function getListRenumberChanges(
     doc: Text,
@@ -354,9 +356,11 @@ function describeItem(
  * @param parser - The editor's Markdown parser
  *
  * @example
+ * ```ts
  * // pasted '- a\n\n      code\n\n  para\n   - b\n* c'
  * // -> [{ startLine: 0, endLine: 5, childColumns: [2, 3], hasCodeBlock: true },
  * //     { startLine: 6, endLine: 6, childColumns: [], hasCodeBlock: false }]
+ * ```
  */
 function getPastedItems(
     firstLine: string,
@@ -414,10 +418,12 @@ const MAX_CHILD_OFFSET = 3;
  * @param indentDelta - Columns every later pasted line shifts by
  *
  * @example
+ * ```ts
  * // '- a\n  - child' -> '1. a': child at 2, content column 3 -> shift +1
  * // '- a\n    - child' -> '1. a': child at 4, within 3..6 -> no shift
  * // '- a\n\n      code' -> '1. a': direct code block -> shift +1
  * // '10. a\n    para\n\n       - item' -> '- a': item at 7 past 2..5 -> shift -2
+ * ```
  */
 function getChildShift(
     item: PastedItem,
@@ -499,8 +505,10 @@ function convertItemMarker(
  * @returns Indentation and marker replacements in `doc` coordinates
  *
  * @example
+ * ```ts
  * // target '   1. ', pasted '- a\n  - child\n- b'
  * // -> '   1. a\n      - child\n   2. b'
+ * ```
  */
 export function getPastedLineChanges(
     doc: Text,

@@ -7,11 +7,13 @@
  * https://github.com/bwat47/joplin-heading-navigator/blob/main/src/linkFormatting.ts
  *
  * @example
+ * ```ts
  * formatExternalHeadingLink('Introduction', 'My Note', 'abc123', 'introduction')
  * // => "[Introduction @ My Note](:/abc123#introduction)"
  *
  * formatInternalHeadingLink('Introduction', 'introduction')
  * // => "[Introduction](#introduction)"
+ * ```
  */
 
 // Backslashes, brackets: required by Markdown syntax.

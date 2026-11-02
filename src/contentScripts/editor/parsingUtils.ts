@@ -152,7 +152,7 @@ export function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 't
 
 /**
  * Parses code block and extracts content using syntax tree traversal
- * Handles both fenced code blocks (with ``` or ~~~) and indented code blocks (4 spaces/tab)
+ * Handles both fenced code blocks (backtick or tilde fences) and indented code blocks (4 spaces/tab)
  * Properly handles nested backticks by extracting only the CodeText nodes
  * Falls back to regex if no CodeText child is found
  */

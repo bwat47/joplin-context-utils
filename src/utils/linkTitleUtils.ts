@@ -19,8 +19,10 @@ export interface FetchLinkTitleOptions {
  * without fetching the page. Rules are stored as a JSON array in settings.
  *
  * @example
+ * ```ts
  * // Extract the `track` query param value:
  * { pattern: 'helpdesk\\.example\\.com/.*[?&]track=([^&]+)', title: '$1' }
+ * ```
  */
 interface LinkTitleRule {
     /** Regex source, tested against the full URL. */

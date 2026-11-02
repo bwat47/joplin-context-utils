@@ -2,7 +2,7 @@
  * Joplin settings registration for Context Utils plugin.
  *
  * Integrates plugin configuration into Joplin's preferences UI, allowing
- * users to customize plugin behavior through Settings > Context Utils.
+ * users to customize plugin behavior through `Settings > Context Utils`.
  *
  * Settings are read fresh from Joplin at each entry point (no cache), so they are never stale.
  */

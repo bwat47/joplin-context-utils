@@ -7,6 +7,7 @@ import vitest from '@vitest/eslint-plugin';
 import importPlugin from 'eslint-plugin-import-x';
 import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
 import sonarjs from 'eslint-plugin-sonarjs';
+import tsdoc from 'eslint-plugin-tsdoc';
 import prettier from 'eslint-config-prettier';
 import globals from 'globals';
 
@@ -55,6 +56,17 @@ export default defineConfig(
             '@typescript-eslint/no-import-type-side-effects': 'error',
             '@typescript-eslint/no-inferrable-types': 'error',
             '@typescript-eslint/explicit-module-boundary-types': 'error',
+        },
+    },
+
+    // TSDoc applies to TS only; JS files use JSDoc type annotations (@type, @param {T})
+    {
+        files: ['**/*.{ts,tsx}'],
+        plugins: {
+            tsdoc,
+        },
+        rules: {
+            'tsdoc/syntax': 'error',
         },
     },
 
