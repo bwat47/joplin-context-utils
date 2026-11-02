@@ -644,7 +644,6 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
         return tr;
     }
 
-    // The length check above guarantees exactly one change.
     const { from, text } = changes[0]!;
     const cleaned = cleanPastedText(text, tr.startState, from);
     if (cleaned === text) {

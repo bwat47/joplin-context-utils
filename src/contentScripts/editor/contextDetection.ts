@@ -570,7 +570,6 @@ function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
     return {
         contextType: 'linkSelection',
         links,
-        // The array is non-empty and sorted by document position above.
         from: links[0]!.from,
         to: Math.max(...links.map((link) => link.to)),
     };

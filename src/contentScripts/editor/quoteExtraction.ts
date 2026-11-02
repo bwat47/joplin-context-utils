@@ -35,7 +35,6 @@ function trimBlankEdgeLines(lines: string[]): string[] {
     let from = 0;
     let to = lines.length;
 
-    // Bounds checks keep both accesses inside the dense lines array.
     while (from < to && lines[from]!.trim() === '') {
         from++;
     }
