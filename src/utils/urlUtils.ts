@@ -8,5 +8,6 @@
  */
 export function extractJoplinResourceId(url: string): string {
     // Remove ":/" prefix and any hash fragment
-    return url.substring(2).split('#')[0];
+    const fragmentStart = url.indexOf('#', 2);
+    return fragmentStart === -1 ? url.slice(2) : url.slice(2, fragmentStart);
 }

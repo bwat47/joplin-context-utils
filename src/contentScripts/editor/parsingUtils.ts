@@ -89,7 +89,8 @@ export function parseImageTag(htmlText: string): LinkParseResult {
         return null;
     }
 
-    const url = srcMatch[1];
+    // The src pattern requires this capture on every successful match.
+    const url = srcMatch[1]!;
     return classifyUrl(url);
 }
 
@@ -148,7 +149,8 @@ export function parseInlineCode(codeText: string): Omit<CodeContext, 'from' | 't
         return null;
     }
 
-    return { code: match[1] };
+    // A successful inline-code match always includes the content capture.
+    return { code: match[1]! };
 }
 
 /**
@@ -189,7 +191,8 @@ export function parseCodeBlock(
         return null;
     }
 
-    return { code: match[1] };
+    // Either fence pattern always captures the content, including an empty block.
+    return { code: match[1]! };
 }
 
 /**
