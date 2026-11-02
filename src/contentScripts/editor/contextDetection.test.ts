@@ -63,7 +63,7 @@ describe('contextDetection', () => {
 
         expect(linkSelection).toBeDefined();
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].expectedText).toBe(doc);
+        expect(linkSelection?.links[0]?.expectedText).toBe(doc);
     });
 
     it('returns one link for a bare URL selection', () => {
@@ -74,7 +74,7 @@ describe('contextDetection', () => {
 
         expect(linkSelection).toBeDefined();
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].expectedText).toBe(doc);
+        expect(linkSelection?.links[0]?.expectedText).toBe(doc);
     });
 
     it('preserves title attributes for markdown links in selection', () => {
@@ -85,8 +85,8 @@ describe('contextDetection', () => {
 
         expect(linkSelection).toBeDefined();
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].linkTitleToken).toBe('"Docs Title"');
-        expect(linkSelection?.links[0].expectedText).toBe(doc);
+        expect(linkSelection?.links[0]?.linkTitleToken).toBe('"Docs Title"');
+        expect(linkSelection?.links[0]?.expectedText).toBe(doc);
     });
 
     it('does not count a URL-shaped markdown link label as a second selection link', () => {
@@ -97,8 +97,8 @@ describe('contextDetection', () => {
 
         expect(linkSelection).toBeDefined();
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].url).toBe('https://google.com');
-        expect(linkSelection?.links[0].expectedText).toBe(doc);
+        expect(linkSelection?.links[0]?.url).toBe('https://google.com');
+        expect(linkSelection?.links[0]?.expectedText).toBe(doc);
     });
 
     it('excludes reference-style links from selection', () => {
@@ -187,7 +187,7 @@ describe('contextDetection', () => {
         const linkSelection = getLinkSelection(contexts);
 
         expect(linkSelection?.links).toHaveLength(1);
-        expect(linkSelection?.links[0].url).toBe(url);
+        expect(linkSelection?.links[0]?.url).toBe(url);
     });
 
     it('aggregates links from mixed cursor and selection ranges, ignoring the cursor', () => {
@@ -217,8 +217,8 @@ describe('contextDetection', () => {
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.checkedCount).toBe(0);
         expect(taskContext?.uncheckedCount).toBe(1);
-        expect(taskContext?.tasks[0].checked).toBe(false);
-        expect(taskContext?.tasks[0].lineText).toBe(doc);
+        expect(taskContext?.tasks[0]?.checked).toBe(false);
+        expect(taskContext?.tasks[0]?.lineText).toBe(doc);
     });
 
     it('detects task context on a checked task line', () => {
@@ -231,8 +231,8 @@ describe('contextDetection', () => {
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.checkedCount).toBe(1);
         expect(taskContext?.uncheckedCount).toBe(0);
-        expect(taskContext?.tasks[0].checked).toBe(true);
-        expect(taskContext?.tasks[0].lineText).toBe(doc);
+        expect(taskContext?.tasks[0]?.checked).toBe(true);
+        expect(taskContext?.tasks[0]?.lineText).toBe(doc);
     });
 
     it('detects task context for a selection with counts', () => {
@@ -316,7 +316,7 @@ describe('contextDetection', () => {
         expect(taskContext).toBeDefined();
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.uncheckedCount).toBe(1);
-        expect(taskContext?.tasks[0].lineText).toBe(doc);
+        expect(taskContext?.tasks[0]?.lineText).toBe(doc);
     });
 
     it('detects main cursor code and task context from another cursor', () => {
@@ -538,8 +538,8 @@ describe('contextDetection', () => {
         expect(taskContext).toBeDefined();
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.uncheckedCount).toBe(1);
-        expect(taskContext?.tasks[0].checked).toBe(false);
-        expect(taskContext?.tasks[0].lineText).toBe('> - [ ] task in quote');
+        expect(taskContext?.tasks[0]?.checked).toBe(false);
+        expect(taskContext?.tasks[0]?.lineText).toBe('> - [ ] task in quote');
     });
 
     it('detects a checked task inside a nested quote', () => {
@@ -552,7 +552,7 @@ describe('contextDetection', () => {
         expect(taskContext).toBeDefined();
         expect(taskContext?.tasks).toHaveLength(1);
         expect(taskContext?.checkedCount).toBe(1);
-        expect(taskContext?.tasks[0].checked).toBe(true);
+        expect(taskContext?.tasks[0]?.checked).toBe(true);
     });
 
     it('detects task context for selected task lines inside a quote', () => {

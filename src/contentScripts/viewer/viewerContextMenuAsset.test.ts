@@ -43,8 +43,8 @@ function rightClick(): unknown {
     postMessage.mockClear();
     label('First').parentElement!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
     expect(postMessage).toHaveBeenCalledOnce();
-    expect(postMessage.mock.calls[0][0]).toBe(VIEWER_CONTENT_SCRIPT_ID);
-    return postMessage.mock.calls[0][1];
+    expect(postMessage.mock.calls[0]?.[0]).toBe(VIEWER_CONTENT_SCRIPT_ID);
+    return postMessage.mock.calls[0]?.[1];
 }
 
 describe('viewerContextMenu.js', () => {

@@ -94,7 +94,12 @@ export function parseListItem(text: string): ListItem | null {
         return null;
     }
 
-    const [matched, indent, token, trailingWhitespace, taskBox] = match;
+    // Groups 1 through 3 always participate; only the task box capture is optional.
+    const matched = match[0];
+    const indent = match[1]!;
+    const token = match[2]!;
+    const trailingWhitespace = match[3]!;
+    const taskBox = match[4];
     return {
         indent,
         token,
@@ -532,9 +537,11 @@ export function getPastedLineChanges(
 
     const lessIndented = lines.findIndex((line) => line !== null && line.indent < baseIndent);
     const scopeLines = lessIndented === -1 ? lines.length + 1 : lessIndented + 1;
-    const [firstLine] = pastedText.split('\n', 1);
+    const newline = pastedText.indexOf('\n');
+    const firstLine = newline === -1 ? pastedText : pastedText.slice(0, newline);
     const items = getPastedItems(firstLine, lines, scopeLines, baseIndent, parser);
 
+    // Plans mirror lines; parsed item ranges are bounded by the same pasted lines.
     const plans: LinePlan[] = lines.map(() => ({ shift: 0 }));
     const firstContentColumn = countColumn(linePrefix, tabSize, target.contentStart);
     const firstPlacement: ItemPlacement = {
@@ -545,7 +552,7 @@ export function getPastedLineChanges(
     for (const item of items) {
         let placement = firstPlacement;
         if (item.startLine > 0) {
-            const converted = convertItemMarker(lines[item.startLine - 1], target, nextNumber++, indentDelta, tabSize);
+            const converted = convertItemMarker(lines[item.startLine - 1]!, target, nextNumber++, indentDelta, tabSize);
             if (!converted) {
                 break;
             }
@@ -559,7 +566,7 @@ export function getPastedLineChanges(
             .map((line) => line.indent);
         const childShift = getChildShift(item, placement, childIndents, indentDelta);
         for (let index = item.startLine; index < item.endLine; index++) {
-            plans[index].shift = childShift;
+            plans[index]!.shift = childShift;
         }
     }
 
@@ -567,7 +574,7 @@ export function getPastedLineChanges(
         if (!line) {
             return [];
         }
-        const { shift, item, token } = plans[index];
+        const { shift, item, token } = plans[index]!;
         return getLineStartChange(line, line.indent + indentDelta + shift, formatIndent, item, token);
     });
 }
@@ -637,7 +644,7 @@ function cleanPasteTransaction(tr: Transaction): Transaction | readonly Transact
         return tr;
     }
 
-    const { from, text } = changes[0];
+    const { from, text } = changes[0]!;
     const cleaned = cleanPastedText(text, tr.startState, from);
     if (cleaned === text) {
         return tr;

@@ -193,7 +193,7 @@ function configureEditorCommands(contexts: EditorContext[], editorOrigin = true)
 function getRegisteredFilter(): FilterHandler<EditContextMenuFilterObject> {
     registerContextMenuFilter();
     expect(apiMocks.filterEditorContextMenu).toHaveBeenCalledOnce();
-    return apiMocks.filterEditorContextMenu.mock.calls[0][0] as FilterHandler<EditContextMenuFilterObject>;
+    return apiMocks.filterEditorContextMenu.mock.calls[0]?.[0] as FilterHandler<EditContextMenuFilterObject>;
 }
 
 async function runFilter(
@@ -235,8 +235,8 @@ describe('viewer context menu filter', () => {
         const result = await getRegisteredFilter()({ items: [EXISTING_MENU_ITEM] });
 
         expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.TOGGLE_CHECKBOX, 'separator']);
-        expect(result.items[2].commandArgs).toEqual([viewerTaskContext]);
-        expect(result.items[2].label).toBe('Toggle Tasks (2)');
+        expect(result.items[2]?.commandArgs).toEqual([viewerTaskContext]);
+        expect(result.items[2]?.label).toBe('Toggle Tasks (2)');
         expect(apiMocks.settingsGlobalValues).toHaveBeenCalledWith(['editor.codeView']);
     });
 

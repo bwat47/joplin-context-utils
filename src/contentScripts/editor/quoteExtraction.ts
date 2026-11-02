@@ -35,11 +35,11 @@ function trimBlankEdgeLines(lines: string[]): string[] {
     let from = 0;
     let to = lines.length;
 
-    while (from < to && lines[from].trim() === '') {
+    while (from < to && lines[from]!.trim() === '') {
         from++;
     }
 
-    while (to > from && lines[to - 1].trim() === '') {
+    while (to > from && lines[to - 1]!.trim() === '') {
         to--;
     }
 
@@ -52,16 +52,18 @@ function trimBlankEdgeLines(lines: string[]): string[] {
 const ALERT_MARKER_PATTERN = /^\[![^\]]+\](.*)$/;
 
 function stripLeadingAlertMarker(lines: string[]): string[] {
-    if (lines.length === 0) {
+    const firstLine = lines[0];
+    if (firstLine === undefined) {
         return lines;
     }
 
-    const match = ALERT_MARKER_PATTERN.exec(lines[0].trim());
+    const match = ALERT_MARKER_PATTERN.exec(firstLine.trim());
     if (!match) {
         return lines;
     }
 
-    const title = match[1].trim();
+    // The title capture always participates, including when it is empty.
+    const title = match[1]!.trim();
     // Preserve any title text after the marker; otherwise drop the marker line.
     const remaining = title ? [title, ...lines.slice(1)] : lines.slice(1);
 

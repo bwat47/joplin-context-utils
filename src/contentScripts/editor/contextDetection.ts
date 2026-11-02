@@ -364,7 +364,8 @@ function detectFootnoteContext(view: EditorView, pos: number): FootnoteContext |
             continue;
         }
 
-        const label = match[1];
+        // A successful match always includes the required label capture.
+        const label = match[1]!;
         const targetPos = findFootnoteDefinition(view, label);
         if (targetPos === null) {
             continue;
@@ -513,14 +514,11 @@ function collectTasksInRange(view: EditorView, from: number, to: number, tree = 
 export function resolveViewerTasks(view: EditorView, viewerTasks: ViewerTask[]): TaskContext | null {
     const doc = view.state.doc;
     const lines = [...new Map(viewerTasks.map((task) => [task.line, task])).values()].sort((a, b) => a.line - b.line);
-    if (lines.length === 0 || lines[lines.length - 1].line >= doc.lines) return null;
+    const lastLine = lines[lines.length - 1];
+    if (!lastLine || lastLine.line >= doc.lines) return null;
 
     // The editor may not have parsed this part of a long note yet (e.g. viewer-only layout).
-    const tree = ensureSyntaxTree(
-        view.state,
-        doc.line(lines[lines.length - 1].line + 1).to,
-        VIEWER_TASK_PARSE_TIMEOUT_MS
-    );
+    const tree = ensureSyntaxTree(view.state, doc.line(lastLine.line + 1).to, VIEWER_TASK_PARSE_TIMEOUT_MS);
     if (!tree) return null;
 
     const tasks: TaskInfo[] = [];
@@ -572,7 +570,7 @@ function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
     return {
         contextType: 'linkSelection',
         links,
-        from: links[0].from,
+        from: links[0]!.from,
         to: Math.max(...links.map((link) => link.to)),
     };
 }
