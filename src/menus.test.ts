@@ -193,7 +193,7 @@ function configureEditorCommands(contexts: EditorContext[], editorOrigin = true)
 function getRegisteredFilter(): FilterHandler<EditContextMenuFilterObject> {
     registerContextMenuFilter();
     expect(apiMocks.filterEditorContextMenu).toHaveBeenCalledOnce();
-    return apiMocks.filterEditorContextMenu.mock.calls[0]![0] as FilterHandler<EditContextMenuFilterObject>;
+    return apiMocks.filterEditorContextMenu.mock.calls[0]?.[0] as FilterHandler<EditContextMenuFilterObject>;
 }
 
 async function runFilter(
