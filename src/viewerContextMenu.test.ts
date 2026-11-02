@@ -1,7 +1,8 @@
 import { vi } from 'vitest';
-import { getViewerTaskContext, receiveViewerMessage } from './viewerContextMenu';
+
 import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/editor/contentScript';
 import type { TaskContext } from './types';
+import { getViewerTaskContext, receiveViewerMessage } from './viewerContextMenu';
 
 const apiMocks = vi.hoisted(() => ({ execute: vi.fn() }));
 

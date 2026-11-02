@@ -1,9 +1,10 @@
-import type { EditorView } from '@codemirror/view';
-import { EditorSelection, EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
+import { EditorSelection, EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { GFM } from '@lezer/markdown';
-import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
+
 import type { EditorContext } from '../../types';
+import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
 
 describe('contextDetection', () => {
     const createViewWithSelection = (doc: string, from: number, to: number) => {

@@ -1,5 +1,6 @@
+import { markdown } from '@codemirror/lang-markdown';
+import { indentUnit } from '@codemirror/language';
 import {
-    type Extension,
     Annotation,
     ChangeSet,
     EditorSelection,
@@ -7,10 +8,10 @@ import {
     StateEffect,
     Text,
     Transaction,
+    type Extension,
 } from '@codemirror/state';
-import { markdown } from '@codemirror/lang-markdown';
 import { GFM } from '@lezer/markdown';
-import { indentUnit } from '@codemirror/language';
+
 import {
     createPasteCleanupExtension,
     getListRenumberChanges,

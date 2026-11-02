@@ -8,7 +8,7 @@
  */
 
 import joplin from 'api';
-import { type SettingItem, SettingItemType } from 'api/types';
+import { SettingItemType, type SettingItem } from 'api/types';
 
 const SECTION_ID = 'contextUtils';
 type SettingConfigEntry<T extends string | boolean> = {

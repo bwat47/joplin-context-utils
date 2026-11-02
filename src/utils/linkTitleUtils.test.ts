@@ -1,16 +1,17 @@
+import { vi } from 'vitest';
+
+import { LinkType } from '../types';
 import {
-    sanitizeLinkTitle,
+    applyLinkTitleRules,
+    buildTitleAttributeToken,
     escapeMarkdownLinkText,
     extractDomain,
-    buildTitleAttributeToken,
     fetchLinkTitle,
-    parseLinkTitleRules,
-    applyLinkTitleRules,
-    isFetchableLink,
     getFetchLinkTitlesMenuLabel,
+    isFetchableLink,
+    parseLinkTitleRules,
+    sanitizeLinkTitle,
 } from './linkTitleUtils';
-import { LinkType } from '../types';
-import { vi } from 'vitest';
 
 const mockFetch = vi.fn();
 

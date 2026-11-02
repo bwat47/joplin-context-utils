@@ -1,4 +1,4 @@
-import { escapeLinkText, formatInternalHeadingLink, formatExternalHeadingLink } from './headingLinkFormatting';
+import { escapeLinkText, formatExternalHeadingLink, formatInternalHeadingLink } from './headingLinkFormatting';
 
 describe('headingLinkFormatting', () => {
     describe('escapeLinkText', () => {

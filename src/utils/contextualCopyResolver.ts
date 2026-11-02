@@ -1,9 +1,9 @@
 import {
+    LinkType,
     type CodeContext,
     type EditorContext,
     type HeadingContext,
     type LinkContext,
-    LinkType,
     type QuoteContext,
 } from '../types';
 

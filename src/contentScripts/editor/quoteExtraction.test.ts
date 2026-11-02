@@ -1,7 +1,8 @@
-import type { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
+import { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { GFM } from '@lezer/markdown';
+
 import { getQuoteAtPosition } from './quoteExtraction';
 
 describe('quoteExtraction', () => {

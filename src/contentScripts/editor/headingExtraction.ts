@@ -14,8 +14,8 @@
 
 import { syntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
-import type { SyntaxNode } from '@lezer/common';
 import uslug from '@joplin/fork-uslug';
+import type { SyntaxNode } from '@lezer/common';
 
 /**
  * Parses the heading level from a Lezer node name.

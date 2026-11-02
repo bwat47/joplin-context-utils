@@ -1,10 +1,10 @@
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
 import { registerCommands } from './commands';
-import { registerApplicationMenuItems, registerContextMenuFilter, CONTENT_SCRIPT_ID } from './menus';
-import { registerSettings, getSetting } from './settings';
-import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, type ContentScriptMessage, type ContentScriptSettings } from './types';
 import { logger } from './logger';
+import { CONTENT_SCRIPT_ID, registerApplicationMenuItems, registerContextMenuFilter } from './menus';
+import { getSetting, registerSettings } from './settings';
+import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, type ContentScriptMessage, type ContentScriptSettings } from './types';
 import { registerViewerContentScript } from './viewerContextMenu';
 
 void joplin.plugins.register({

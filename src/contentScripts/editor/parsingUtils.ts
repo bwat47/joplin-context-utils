@@ -1,7 +1,8 @@
-import type { SyntaxNode } from '@lezer/common';
 import { ensureSyntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
-import { type LinkContext, type CodeContext, LinkType } from '../../types';
+import type { SyntaxNode } from '@lezer/common';
+
+import { LinkType, type CodeContext, type LinkContext } from '../../types';
 
 /**
  * Result of URL extraction, including position information

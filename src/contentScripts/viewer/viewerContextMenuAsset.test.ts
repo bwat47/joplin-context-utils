@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { vi } from 'vitest';
+
 import { VIEWER_CONTENT_SCRIPT_ID } from '../../viewerTasks';
 import type { ViewerWebviewApi } from './viewerContextMenuTypes';
 

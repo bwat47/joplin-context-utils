@@ -25,6 +25,7 @@
         "@codemirror/language": "^6.11.3",
         "@codemirror/state": "^6.5.2",
         "@eslint/js": "^10.0.1",
+        "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
         "@lezer/markdown": "^1.6.3",
         "@types/node": "^24.13.2",
         "@vitest/coverage-v8": "^5.0.2",

@@ -1,37 +1,37 @@
 import joplin from 'api';
 import {
-    COMMAND_IDS,
-    type EditorContext,
-    type LinkContext,
-    type LinkInfo,
-    type CodeContext,
-    type TaskContext,
-    LinkType,
-    type FootnoteContext,
-    type LinkSelectionContext,
-    type HeadingContext,
-    type QuoteContext,
-} from './types';
-import { showToast, ToastType } from './utils/toastUtils';
-import { logger } from './logger';
-import { extractJoplinResourceId } from './utils/urlUtils';
-import {
-    GET_CONTEXT_AT_CURSOR_COMMAND,
     BATCH_REPLACE_COMMAND,
+    GET_CONTEXT_AT_CURSOR_COMMAND,
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/editor/contentScript';
-import { checkCheckboxInLine, uncheckCheckboxInLine } from './utils/checkboxUtils';
-import { getTaskTogglePlan } from './utils/taskToggleUtils';
+import { logger } from './logger';
+import { getSetting, getSettings } from './settings';
 import {
-    fetchLinkTitle,
+    COMMAND_IDS,
+    LinkType,
+    type CodeContext,
+    type EditorContext,
+    type FootnoteContext,
+    type HeadingContext,
+    type LinkContext,
+    type LinkInfo,
+    type LinkSelectionContext,
+    type QuoteContext,
+    type TaskContext,
+} from './types';
+import { checkCheckboxInLine, uncheckCheckboxInLine } from './utils/checkboxUtils';
+import { resolveContextualCopyTarget } from './utils/contextualCopyResolver';
+import { formatExternalHeadingLink, formatInternalHeadingLink } from './utils/headingLinkFormatting';
+import {
     buildTitleAttributeToken,
     escapeMarkdownLinkText,
+    fetchLinkTitle,
     isFetchableLink,
     linkContextToLinkInfo,
 } from './utils/linkTitleUtils';
-import { formatInternalHeadingLink, formatExternalHeadingLink } from './utils/headingLinkFormatting';
-import { getSetting, getSettings } from './settings';
-import { resolveContextualCopyTarget } from './utils/contextualCopyResolver';
+import { getTaskTogglePlan } from './utils/taskToggleUtils';
+import { showToast, ToastType } from './utils/toastUtils';
+import { extractJoplinResourceId } from './utils/urlUtils';
 
 /**
  * Registers all context menu commands

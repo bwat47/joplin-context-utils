@@ -1,19 +1,20 @@
-import type { SyntaxNode } from '@lezer/common';
-import type { EditorView } from '@codemirror/view';
-import {
-    classifyUrl,
-    classifyEmailAutolink,
-    parseImageTag,
-    parseInlineCode,
-    extractReferenceLabel,
-    findReferenceDefinition,
-    findFootnoteDefinition,
-    extractUrl,
-} from './parsingUtils';
-import { LinkType } from '../../types';
-import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
 import { syntaxTree } from '@codemirror/language';
+import { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
+import type { SyntaxNode } from '@lezer/common';
+
+import { LinkType } from '../../types';
+import {
+    classifyEmailAutolink,
+    classifyUrl,
+    extractReferenceLabel,
+    extractUrl,
+    findFootnoteDefinition,
+    findReferenceDefinition,
+    parseImageTag,
+    parseInlineCode,
+} from './parsingUtils';
 
 describe('parsingUtils', () => {
     describe('classifyUrl', () => {

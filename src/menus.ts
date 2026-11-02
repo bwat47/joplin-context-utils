@@ -1,15 +1,15 @@
 import joplin from 'api';
-import { type LinkContext, type EditorContext, LinkType, COMMAND_IDS } from './types';
-import { type MenuItem, MenuItemLocation } from 'api/types';
-import { logger } from './logger';
-import { extractJoplinResourceId } from './utils/urlUtils';
-import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
-import { isFetchableLink, linkContextToLinkInfo, getFetchLinkTitlesMenuLabel } from './utils/linkTitleUtils';
+import { MenuItemLocation, type MenuItem } from 'api/types';
 import {
     GET_CONTEXT_AT_CURSOR_COMMAND,
     IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND,
 } from './contentScripts/editor/contentScript';
+import { logger } from './logger';
 import { getSettings, type Settings } from './settings';
+import { COMMAND_IDS, LinkType, type EditorContext, type LinkContext } from './types';
+import { getFetchLinkTitlesMenuLabel, isFetchableLink, linkContextToLinkInfo } from './utils/linkTitleUtils';
+import { getTaskToggleMenuLabel } from './utils/taskToggleUtils';
+import { extractJoplinResourceId } from './utils/urlUtils';
 import { discardViewerMessagesThrough, getViewerTaskContext } from './viewerContextMenu';
 
 const CONTENT_SCRIPT_ID = 'contextUtilsLinkDetection';

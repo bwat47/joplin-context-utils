@@ -1,15 +1,16 @@
 import { indentString, language, syntaxTree } from '@codemirror/language';
-import type { Parser, SyntaxNode, Tree } from '@lezer/common';
 import {
     ChangeSet,
+    countColumn,
     EditorState,
     Text,
-    type Transaction,
-    countColumn,
     type ChangeSpec,
     type Extension,
+    type Transaction,
     type TransactionSpec,
 } from '@codemirror/state';
+import type { Parser, SyntaxNode, Tree } from '@lezer/common';
+
 import { logger } from '../../logger';
 
 /**

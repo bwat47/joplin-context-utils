@@ -1,7 +1,8 @@
-import type { EditorView } from '@codemirror/view';
-import { EditorState } from '@codemirror/state';
 import { markdown } from '@codemirror/lang-markdown';
+import { EditorState } from '@codemirror/state';
+import type { EditorView } from '@codemirror/view';
 import { GFM, type InlineContext, type MarkdownConfig } from '@lezer/markdown';
+
 import { getHeadingAtPosition } from './headingExtraction';
 
 const DOLLAR_SIGN_CHARCODE = 36;

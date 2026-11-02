@@ -1,34 +1,35 @@
 import { ensureSyntaxTree, syntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
 import type { SyntaxNodeRef } from '@lezer/common';
+
 import {
-    type LinkContext,
+    LinkType,
     type CodeContext,
-    type TaskContext,
-    type TaskInfo,
     type EditorContext,
     type FootnoteContext,
-    type LinkSelectionContext,
-    type LinkInfo,
     type HeadingContext,
+    type LinkContext,
+    type LinkInfo,
+    type LinkSelectionContext,
     type QuoteContext,
-    LinkType,
+    type TaskContext,
+    type TaskInfo,
 } from '../../types';
+import { TASK_CHECKBOX_PATTERN } from '../../utils/checkboxUtils';
 import type { ViewerTask } from '../../viewerTasks';
 import { getHeadingAtPosition } from './headingExtraction';
-import { getQuoteAtPosition } from './quoteExtraction';
 import {
-    parseInlineCode,
-    parseCodeBlock,
-    extractUrl,
-    classifyUrl,
     classifyEmailAutolink,
-    parseImageTag,
+    classifyUrl,
     extractReferenceLabel,
-    findReferenceDefinition,
+    extractUrl,
     findFootnoteDefinition,
+    findReferenceDefinition,
+    parseCodeBlock,
+    parseImageTag,
+    parseInlineCode,
 } from './parsingUtils';
-import { TASK_CHECKBOX_PATTERN } from '../../utils/checkboxUtils';
+import { getQuoteAtPosition } from './quoteExtraction';
 
 // Keep viewer context menus responsive when parsing a very large note.
 const VIEWER_TASK_PARSE_TIMEOUT_MS = 200;

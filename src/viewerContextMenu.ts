@@ -14,10 +14,10 @@
 
 import joplin from 'api';
 import { ContentScriptType } from 'api/types';
-import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, type ViewerTask } from './viewerTasks';
 import { RESOLVE_VIEWER_TASKS_COMMAND } from './contentScripts/editor/contentScript';
-import type { TaskContext } from './types';
 import { logger } from './logger';
+import type { TaskContext } from './types';
+import { isViewerTaskList, VIEWER_CONTENT_SCRIPT_ID, type ViewerTask } from './viewerTasks';
 
 /** Maximum time between a viewer click and the start of its menu request. */
 const VIEWER_MESSAGE_GRACE_MS = 400;
