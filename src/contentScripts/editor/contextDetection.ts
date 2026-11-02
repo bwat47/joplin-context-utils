@@ -157,7 +157,8 @@ function detectQuoteContext(view: EditorView, pos: number): QuoteContext | null 
  */
 function detectPrimaryContext(view: EditorView, pos: number): LinkContext | CodeContext | FootnoteContext | null {
     const tree = syntaxTree(view.state);
-    let context: LinkContext | CodeContext | null = null;
+    // Cast prevents narrowing to `null`; TS does not track the assignment inside the iterate callback
+    let context = null as LinkContext | CodeContext | null;
 
     // Traverse syntax tree to find nodes at position
     tree.iterate({
@@ -394,7 +395,8 @@ function detectFootnoteContext(view: EditorView, pos: number): FootnoteContext |
  */
 function detectTaskAtPosition(view: EditorView, pos: number): TaskInfo | null {
     const tree = syntaxTree(view.state);
-    let isInTaskList = false;
+    // Cast prevents narrowing to `false`; TS does not track the assignment inside the iterate callback
+    let isInTaskList = false as boolean;
 
     // Check if cursor is within a Task node (GFM task list item)
     // This prevents false positives inside code blocks

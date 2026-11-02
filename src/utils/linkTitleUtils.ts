@@ -311,7 +311,7 @@ async function fetchTitleDirectly(url: string): Promise<string | null> {
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const rawTitle = doc.querySelector('title')?.textContent?.trim();
+    const rawTitle = doc.querySelector('title')?.textContent.trim();
 
     if (!rawTitle) {
         return null;

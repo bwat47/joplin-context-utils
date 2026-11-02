@@ -4,7 +4,7 @@ import { registerCommands } from './commands';
 import { logger } from './logger';
 import { CONTENT_SCRIPT_ID, registerApplicationMenuItems, registerContextMenuFilter } from './menus';
 import { getSetting, registerSettings } from './settings';
-import { GET_CONTENT_SCRIPT_SETTINGS_MESSAGE, type ContentScriptMessage, type ContentScriptSettings } from './types';
+import type { ContentScriptSettings } from './types';
 import { registerViewerContentScript } from './viewerContextMenu';
 
 void joplin.plugins.register({
@@ -14,14 +14,11 @@ void joplin.plugins.register({
 
             // Serve settings the content script needs (it fetches them once on load).
             // Registered before the content script so an already-open editor never posts before a handler exists.
-            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (message: ContentScriptMessage) => {
-                if (message?.type === GET_CONTENT_SCRIPT_SETTINGS_MESSAGE) {
-                    const settings: ContentScriptSettings = {
-                        cleanUpListPaste: await getSetting('cleanUpListPaste'),
-                    };
-                    return settings;
-                }
-                return undefined;
+            // The only message the content script sends is a settings request, so no type check is needed.
+            await joplin.contentScripts.onMessage(CONTENT_SCRIPT_ID, async (): Promise<ContentScriptSettings> => {
+                return {
+                    cleanUpListPaste: await getSetting('cleanUpListPaste'),
+                };
             });
 
             await joplin.contentScripts.register(
