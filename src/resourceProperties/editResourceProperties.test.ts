@@ -26,15 +26,21 @@ vi.mock('../utils/toastUtils', () => ({
 
 const RESOURCE_ID = 'a'.repeat(32);
 const DOC_PREFIX = 'Text ![';
+const NOTE_ID = 'n'.repeat(32);
 
 function linkContext(label: string | null = 'photo.png'): LinkContext {
+    const markdown = `![${label ?? ''}](:/${RESOURCE_ID})`;
     return {
+        noteId: NOTE_ID,
         contextType: 'link',
         url: `:/${RESOURCE_ID}`,
         type: LinkType.JoplinResource,
         from: 0,
         to: 10,
         isImage: true,
+        markdownLinkFrom: DOC_PREFIX.length - 2,
+        markdownLinkTo: DOC_PREFIX.length - 2 + markdown.length,
+        expectedText: markdown,
         linkLabel:
             label === null ? undefined : { text: label, from: DOC_PREFIX.length, to: DOC_PREFIX.length + label.length },
     };
@@ -88,6 +94,22 @@ describe('editResourceProperties', () => {
         expect(prompt.mock.calls[0]?.[0]).toMatchObject({ canUpdateLinkLabel: false, updateLinkLabelByDefault: false });
     });
 
+    it.each(['noteId', 'expectedText', 'markdownLinkFrom', 'markdownLinkTo'] as const)(
+        'does not update link text without %s',
+        async (field) => {
+            const context = linkContext();
+            delete context[field];
+            const prompt = promptReturning({ name: 'Beach', updateLinkLabel: true });
+            await editResourceProperties(context, prompt);
+            expect(prompt.mock.calls[0]?.[0]).toMatchObject({
+                canUpdateLinkLabel: false,
+                updateLinkLabelByDefault: false,
+            });
+            expect(apiMocks.dataPut).toHaveBeenCalledOnce();
+            expect(apiMocks.execute).not.toHaveBeenCalled();
+        }
+    );
+
     it('renames the resource and updates the link label', async () => {
         await editResourceProperties(linkContext(), promptReturning({ name: 'Beach [1]', updateLinkLabel: true }));
 
@@ -97,7 +119,15 @@ describe('editResourceProperties', () => {
         });
         expect(apiMocks.execute).toHaveBeenCalledWith('editor.execCommand', {
             name: BATCH_REPLACE_COMMAND,
-            args: [[{ from: 7, to: 16, text: 'Beach \\[1\\]', expectedText: 'photo.png' }]],
+            args: [
+                [{ from: 7, to: 16, text: 'Beach \\[1\\]', expectedText: 'photo.png' }],
+                {
+                    noteId: NOTE_ID,
+                    from: 5,
+                    to: 5 + `![photo.png](:/${RESOURCE_ID})`.length,
+                    expectedText: `![photo.png](:/${RESOURCE_ID})`,
+                },
+            ],
         });
         expect(showToast).toHaveBeenCalledWith('Resource and link text renamed', ToastType.Success);
     });
@@ -119,7 +149,10 @@ describe('editResourceProperties', () => {
         });
         expect(apiMocks.execute).toHaveBeenCalledWith('editor.execCommand', {
             name: BATCH_REPLACE_COMMAND,
-            args: [[{ from: 7, to: 16, text: '&lt;attachment&gt;', expectedText: 'photo.png' }]],
+            args: [
+                [{ from: 7, to: 16, text: '&lt;attachment&gt;', expectedText: 'photo.png' }],
+                expect.objectContaining({ noteId: NOTE_ID }),
+            ],
         });
     });
 
@@ -157,7 +190,7 @@ describe('editResourceProperties', () => {
         expect(apiMocks.dataPut).toHaveBeenCalledOnce();
         expect(showToast).toHaveBeenCalledWith(
             'Resource renamed; note changed, so link text was not updated',
-            ToastType.Error
+            ToastType.Info
         );
     });
 });

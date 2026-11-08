@@ -8,7 +8,7 @@
 import joplin from 'api';
 import { BATCH_REPLACE_COMMAND } from '../contentScripts/editor/contentScript';
 import { logger } from '../logger';
-import type { LinkContext, TextReplacement } from '../types';
+import type { LinkContext, TextReplacement, TextReplacementGuard } from '../types';
 import { showToast, ToastType } from '../utils/toastUtils';
 import { extractJoplinResourceId } from '../utils/urlUtils';
 import {
@@ -33,11 +33,24 @@ export async function editResourceProperties(
     ]);
 
     const linkLabel = linkContext.linkLabel;
+    const guard: TextReplacementGuard | undefined =
+        linkContext.noteId &&
+        linkContext.markdownLinkFrom !== undefined &&
+        linkContext.markdownLinkTo !== undefined &&
+        linkContext.expectedText !== undefined
+            ? {
+                  noteId: linkContext.noteId,
+                  from: linkContext.markdownLinkFrom,
+                  to: linkContext.markdownLinkTo,
+                  expectedText: linkContext.expectedText,
+              }
+            : undefined;
     const result = await prompt({
         resource,
         referencingNotes,
-        canUpdateLinkLabel: linkLabel !== undefined,
-        updateLinkLabelByDefault: linkLabel !== undefined && isDefaultLinkLabel(linkLabel.text, resource),
+        canUpdateLinkLabel: linkLabel !== undefined && guard !== undefined,
+        updateLinkLabelByDefault:
+            linkLabel !== undefined && guard !== undefined && isDefaultLinkLabel(linkLabel.text, resource),
     });
     if (!result) return;
 
@@ -53,7 +66,7 @@ export async function editResourceProperties(
     }
 
     const newLabel = escapeLinkLabel(result.name);
-    if (!result.updateLinkLabel || !linkLabel || linkLabel.text === newLabel) {
+    if (!result.updateLinkLabel || !linkLabel || !guard || linkLabel.text === newLabel) {
         if (renamed) await showToast('Resource renamed', ToastType.Success);
         return;
     }
@@ -66,7 +79,7 @@ export async function editResourceProperties(
     };
     const updated = (await joplin.commands.execute('editor.execCommand', {
         name: BATCH_REPLACE_COMMAND,
-        args: [[replacement]],
+        args: [[replacement], guard],
     })) as boolean;
 
     if (!updated) {
@@ -75,7 +88,7 @@ export async function editResourceProperties(
             renamed
                 ? 'Resource renamed; note changed, so link text was not updated'
                 : 'Content changed; update aborted',
-            ToastType.Error
+            ToastType.Info
         );
         return;
     }

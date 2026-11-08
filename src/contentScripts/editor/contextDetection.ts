@@ -302,6 +302,9 @@ function detectMarkdownImageContext(view: EditorView, node: SyntaxNodeRef): Link
         from: node.from,
         to: node.to,
         isImage: true,
+        markdownLinkFrom: node.from,
+        markdownLinkTo: node.to,
+        expectedText: view.state.doc.sliceString(node.from, node.to),
         linkLabel: extractLinkLabel(node.node, view) ?? undefined,
     };
 }

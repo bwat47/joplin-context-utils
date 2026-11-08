@@ -2,6 +2,8 @@
  * Represents a detected link's context information
  */
 export interface LinkContext {
+    /** Note containing this link when the editor context was captured */
+    noteId?: string;
     /** Discriminator for union type */
     contextType: 'link';
 
@@ -244,6 +246,12 @@ export interface TextReplacement extends EditorRange {
     text: string;
     expectedText?: string;
     selectionBehavior?: ReplacementSelectionBehavior;
+}
+
+/** Note and surrounding text that must still match before applying a batch replacement. */
+export interface TextReplacementGuard extends EditorRange {
+    noteId: string;
+    expectedText: string;
 }
 
 /**
