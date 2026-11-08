@@ -22,7 +22,9 @@ export function findHtmlImage(html: string, position = 0): HtmlImage | null {
         if (position < from || position > to) continue;
 
         const attributes = readAttributes(tag, from);
-        const src = attributes.get('src')?.plainText ?? '';
+        const srcAttribute = attributes.get('src');
+        const src = srcAttribute?.plainText ?? '';
+        const insertionPoint = srcAttribute?.to ?? from + 4;
         const label = attributes.get('alt');
         return {
             src,
@@ -30,8 +32,8 @@ export function findHtmlImage(html: string, position = 0): HtmlImage | null {
             to,
             label: label ?? {
                 text: '',
-                from: from + 4,
-                to: from + 4,
+                from: insertionPoint,
+                to: insertionPoint,
                 format: 'htmlAttributeInsertion',
                 plainText: '',
             },

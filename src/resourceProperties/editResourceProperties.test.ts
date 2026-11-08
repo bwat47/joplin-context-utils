@@ -98,6 +98,7 @@ describe('editResourceProperties', () => {
         expect(replacement.expectedText).toBe(alt);
         expect(invocation.args[1]).toEqual({ noteId: NOTE_ID, from: 0, to: html.length, expectedText: html });
         const updated = html.slice(0, replacement.from) + replacement.text + html.slice(replacement.to);
+        expect(updated).toContain(`src=":/${RESOURCE_ID}"${alt ? '' : replacement.text}`);
         const container = document.createElement('div');
         container.innerHTML = updated;
         const image = container.querySelector('img')!;

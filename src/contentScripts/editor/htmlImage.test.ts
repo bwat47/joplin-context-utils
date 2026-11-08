@@ -16,11 +16,12 @@ describe('HTML image labels', () => {
         expect(html.slice(image.label.from, image.label.to)).toBe(attribute);
     });
 
-    it('inserts a missing alt immediately after the tag name', () => {
-        const html = '<IMG src=":/id" width="200"/>';
-        expect(findHtmlImage(html)?.label).toEqual({
-            from: 4,
-            to: 4,
+    it.each(['src=":/id"', "SRC = ':/id'", 'src=:/id'])('inserts a missing alt immediately after %s', (attribute) => {
+        const html = `<div></div><IMG width="200" ${attribute} height="100"/>`;
+        const insertionPoint = html.indexOf(attribute) + attribute.length;
+        expect(findHtmlImage(html, html.indexOf(attribute))?.label).toEqual({
+            from: insertionPoint,
+            to: insertionPoint,
             text: '',
             format: 'htmlAttributeInsertion',
             plainText: '',
