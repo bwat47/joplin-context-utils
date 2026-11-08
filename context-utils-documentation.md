@@ -382,8 +382,10 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 
 ```json
 {
-    "extraScripts": ["contentScripts/editor/contentScript.ts"]
+    "extraScripts": ["contentScripts/editor/contentScript.ts", "contentScripts/viewer/viewerContentScript.ts"]
 }
 ```
 
-Content scripts must be declared here for webpack bundling.
+Content scripts must be declared here so the shared `@bwat47/joplin-plugin-scripts` build bundles them
+with esbuild. `contentScripts/viewer/viewerContextMenu.js` is plain JavaScript and is copied as-is.
+See [docs/BUILDING.md](docs/BUILDING.md).
