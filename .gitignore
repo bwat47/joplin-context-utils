@@ -15,3 +15,4 @@ gemini/
 prompts/
 .claude/settings.local.json
 .api-staging-*/
+.fallowrc.json
