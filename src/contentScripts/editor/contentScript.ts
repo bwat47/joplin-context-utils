@@ -1,4 +1,4 @@
-import { EditorSelection } from '@codemirror/state';
+import { EditorSelection, type FacetReader } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
 import type { CodeMirrorControl, ContentScriptContext, MarkdownEditorContentScriptModule } from 'api/types';
@@ -8,6 +8,7 @@ import {
     type ContentScriptMessage,
     type ContentScriptSettings,
     type TextReplacement,
+    type TextReplacementGuard,
 } from '../../types';
 import { isViewerTaskList } from '../../viewerTasks';
 import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
@@ -101,6 +102,7 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             }
 
             const view: EditorView = editorControl.editor as EditorView;
+            const noteIdFacet = editorControl.joplinExtensions.noteIdFacet as FacetReader<string>;
             let lastEditorContextMenuAt = 0;
             let editorContextMenuOriginPending = false;
 
@@ -135,6 +137,10 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             editorControl.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
                 const pos = view.state.selection.main.head;
                 const context = detectContextAtPosition(view, pos);
+                const noteId = view.state.facet(noteIdFacet);
+                for (const item of context) {
+                    if (item.contextType === 'link') item.noteId = noteId;
+                }
                 logger.debug('Context detected at cursor:', context);
                 return context;
             });
@@ -165,63 +171,77 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
 
             // Register command to batch replace multiple ranges
             // Used for atomic multi-range text replacement operations
-            editorControl.registerCommand(BATCH_REPLACE_COMMAND, (replacements: TextReplacement[]) => {
-                // Validate all ranges before proceeding
-                for (const r of replacements) {
-                    if (!validateRange(r.from, r.to, 'batchReplace')) {
+            editorControl.registerCommand(
+                BATCH_REPLACE_COMMAND,
+                (replacements: TextReplacement[], guard?: TextReplacementGuard) => {
+                    // Check the note and complete link in the same synchronous call as the edit.
+                    if (
+                        guard &&
+                        (!guard.noteId ||
+                            view.state.facet(noteIdFacet) !== guard.noteId ||
+                            !validateRange(guard.from, guard.to, 'batchReplace guard') ||
+                            view.state.doc.sliceString(guard.from, guard.to) !== guard.expectedText)
+                    ) {
+                        logger.warn('Batch replace aborted: note or surrounding text changed');
+                        return false;
+                    }
+                    // Validate all ranges before proceeding
+                    for (const r of replacements) {
+                        if (!validateRange(r.from, r.to, 'batchReplace')) {
+                            return false;
+                        }
+                    }
+
+                    // Safety Check: Verify all texts match expectation before applying ANY changes
+                    for (const r of replacements) {
+                        if (r.expectedText !== undefined) {
+                            const currentText = view.state.doc.sliceString(r.from, r.to);
+                            if (currentText !== r.expectedText) {
+                                logger.warn(
+                                    `Batch replace aborted: mismatch at ${r.from}`,
+                                    '\nExpected:',
+                                    r.expectedText,
+                                    '\nFound:',
+                                    currentText
+                                );
+                                return false; // Abort entire transaction if document changed
+                            }
+                        }
+                    }
+
+                    const changes = replacements.map((r) => ({
+                        from: r.from,
+                        to: r.to,
+                        insert: r.text,
+                    }));
+
+                    // Remap the existing selection through the replacements so a
+                    // partial selection / caret on a rewritten line is preserved
+                    // instead of being collapsed to the line boundary.
+                    const sorted = [...replacements].sort((a, b) => a.from - b.from);
+                    const previousSelection = view.state.selection;
+                    const mappedSelection = EditorSelection.create(
+                        previousSelection.ranges.map((range) =>
+                            EditorSelection.range(
+                                mapPositionThroughReplacements(range.anchor, sorted),
+                                mapPositionThroughReplacements(range.head, sorted)
+                            )
+                        ),
+                        previousSelection.mainIndex
+                    );
+
+                    try {
+                        // ATOMICITY: All changes applied in one transaction
+                        // CodeMirror automatically handles the offset shifting
+                        view.dispatch({ changes, selection: mappedSelection });
+                        logger.debug(`Batch replaced ${changes.length} ranges`);
+                        return true;
+                    } catch (error) {
+                        logger.error('batchReplace: failed to replace text:', error);
                         return false;
                     }
                 }
-
-                // Safety Check: Verify all texts match expectation before applying ANY changes
-                for (const r of replacements) {
-                    if (r.expectedText !== undefined) {
-                        const currentText = view.state.doc.sliceString(r.from, r.to);
-                        if (currentText !== r.expectedText) {
-                            logger.warn(
-                                `Batch replace aborted: mismatch at ${r.from}`,
-                                '\nExpected:',
-                                r.expectedText,
-                                '\nFound:',
-                                currentText
-                            );
-                            return false; // Abort entire transaction if document changed
-                        }
-                    }
-                }
-
-                const changes = replacements.map((r) => ({
-                    from: r.from,
-                    to: r.to,
-                    insert: r.text,
-                }));
-
-                // Remap the existing selection through the replacements so a
-                // partial selection / caret on a rewritten line is preserved
-                // instead of being collapsed to the line boundary.
-                const sorted = [...replacements].sort((a, b) => a.from - b.from);
-                const previousSelection = view.state.selection;
-                const mappedSelection = EditorSelection.create(
-                    previousSelection.ranges.map((range) =>
-                        EditorSelection.range(
-                            mapPositionThroughReplacements(range.anchor, sorted),
-                            mapPositionThroughReplacements(range.head, sorted)
-                        )
-                    ),
-                    previousSelection.mainIndex
-                );
-
-                try {
-                    // ATOMICITY: All changes applied in one transaction
-                    // CodeMirror automatically handles the offset shifting
-                    view.dispatch({ changes, selection: mappedSelection });
-                    logger.debug(`Batch replaced ${changes.length} ranges`);
-                    return true;
-                } catch (error) {
-                    logger.error('batchReplace: failed to replace text:', error);
-                    return false;
-                }
-            });
+            );
 
             // Register command to scroll to a specific position
             editorControl.registerCommand(SCROLL_TO_POSITION_COMMAND, (pos: number) => {

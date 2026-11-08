@@ -2,6 +2,8 @@
  * Represents a detected link's context information
  */
 export interface LinkContext {
+    /** Note containing this link when the editor context was captured */
+    noteId?: string;
     /** Discriminator for union type */
     contextType: 'link';
 
@@ -22,6 +24,9 @@ export interface LinkContext {
     markdownLinkFrom?: number;
     markdownLinkTo?: number;
 
+    /** Complete HTML image tag range for guarded alt attribute updates */
+    htmlImageRange?: EditorRange;
+
     /** True if this is a reference-style link [text][ref] */
     isReferenceLink?: boolean;
 
@@ -33,6 +38,22 @@ export interface LinkContext {
 
     /** True if this is an image embed (markdown or HTML img tag) */
     isImage?: boolean;
+
+    /** Label of a direct Markdown link/image, or an HTML image's alt attribute */
+    linkLabel?: LinkLabel;
+}
+
+/**
+ * Raw text and document range to replace when updating a link or image label
+ */
+export interface LinkLabel {
+    text: string;
+    from: number;
+    to: number;
+    /** HTML labels replace the whole alt attribute, or insert one when absent. */
+    format?: 'htmlAttribute' | 'htmlAttributeInsertion';
+    /** Decoded HTML alt text, used to recognize default labels */
+    plainText?: string;
 }
 
 /**
@@ -209,6 +230,7 @@ export const COMMAND_IDS = {
     COPY_HEADING_LINK_INTERNAL: 'contextUtils.copyHeadingLinkInternal',
     COPY_HEADING_LINK_EXTERNAL: 'contextUtils.copyHeadingLinkExternal',
     COPY_QUOTE: 'contextUtils.copyQuote',
+    RESOURCE_PROPERTIES: 'contextUtils.resourceProperties',
 } as const;
 
 /**
@@ -231,6 +253,12 @@ export interface TextReplacement extends EditorRange {
     text: string;
     expectedText?: string;
     selectionBehavior?: ReplacementSelectionBehavior;
+}
+
+/** Note and surrounding text that must still match before applying a batch replacement. */
+export interface TextReplacementGuard extends EditorRange {
+    noteId: string;
+    expectedText: string;
 }
 
 /**

@@ -91,7 +91,7 @@ describe('parsingUtils', () => {
     describe('parseImageTag', () => {
         it('should extract src from double-quoted attributes', () => {
             const html = '<img src="https://example.com/image.png" alt="test">';
-            expect(parseImageTag(html)).toEqual({
+            expect(parseImageTag(html)).toMatchObject({
                 url: 'https://example.com/image.png',
                 type: LinkType.ExternalUrl,
             });
@@ -99,7 +99,7 @@ describe('parsingUtils', () => {
 
         it('should extract src from single-quoted attributes', () => {
             const html = "<img src='https://example.com/image.png' />";
-            expect(parseImageTag(html)).toEqual({
+            expect(parseImageTag(html)).toMatchObject({
                 url: 'https://example.com/image.png',
                 type: LinkType.ExternalUrl,
             });
@@ -107,7 +107,7 @@ describe('parsingUtils', () => {
 
         it('should handle Joplin resource IDs in src', () => {
             const html = '<img src=":/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4" />';
-            expect(parseImageTag(html)).toEqual({
+            expect(parseImageTag(html)).toMatchObject({
                 url: ':/a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4',
                 type: LinkType.JoplinResource,
             });

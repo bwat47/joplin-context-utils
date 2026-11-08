@@ -87,7 +87,8 @@ function hasEnabledContextSensitiveItem(settings: Settings): boolean {
         settings.showFetchLinkTitle ||
         settings.showOpenAllLinksInSelection ||
         settings.showCopyHeadingLink ||
-        settings.showCopyQuote
+        settings.showCopyQuote ||
+        settings.showResourceProperties
     );
 }
 
@@ -108,15 +109,18 @@ async function getEditorContexts(settings: Settings): Promise<EditorContext[]> {
     }
 }
 
+/** Resolves whether a Joplin link targets a note or a resource, only when a menu item depends on it. */
+async function getLinkedIdType(context: LinkContext, settings: Settings): Promise<'note' | 'resource' | null> {
+    const needsIdType =
+        context.type === LinkType.JoplinResource && (settings.showPinToTabs || settings.showResourceProperties);
+    return needsIdType ? getJoplinIdType(extractJoplinResourceId(context.url)) : null;
+}
+
 async function buildLinkMenuItems(context: LinkContext, settings: Settings): Promise<MenuItem[]> {
     const items: MenuItem[] = [];
     const isExternalOrEmail = context.type === LinkType.ExternalUrl || context.type === LinkType.Email;
-    let isNote = false;
-
-    if (context.type === LinkType.JoplinResource && settings.showPinToTabs) {
-        const resourceId = extractJoplinResourceId(context.url);
-        isNote = (await getJoplinIdType(resourceId)) === 'note';
-    }
+    const idType = await getLinkedIdType(context, settings);
+    const isNote = settings.showPinToTabs && idType === 'note';
 
     if (settings.showOpenLink && isExternalOrEmail) {
         items.push({
@@ -156,6 +160,14 @@ async function buildLinkMenuItems(context: LinkContext, settings: Settings): Pro
             commandName: COMMAND_IDS.GO_TO_HEADING,
             commandArgs: [context],
             label: 'Go to Heading',
+        });
+    }
+
+    if (settings.showResourceProperties && idType === 'resource') {
+        items.push({
+            commandName: COMMAND_IDS.RESOURCE_PROPERTIES,
+            commandArgs: [context],
+            label: 'Resource Properties',
         });
     }
 

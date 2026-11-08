@@ -2,7 +2,8 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
-import { LinkType, type CodeContext, type LinkContext } from '../../types';
+import { LinkType, type CodeContext, type LinkContext, type LinkLabel } from '../../types';
+import { findHtmlImage } from './htmlImage';
 
 /**
  * Result of URL extraction, including position information
@@ -74,24 +75,43 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
 }
 
 /**
+ * Extracts the label of a direct Link or Image node: the text between the opening
+ * `[` / `![` mark and the closing `]` mark.
+ *
+ * @example
+ * `![photo.png](:/abc...)` gives the label `photo.png` (range 2-11).
+ * `[](:/abc...)` gives an empty label (range 1-1).
+ */
+export function extractLinkLabel(node: SyntaxNode, view: EditorView): LinkLabel | null {
+    // The first child is the opening mark (`[` for links, `![` for images).
+    const openMark = node.firstChild;
+    if (openMark?.name !== 'LinkMark') return null;
+
+    // Nested inline nodes (emphasis, code, images, ...) are single siblings, so the
+    // next `]` LinkMark at this level closes the label.
+    for (let child = openMark.nextSibling; child; child = child.nextSibling) {
+        if (child.name === 'LinkMark' && view.state.doc.sliceString(child.from, child.to) === ']') {
+            return { text: view.state.doc.sliceString(openMark.to, child.from), from: openMark.to, to: child.from };
+        }
+    }
+
+    return null;
+}
+
+/**
  * Parses HTML img tag and extracts src attribute
  * Handles img elements with various attributes
  */
-export function parseImageTag(htmlText: string): LinkParseResult {
-    // Check if this is an img tag
-    if (!/<img\s/i.test(htmlText)) {
-        return null;
-    }
-
-    // Extract src attribute value
-    const srcMatch = /\ssrc=["']([^"']+)["']/i.exec(htmlText);
-    if (!srcMatch) {
-        return null;
-    }
-
-    // The src pattern requires this capture on every successful match.
-    const url = srcMatch[1]!;
-    return classifyUrl(url);
+export function parseImageTag(htmlText: string, position = 0): LinkParseResult {
+    const image = findHtmlImage(htmlText, position);
+    const classified = image ? classifyUrl(image.src) : null;
+    if (!image || !classified) return null;
+    return {
+        ...classified,
+        htmlImageRange: { from: image.from, to: image.to },
+        expectedText: htmlText.slice(image.from, image.to),
+        linkLabel: image.label,
+    };
 }
 
 /**

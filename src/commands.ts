@@ -5,6 +5,8 @@ import {
     SCROLL_TO_POSITION_COMMAND,
 } from './contentScripts/editor/contentScript';
 import { logger } from './logger';
+import { editResourceProperties } from './resourceProperties/editResourceProperties';
+import { createResourcePropertiesDialog } from './resourceProperties/resourcePropertiesDialog';
 import { getSetting, getSettings } from './settings';
 import {
     COMMAND_IDS,
@@ -228,6 +230,20 @@ export async function registerCommands(): Promise<void> {
             } catch (error) {
                 logger.error('Failed to open links in selection:', error);
                 await showToast('Failed to open links', ToastType.Error);
+            }
+        },
+    });
+
+    const resourcePropertiesPrompt = await createResourcePropertiesDialog();
+    await joplin.commands.register({
+        name: COMMAND_IDS.RESOURCE_PROPERTIES,
+        label: 'Resource Properties',
+        execute: async (linkContext: LinkContext) => {
+            try {
+                await editResourceProperties(linkContext, resourcePropertiesPrompt);
+            } catch (error) {
+                logger.error('Failed to show resource properties:', error);
+                await showToast('Failed to show resource properties', ToastType.Error);
             }
         },
     });

@@ -21,6 +21,7 @@ import { getHeadingAtPosition } from './headingExtraction';
 import {
     classifyEmailAutolink,
     classifyUrl,
+    extractLinkLabel,
     extractReferenceLabel,
     extractUrl,
     findFootnoteDefinition,
@@ -165,7 +166,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
         from: pos,
         to: pos,
         enter: (node) => {
-            const detectedContext = detectContextForNode(view, node);
+            const detectedContext = detectContextForNode(view, node, pos);
             if (detectedContext) {
                 context = detectedContext;
                 return false;
@@ -183,7 +184,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
  * @param node - Syntax node at the cursor position
  * @returns Detected link or code context, null for unsupported nodes
  */
-function detectContextForNode(view: EditorView, node: SyntaxNodeRef): LinkContext | CodeContext | null {
+function detectContextForNode(view: EditorView, node: SyntaxNodeRef, pos: number): LinkContext | CodeContext | null {
     switch (node.type.name) {
         case 'InlineCode':
         case 'CodeText':
@@ -200,7 +201,7 @@ function detectContextForNode(view: EditorView, node: SyntaxNodeRef): LinkContex
             return detectUrlContext(view, node);
         case 'HTMLTag':
         case 'HTMLBlock':
-            return detectHtmlImageContext(view, node);
+            return detectHtmlImageContext(view, node, pos);
         default:
             return null;
     }
@@ -261,6 +262,7 @@ function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext |
                 // Preserve optional title attribute.
                 linkTitleToken: extracted.linkTitleToken,
                 expectedText: fullLinkText,
+                linkLabel: extractLinkLabel(node.node, view) ?? undefined,
             };
         }
     }
@@ -300,6 +302,10 @@ function detectMarkdownImageContext(view: EditorView, node: SyntaxNodeRef): Link
         from: node.from,
         to: node.to,
         isImage: true,
+        markdownLinkFrom: node.from,
+        markdownLinkTo: node.to,
+        expectedText: view.state.doc.sliceString(node.from, node.to),
+        linkLabel: extractLinkLabel(node.node, view) ?? undefined,
     };
 }
 
@@ -327,18 +333,27 @@ function detectUrlContext(view: EditorView, node: SyntaxNodeRef): LinkContext | 
     };
 }
 
-function detectHtmlImageContext(view: EditorView, node: SyntaxNodeRef): LinkContext | null {
+function detectHtmlImageContext(view: EditorView, node: SyntaxNodeRef, pos: number): LinkContext | null {
     const htmlText = view.state.doc.sliceString(node.from, node.to);
-    const parsedImage = parseImageTag(htmlText);
-    if (!parsedImage) {
+    const parsedImage = parseImageTag(htmlText, pos - node.from);
+    if (!parsedImage?.htmlImageRange || !parsedImage.linkLabel) {
         return null;
     }
 
     return {
         contextType: 'link',
         ...parsedImage,
-        from: node.from,
-        to: node.to,
+        from: node.from + parsedImage.htmlImageRange.from,
+        to: node.from + parsedImage.htmlImageRange.to,
+        htmlImageRange: {
+            from: node.from + parsedImage.htmlImageRange.from,
+            to: node.from + parsedImage.htmlImageRange.to,
+        },
+        linkLabel: {
+            ...parsedImage.linkLabel,
+            from: node.from + parsedImage.linkLabel.from,
+            to: node.from + parsedImage.linkLabel.to,
+        },
         isImage: true,
     };
 }
