@@ -2,7 +2,7 @@ import { ensureSyntaxTree } from '@codemirror/language';
 import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
-import { LinkType, type CodeContext, type LinkContext } from '../../types';
+import { LinkType, type CodeContext, type LinkContext, type LinkLabel } from '../../types';
 
 /**
  * Result of URL extraction, including position information
@@ -71,6 +71,30 @@ export function extractUrl(node: SyntaxNode, view: EditorView): ExtractedUrl | n
         to: urlTo,
         linkTitleToken,
     };
+}
+
+/**
+ * Extracts the label of a direct Link or Image node: the text between the opening
+ * `[` / `![` mark and the closing `]` mark.
+ *
+ * @example
+ * `![photo.png](:/abc...)` gives the label `photo.png` (range 2-11).
+ * `[](:/abc...)` gives an empty label (range 1-1).
+ */
+export function extractLinkLabel(node: SyntaxNode, view: EditorView): LinkLabel | null {
+    // The first child is the opening mark (`[` for links, `![` for images).
+    const openMark = node.firstChild;
+    if (openMark?.name !== 'LinkMark') return null;
+
+    // Nested inline nodes (emphasis, code, images, ...) are single siblings, so the
+    // next `]` LinkMark at this level closes the label.
+    for (let child = openMark.nextSibling; child; child = child.nextSibling) {
+        if (child.name === 'LinkMark' && view.state.doc.sliceString(child.from, child.to) === ']') {
+            return { text: view.state.doc.sliceString(openMark.to, child.from), from: openMark.to, to: child.from };
+        }
+    }
+
+    return null;
 }
 
 /**

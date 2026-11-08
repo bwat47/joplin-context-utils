@@ -448,6 +448,49 @@ describe('contextDetection', () => {
         expect(linkContext?.isImage).toBe(true);
     });
 
+    describe('link labels', () => {
+        const resourceUrl = `:/${'a'.repeat(32)}`;
+
+        it.each([
+            { name: 'markdown image', doc: `Text ![photo.png](${resourceUrl})`, label: 'photo.png' },
+            { name: 'markdown link', doc: `Text [report *v2*.pdf](${resourceUrl} "Title")`, label: 'report *v2*.pdf' },
+            { name: 'empty label', doc: `Text [](${resourceUrl})`, label: '' },
+        ])('records the label range of a $name', ({ doc, label }) => {
+            const pos = doc.indexOf(resourceUrl) + 3;
+            const contexts = detectContextAtPosition(createViewWithCursor(doc, pos), pos);
+            const linkLabel = getContext(contexts, 'link')?.linkLabel;
+
+            expect(linkLabel?.text).toBe(label);
+            expect(linkLabel && doc.slice(linkLabel.from, linkLabel.to)).toBe(label);
+        });
+
+        it('spans a nested image when finding the closing bracket of a link label', () => {
+            const image = `![inner.png](${resourceUrl})`;
+            const doc = `[${image}](https://example.com)`;
+            const pos = doc.indexOf('inner');
+            const contexts = detectContextAtPosition(createViewWithCursor(doc, pos), pos);
+
+            expect(getContext(contexts, 'link')?.linkLabel?.text).toBe(image);
+        });
+
+        it('omits the label for HTML images and reference links', () => {
+            const htmlDoc = `<img src="${resourceUrl}" alt="photo">`;
+            const htmlPos = htmlDoc.indexOf(resourceUrl);
+            const refDoc = `[photo][ref]\n\n[ref]: ${resourceUrl}`;
+
+            const htmlContext = getContext(
+                detectContextAtPosition(createViewWithCursor(htmlDoc, htmlPos), htmlPos),
+                'link'
+            );
+            const refContext = getContext(detectContextAtPosition(createViewWithCursor(refDoc, 2), 2), 'link');
+
+            expect(htmlContext?.type).toBe('joplin-resource');
+            expect(htmlContext?.linkLabel).toBeUndefined();
+            expect(refContext?.isReferenceLink).toBe(true);
+            expect(refContext?.linkLabel).toBeUndefined();
+        });
+    });
+
     it('detects heading context on a heading line', () => {
         const doc = '# My Heading';
         const pos = doc.indexOf('Heading');

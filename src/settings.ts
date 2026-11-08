@@ -151,6 +151,14 @@ const SETTINGS_CONFIG = {
         label: 'Show "Open Note as Pinned Tab" in context menu',
         description: 'Display option to open notes as a pinned tab (requires Note Tabs plugin)',
     },
+    showResourceProperties: {
+        key: `${SECTION_ID}.showResourceProperties`,
+        defaultValue: true,
+        type: SettingItemType.Bool,
+        label: 'Show "Resource Properties" in context menu',
+        description:
+            "Display option to view a resource's (attachment's) properties and rename it, optionally updating the link text in the current note",
+    },
     cleanUpListPaste: {
         key: `${SECTION_ID}.cleanUpListPaste`,
         defaultValue: false,

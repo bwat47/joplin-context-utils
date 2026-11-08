@@ -81,16 +81,17 @@ Joplin plugin that adds context-aware menu options when right-clicking on links,
 
 ## File Structure
 
-| Area                                                | Responsibility                                                                                                                                                                                           |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`                                      | Plugin entry point; registers settings, the content script, commands, and the editor menu filter.                                                                                                        |
-| `src/types.ts` and `src/settings.ts`                | Shared context and command types, plus settings registration and reads.                                                                                                                                  |
-| `src/menus.ts` and `src/commands.ts`                | Build menu items from detected contexts and handle the actions they trigger.                                                                                                                             |
-| `src/contentScripts/editor/`                        | CodeMirror-side integration: context detection and parsing, heading and quote extraction, editor text replacement, and optional paste cleanup. `contentScript.ts` connects this work to the main plugin. |
-| `src/contentScripts/viewer/`                        | Markdown viewer content script and its injected `viewerContextMenu.js` asset, which reports selected tasks on right-click.                                                                               |
-| `src/utils/`                                        | Focused helpers for task toggling, contextual copy, link titles, heading links, URLs, and toasts.                                                                                                        |
-| `src/viewerContextMenu.ts` and `src/viewerTasks.ts` | Markdown viewer task toggling: viewer message handling and the viewer/editor task contract.                                                                                                              |
-| `src/logger.ts`                                     | Shared, prefixed logging.                                                                                                                                                                                |
+| Area                                                | Responsibility                                                                                                                                                                                                                                                              |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`                                      | Plugin entry point; registers settings, the content script, commands, and the editor menu filter.                                                                                                                                                                           |
+| `src/types.ts` and `src/settings.ts`                | Shared context and command types, plus settings registration and reads.                                                                                                                                                                                                     |
+| `src/menus.ts` and `src/commands.ts`                | Build menu items from detected contexts and handle the actions they trigger.                                                                                                                                                                                                |
+| `src/contentScripts/editor/`                        | CodeMirror-side integration: context detection and parsing, heading and quote extraction, editor text replacement, and optional paste cleanup. `contentScript.ts` connects this work to the main plugin.                                                                    |
+| `src/contentScripts/viewer/`                        | Markdown viewer content script and its injected `viewerContextMenu.js` asset, which reports selected tasks on right-click.                                                                                                                                                  |
+| `src/resourceProperties/`                           | Resource Properties dialog: resource data API access and rename helpers (`resourceData.ts`), dialog HTML and form parsing (`resourcePropertiesDialog.ts`), the rename flow (`editResourceProperties.ts`), and the plain `webview/` script and stylesheet copied to `dist/`. |
+| `src/utils/`                                        | Focused helpers for task toggling, contextual copy, link titles, heading links, URLs, and toasts.                                                                                                                                                                           |
+| `src/viewerContextMenu.ts` and `src/viewerTasks.ts` | Markdown viewer task toggling: viewer message handling and the viewer/editor task contract.                                                                                                                                                                                 |
+| `src/logger.ts`                                     | Shared, prefixed logging.                                                                                                                                                                                                                                                   |
 
 Tests live beside the modules they cover as `*.test.ts` files.
 
@@ -162,6 +163,7 @@ interface QuoteContext {
 - `markdownLinkFrom`/`markdownLinkTo` - Full `[text](url)` range
 - `linkTitleToken` - Optional raw title attribute token from `[text](url "title")`
 - `isReferenceLink` - True for reference-style links (excluded from Fetch Title)
+- `linkLabel` - Raw text and range of a direct markdown link or image label (e.g. `alt` in `![alt](:/id)`), from `extractLinkLabel()`. Absent for reference links and HTML images
 
 TypeScript uses `contextType` to narrow types safely.
 
@@ -315,10 +317,19 @@ async function getJoplinIdType(id: string): Promise<'note' | 'resource' | null> 
 **Menu Behavior:**
 
 - **Note links**: Show note-specific action only ("Open Note as Pinned Tab")
-- **Resource links**: No plugin-specific open/copy/reveal items (Joplin native menu handles these)
+- **Resource links**: Show "Resource Properties" only. No plugin-specific open/copy/reveal items (Joplin native menu handles these)
 - **Invalid IDs**: Treated as neither (no menu items shown)
 
-This ensures note-specific actions are only shown for real notes, avoids redundant resource options, and keeps handling robust for invalid IDs.
+The lookup only runs when a dependent setting (`showPinToTabs` or `showResourceProperties`) is enabled. This ensures note-specific actions are only shown for real notes, avoids redundant resource options, and keeps handling robust for invalid IDs.
+
+### Resource Properties
+
+`registerCommands()` creates the dialog once at startup (`createResourcePropertiesDialog()`), which returns a prompt function guarded against opening twice. The command flow (`editResourceProperties()`):
+
+1. Loads the resource (`GET resources/:id`) and its referencing notes (`GET resources/:id/notes`, all pages) in parallel. The notes list comes from Joplin's background resource index, so very recent links may be missing; it is read-only.
+2. Opens the dialog with an editable name (title, or filename for untitled resources). The webview script focuses the name and selects it without the file extension.
+3. On save, if the name changed, writes `title` (as typed) and `filename` (invalid filename characters replaced with `_`, resource extension appended when missing) with `PUT resources/:id`.
+4. If "Update link text in this note" is checked, replaces the clicked link's `linkLabel` range via `BATCH_REPLACE_COMMAND`, using the old label as `expectedText`. The checkbox only appears when the link has a label, and defaults to checked only when the label still equals the resource's title or filename, so custom alt text is kept by default. Links in other notes are never changed.
 
 ### 5. Footnote Detection
 

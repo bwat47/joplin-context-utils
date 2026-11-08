@@ -21,6 +21,7 @@ import { getHeadingAtPosition } from './headingExtraction';
 import {
     classifyEmailAutolink,
     classifyUrl,
+    extractLinkLabel,
     extractReferenceLabel,
     extractUrl,
     findFootnoteDefinition,
@@ -261,6 +262,7 @@ function detectLinkContext(view: EditorView, node: SyntaxNodeRef): LinkContext |
                 // Preserve optional title attribute.
                 linkTitleToken: extracted.linkTitleToken,
                 expectedText: fullLinkText,
+                linkLabel: extractLinkLabel(node.node, view) ?? undefined,
             };
         }
     }
@@ -300,6 +302,7 @@ function detectMarkdownImageContext(view: EditorView, node: SyntaxNodeRef): Link
         from: node.from,
         to: node.to,
         isImage: true,
+        linkLabel: extractLinkLabel(node.node, view) ?? undefined,
     };
 }
 

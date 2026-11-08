@@ -33,6 +33,18 @@ export interface LinkContext {
 
     /** True if this is an image embed (markdown or HTML img tag) */
     isImage?: boolean;
+
+    /** Label of a direct markdown link or image, e.g. `alt` in `![alt](:/id)` */
+    linkLabel?: LinkLabel;
+}
+
+/**
+ * Raw text and document range of a markdown link or image label
+ */
+export interface LinkLabel {
+    text: string;
+    from: number;
+    to: number;
 }
 
 /**
@@ -209,6 +221,7 @@ export const COMMAND_IDS = {
     COPY_HEADING_LINK_INTERNAL: 'contextUtils.copyHeadingLinkInternal',
     COPY_HEADING_LINK_EXTERNAL: 'contextUtils.copyHeadingLinkExternal',
     COPY_QUOTE: 'contextUtils.copyQuote',
+    RESOURCE_PROPERTIES: 'contextUtils.resourceProperties',
 } as const;
 
 /**

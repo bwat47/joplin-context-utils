@@ -540,6 +540,59 @@ describe('context menu filter', () => {
         expect(apiMocks.dataGet).toHaveBeenCalledTimes(2);
     });
 
+    describe('resource properties', () => {
+        const id = 'c'.repeat(32);
+        const context: EditorContext = {
+            contextType: 'link',
+            url: `:/${id}`,
+            type: LinkType.JoplinResource,
+            from: 0,
+            to: 34,
+        };
+
+        const resolveIdAs = (type: 'notes' | 'resources'): void => {
+            apiMocks.dataGet.mockImplementation(([collection]: string[]) =>
+                collection === type ? Promise.resolve({ id }) : Promise.reject(new Error('Not found'))
+            );
+        };
+
+        it('offers resource properties when a Joplin link resolves to a resource', async () => {
+            settings.showResourceProperties = true;
+            resolveIdAs('resources');
+
+            const result = await runFilter([context]);
+
+            expect(menuTokens(result)).toEqual([
+                'existing.command',
+                'separator',
+                COMMAND_IDS.RESOURCE_PROPERTIES,
+                'separator',
+            ]);
+            expect(result.items[2]?.commandArgs).toEqual([context]);
+            expect(result.items[2]?.label).toBe('Resource Properties');
+        });
+
+        it('does not offer resource properties for note links', async () => {
+            settings.showResourceProperties = true;
+            settings.showPinToTabs = true;
+            resolveIdAs('notes');
+
+            const result = await runFilter([context]);
+
+            expect(menuTokens(result)).toEqual(['existing.command', 'separator', COMMAND_IDS.PIN_TO_TABS, 'separator']);
+        });
+
+        it('does not offer pinning for note links when only resource properties is enabled', async () => {
+            settings.showResourceProperties = true;
+            resolveIdAs('notes');
+            const originalMenu = { items: [EXISTING_MENU_ITEM] };
+
+            const result = await runFilter([context], originalMenu);
+
+            expect(result).toBe(originalMenu);
+        });
+    });
+
     it('builds both link-selection actions with the correct counts and order', async () => {
         settings.showOpenAllLinksInSelection = true;
         settings.showFetchLinkTitle = true;

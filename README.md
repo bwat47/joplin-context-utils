@@ -36,6 +36,11 @@ Context Utils is a Joplin plugin that adds various options to the right-click co
 
 - **Open Note as Pinned Tab** - Allows you to right click a link to another joplin note and pin it to a tab (requires the [Note Tabs](https://joplinapp.org/plugins/plugin/joplin.plugin.note.tabs/?from-tab=all) plugin)
 
+- **Resource Properties** - Right click a link to or embed of a Joplin resource (attachment) to view its name, filename, type, size, created/updated dates, ID, and the notes that reference it.
+    - The name can be edited, which renames the resource's title and filename (the file extension is kept).
+    - Optionally updates the link text / image alt text of the link you right clicked. This is enabled by default only when the link text still matches the resource's old name, so custom link text is kept. Links in other notes are not changed.
+    - The referencing notes list comes from Joplin's resource index, so a link added moments ago may not be listed yet.
+
 - **Fetch Link Title(s)** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL). Operates on the single link at the cursor, or every link in the selection.
     - Can be assigned a keyboard shortcut.
     - Note that this results in an outbound request to fetch the web page title.
