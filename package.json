@@ -27,12 +27,14 @@
     ],
     "devDependencies": {
         "@bwat47/joplin-plugin-scripts": "^1.2.0",
-        "@codemirror/lang-markdown": "^6.5.0",
-        "@codemirror/language": "^6.11.3",
-        "@codemirror/state": "^6.5.2",
+        "@codemirror/lang-markdown": "6.5.0",
+        "@codemirror/language": "6.12.3",
+        "@codemirror/state": "6.7.1",
+        "@codemirror/view": "6.43.14",
         "@eslint/js": "^10.0.1",
         "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
-        "@lezer/markdown": "^1.6.3",
+        "@lezer/common": "1.5.0",
+        "@lezer/markdown": "1.6.3",
         "@types/node": "^24.13.2",
         "@vitest/coverage-v8": "^5.0.2",
         "@vitest/eslint-plugin": "^1.6.28",
@@ -52,9 +54,7 @@
         "vitest": "^5.1.0"
     },
     "dependencies": {
-        "@codemirror/view": "^6.41.0",
-        "@joplin/fork-uslug": "^2.0.6",
-        "@lezer/common": "^1.5.2"
+        "@joplin/fork-uslug": "^2.0.6"
     },
     "overrides": {
         "eslint-plugin-tsdoc": {

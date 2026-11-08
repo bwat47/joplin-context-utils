@@ -16,6 +16,8 @@ The build checks TypeScript, then runs `joplin-plugin-scripts build` from the sh
 
 Each build clears `dist/` and `publish/` first. `plugin.config.json` registers the content scripts `contentScripts/editor/contentScript.ts` and `contentScripts/viewer/viewerContentScript.ts` under `extraScripts`. Content scripts are bundled
 as CommonJS for the browser and keep Joplin's CodeMirror and Lezer libraries external.
+The plugin's direct `@codemirror/*` and `@lezer/*` dependencies belong in
+`devDependencies` and are pinned to the versions in Joplin's `packages/editor/package.json`.
 
 `src/contentScripts/viewer/viewerContextMenu.js` is plain JavaScript and is copied to `dist/` as-is.
 
