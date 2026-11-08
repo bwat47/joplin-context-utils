@@ -100,13 +100,7 @@ Tests live beside the modules they cover as `*.test.ts` files.
 
 ```typescript
 type EditorContext =
-    | LinkContext
-    | CodeContext
-    | TaskContext
-    | FootnoteContext
-    | LinkSelectionContext
-    | HeadingContext
-    | QuoteContext;
+    LinkContext | CodeContext | TaskContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext;
 
 interface LinkContext {
     contextType: 'link'; // Discriminator
