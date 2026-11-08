@@ -51,8 +51,7 @@ describe('contextDetection', () => {
         contextType: T
     ) => {
         return contexts.find((context) => context.contextType === contextType) as
-            | Extract<EditorContext, { contextType: T }>
-            | undefined;
+            Extract<EditorContext, { contextType: T }> | undefined;
     };
 
     it('deduplicates autolink URL nodes in selection', () => {
