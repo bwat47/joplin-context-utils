@@ -1,71 +1,131 @@
+/*
+ * Styling matches the Simple Image Resize plugin's dialog: Joplin's UI font, a label/value grid
+ * with muted labels, and fixed-height inputs with a focus-colored border.
+ *
+ * Joplin's theme variables can arrive after the first paint, so neutral borders fall back to
+ * translucent greys that read on light and dark themes alike.
+ */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+:root {
+    --dialog-line: var(--joplin-divider-color, rgba(127, 127, 127, 0.35));
+    --dialog-focus: var(--joplin-focus-outline-color, rgb(228, 86, 0));
+    /* One line of text (1.35em matches body's line-height) plus padding and border, never under 28px. */
+    --dialog-control: max(28px, calc(1.35em + 10px));
+    --dialog-radius: 4px;
+}
+
+/* Joplin's UI font. The size fallback is desktop's theme value (12px). */
+body {
+    font-family: var(--joplin-font-family, Roboto, sans-serif);
+    font-size: var(--joplin-font-size, 12px);
+    /* Explicit, because 'normal' varies by font and platform and would shift row heights. */
+    line-height: 1.35;
+    margin: 0;
+    padding: 0;
+    color: var(--joplin-color, #32373f);
+}
+
+/*
+ * Joplin sizes fit-to-content dialogs from this wrapper's bounding box. As a plain block it always
+ * reports the current frame width, so the dialog never grows to fit wider content; shrink-wrap it instead.
+ */
+#joplin-plugin-content {
+    width: max-content;
+}
+
 .resource-properties {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    width: 480px;
-    max-width: 100%;
-    font-family: var(--joplin-font-family);
-    font-size: var(--joplin-font-size);
-    color: var(--joplin-color);
+    gap: 14px;
+    width: 380px;
+    padding: 2px 2px 4px;
 }
 
-.resource-properties h3 {
+.dialog-head {
     margin: 0;
     padding-bottom: 8px;
-    border-bottom: 1px solid var(--joplin-divider-color, rgba(127, 127, 127, 0.35));
+    border-bottom: 1px solid var(--dialog-line);
+    font-size: 1.12em;
+    font-weight: 600;
 }
 
-.resource-properties h4 {
-    margin: 4px 0 0;
-}
-
-.resource-properties .name-field {
-    display: flex;
+.grid {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 8px 12px;
     align-items: center;
-    gap: 8px;
 }
 
-.resource-properties .name-field input {
-    flex: 1;
+/* Muted by opacity rather than a theme color, so labels stay legible in any theme. */
+.field-label {
+    opacity: 0.72;
+    white-space: nowrap;
+}
+
+label {
+    user-select: none;
+    cursor: pointer;
+}
+
+/* Form controls don't inherit fonts by default; they'd use the browser's own control font. */
+input[type='text'] {
+    width: 100%;
     min-width: 0;
+    height: var(--dialog-control);
+    padding: 0 8px;
     font: inherit;
-    padding: 4px 6px;
-    color: var(--joplin-color);
-    background-color: var(--joplin-background-color);
-    border: 1px solid var(--joplin-divider-color, rgba(127, 127, 127, 0.5));
-    border-radius: 3px;
+    color: inherit;
+    background-color: var(--joplin-background-color, transparent);
+    border: 1px solid var(--dialog-line);
+    border-radius: var(--dialog-radius);
+    transition: border-color 0.12s ease;
 }
 
-.resource-properties .option {
+input[type='text']:hover:not(:focus-visible) {
+    border-color: rgba(127, 127, 127, 0.6);
+}
+
+/* Focus recolors the border and a 1px shadow thickens it, in place of the default outline. */
+input[type='text']:focus-visible {
+    outline: none;
+    border-color: var(--dialog-focus);
+    box-shadow: 0 0 0 1px var(--dialog-focus);
+}
+
+/* The link text option sits in the value column, under the name input. */
+.option {
+    grid-column: 2;
     display: flex;
     align-items: center;
     gap: 6px;
 }
 
-.resource-properties .properties {
-    border-collapse: collapse;
+.option input {
+    margin: 0;
 }
 
-.resource-properties .properties th {
-    padding: 2px 12px 2px 0;
-    text-align: left;
-    vertical-align: top;
-    white-space: nowrap;
-    font-weight: normal;
-    color: var(--joplin-color-faded, var(--joplin-color));
-}
-
-.resource-properties .properties td {
-    padding: 2px 0;
+.value {
+    min-width: 0;
     overflow-wrap: anywhere;
     user-select: text;
 }
 
-.resource-properties .resource-id {
+.resource-id {
     font-family: var(--joplin-code-font-family, monospace);
 }
 
-.resource-properties .notes {
+.referenced-by {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.notes {
     margin: 0;
     padding-left: 20px;
     max-height: 160px;
@@ -73,7 +133,7 @@
     user-select: text;
 }
 
-.resource-properties .empty {
+.empty {
     margin: 0;
-    color: var(--joplin-color-faded, var(--joplin-color));
+    opacity: 0.72;
 }

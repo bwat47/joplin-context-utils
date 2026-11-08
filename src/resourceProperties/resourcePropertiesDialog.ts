@@ -61,8 +61,8 @@ function formatTime(time: number): string {
 }
 
 function renderRow(label: string, value: string, valueClass = ''): string {
-    const classAttribute = valueClass ? ` class="${valueClass}"` : '';
-    return `<tr><th scope="row">${label}</th><td${classAttribute}>${escapeHtml(value)}</td></tr>`;
+    const classes = valueClass ? `value ${valueClass}` : 'value';
+    return `<span class="field-label">${label}</span><span class="${classes}">${escapeHtml(value)}</span>`;
 }
 
 function renderReferencingNotes(notes: ReferencingNote[]): string {
@@ -80,28 +80,32 @@ function renderReferencingNotes(notes: ReferencingNote[]): string {
 export function buildResourcePropertiesDialogHtml(input: ResourcePropertiesDialogInput): string {
     const { resource, referencingNotes } = input;
     const checked = input.updateLinkLabelByDefault ? ' checked' : '';
+    // Sits in the value column, under the name input.
     const linkLabelOption = input.canUpdateLinkLabel
         ? `<label class="option"><input type="checkbox" name="${FIELD_NAMES.UPDATE_LINK_LABEL}"${checked}>` +
           ` Update link text in this note</label>`
         : '';
 
     return (
-        `<form name="${FORM_NAME}" class="resource-properties">` +
-        `<h3>Resource Properties</h3>` +
-        `<label class="name-field">Name ` +
-        `<input type="text" name="${FIELD_NAMES.NAME}" value="${escapeHtml(getResourceDisplayName(resource))}" ` +
-        `data-extension="${escapeHtml(resource.fileExtension)}" spellcheck="false"></label>` +
+        `<form name="${FORM_NAME}" class="resource-properties" autocomplete="off">` +
+        `<h4 class="dialog-head">Resource Properties</h4>` +
+        `<div class="grid">` +
+        `<label for="resourceName" class="field-label">Name</label>` +
+        `<input type="text" id="resourceName" name="${FIELD_NAMES.NAME}" ` +
+        `value="${escapeHtml(getResourceDisplayName(resource))}" ` +
+        `data-extension="${escapeHtml(resource.fileExtension)}" spellcheck="false">` +
         linkLabelOption +
-        `<table class="properties"><tbody>` +
         renderRow('Filename', resource.filename || '(none)') +
         renderRow('Type', resource.mime || 'Unknown') +
         renderRow('Size', formatFileSize(resource.size)) +
         renderRow('Created', formatTime(resource.createdTime)) +
         renderRow('Updated', formatTime(resource.updatedTime)) +
         renderRow('ID', resource.id, 'resource-id') +
-        `</tbody></table>` +
-        `<h4>Referenced by (${referencingNotes.length})</h4>` +
+        `</div>` +
+        `<section class="referenced-by">` +
+        `<span class="field-label">Referenced by (${referencingNotes.length})</span>` +
         renderReferencingNotes(referencingNotes) +
+        `</section>` +
         `</form>`
     );
 }
