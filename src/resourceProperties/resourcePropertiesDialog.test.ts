@@ -139,19 +139,13 @@ describe('resource properties webview script', () => {
         window.eval(webviewScript);
     };
 
-    it.each([
-        { title: 'photo.png', extension: 'png', selected: 'photo' },
-        { title: 'photo', extension: 'png', selected: 'photo' },
-        { title: 'notes', extension: '', selected: 'notes' },
-    ])('focuses the name and selects "$selected" of "$title"', ({ title, extension, selected }) => {
-        const form = renderDialog(
-            buildResourcePropertiesDialogHtml(input({ resource: resource({ title, fileExtension: extension }) }))
-        );
+    it('focuses the name without selecting any text', () => {
+        const form = renderDialog(buildResourcePropertiesDialogHtml(input()));
         runScript();
 
         const name = field<HTMLInputElement>(form, 'name');
         expect(document.activeElement).toBe(name);
-        expect(name.value.slice(name.selectionStart!, name.selectionEnd!)).toBe(selected);
+        expect(name.selectionStart).toBe(name.selectionEnd);
     });
 });
 

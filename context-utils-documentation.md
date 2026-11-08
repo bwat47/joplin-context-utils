@@ -327,7 +327,7 @@ The lookup only runs when a dependent setting (`showPinToTabs` or `showResourceP
 `registerCommands()` creates the dialog once at startup (`createResourcePropertiesDialog()`), which returns a prompt function guarded against opening twice. The command flow (`editResourceProperties()`):
 
 1. Loads the resource (`GET resources/:id`) and its referencing notes (`GET resources/:id/notes`, all pages) in parallel. The notes list comes from Joplin's background resource index, so very recent links may be missing; it is read-only.
-2. Opens the dialog with an editable name (title, or filename for untitled resources). The webview script focuses the name and selects it without the file extension.
+2. Opens the dialog with an editable name (title, or filename for untitled resources). The webview script focuses the name field without selecting text.
 3. On save, if the name changed, writes `title` (as typed) and `filename` (invalid filename characters replaced with `_`, resource extension appended when missing) with `PUT resources/:id`.
 4. If "Update link text in this note" is checked, replaces the clicked link's `linkLabel` range via `BATCH_REPLACE_COMMAND`, using the old label as `expectedText`. The checkbox only appears when the link has a label, and defaults to checked only when the label still equals the resource's title or filename, so custom alt text is kept by default. Links in other notes are never changed.
 

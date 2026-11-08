@@ -93,7 +93,7 @@ export function buildResourcePropertiesDialogHtml(input: ResourcePropertiesDialo
         `<label for="resourceName" class="field-label">Name</label>` +
         `<input type="text" id="resourceName" name="${FIELD_NAMES.NAME}" ` +
         `value="${escapeHtml(getResourceDisplayName(resource))}" ` +
-        `data-extension="${escapeHtml(resource.fileExtension)}" spellcheck="false">` +
+        `spellcheck="false">` +
         linkLabelOption +
         renderRow('Filename', resource.filename || '(none)') +
         renderRow('Type', resource.mime || 'Unknown') +

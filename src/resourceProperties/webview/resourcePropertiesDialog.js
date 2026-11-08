@@ -6,15 +6,7 @@
     document.addEventListener('submit', (event) => event.preventDefault());
 
     // With Joplin's plugin webview isolation enabled, key events only reach this page while focus is
-    // inside it, and Joplin doesn't move focus here itself. Focus the name and select it without its
-    // file extension, so typing replaces the name but keeps the extension.
+    // inside it, and Joplin doesn't move focus here itself.
     const nameInput = document.querySelector('input[name="name"]');
-    if (!(nameInput instanceof HTMLInputElement)) return;
-
-    const extension = nameInput.dataset.extension;
-    const suffix = extension ? `.${extension}`.toLowerCase() : '';
-    const keepsExtension = suffix !== '' && nameInput.value.toLowerCase().endsWith(suffix);
-    const selectionEnd = nameInput.value.length - (keepsExtension ? suffix.length : 0);
-    nameInput.focus();
-    nameInput.setSelectionRange(0, selectionEnd);
+    if (nameInput instanceof HTMLInputElement) nameInput.focus();
 })();
