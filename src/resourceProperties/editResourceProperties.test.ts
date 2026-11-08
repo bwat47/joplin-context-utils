@@ -1,6 +1,7 @@
 import { vi } from 'vitest';
 
 import { BATCH_REPLACE_COMMAND } from '../contentScripts/editor/contentScript';
+import { parseImageTag } from '../contentScripts/editor/parsingUtils';
 import { LinkType, type LinkContext } from '../types';
 import { showToast, ToastType } from '../utils/toastUtils';
 import { editResourceProperties } from './editResourceProperties';
@@ -65,6 +66,61 @@ beforeEach(() => {
 });
 
 describe('editResourceProperties', () => {
+    it.each([
+        { alt: 'alt="photo.png"', checked: true },
+        { alt: "alt='photo.png'", checked: true },
+        { alt: 'alt="photo&#46;png"', checked: true },
+        { alt: 'alt="Custom description"', checked: false },
+        { alt: '', checked: false },
+    ])('updates HTML $alt and preserves dimensions and other attributes', async ({ alt, checked }) => {
+        const html = `<img src=":/${RESOURCE_ID}" ${alt} width="250" height="100" style="display: block;" />`;
+        const context: LinkContext = {
+            ...parseImageTag(html)!,
+            contextType: 'link',
+            noteId: NOTE_ID,
+            from: 0,
+            to: html.length,
+            isImage: true,
+        };
+        const name = `Beach "one" & <two> [draft] \\path`;
+        const prompt = promptReturning({ name, updateLinkLabel: true });
+        await editResourceProperties(context, prompt);
+        expect(prompt.mock.calls[0]?.[0]).toMatchObject({
+            canUpdateLinkLabel: true,
+            updateLinkLabelByDefault: checked,
+        });
+        const invocation = apiMocks.execute.mock.calls[0]![1] as {
+            args: [[{ from: number; to: number; text: string; expectedText: string }], unknown];
+        };
+        const replacement = invocation.args[0][0];
+        expect(replacement.expectedText).toBe(alt);
+        expect(invocation.args[1]).toEqual({ noteId: NOTE_ID, from: 0, to: html.length, expectedText: html });
+        const updated = html.slice(0, replacement.from) + replacement.text + html.slice(replacement.to);
+        const container = document.createElement('div');
+        container.innerHTML = updated;
+        const image = container.querySelector('img')!;
+        expect(image.alt).toBe(name);
+        expect(image.getAttribute('src')).toBe(`:/${RESOURCE_ID}`);
+        expect(image.getAttribute('width')).toBe('250');
+        expect(image.getAttribute('height')).toBe('100');
+        expect(image.getAttribute('style')).toBe('display: block;');
+        expect(updated.replace(replacement.text, alt ? alt : '')).toBe(html);
+    });
+
+    it('does not rewrite an unchanged HTML alt value just to normalize its quoting', async () => {
+        const html = `<img src=":/${RESOURCE_ID}" alt='photo&#46;png' width="250">`;
+        const context: LinkContext = {
+            ...parseImageTag(html)!,
+            contextType: 'link',
+            noteId: NOTE_ID,
+            from: 0,
+            to: html.length,
+            isImage: true,
+        };
+        await editResourceProperties(context, promptReturning({ name: 'photo.png', updateLinkLabel: true }));
+        expect(apiMocks.execute).not.toHaveBeenCalled();
+        expect(apiMocks.dataPut).not.toHaveBeenCalled();
+    });
     it('defaults the link text option on when the label matches the resource name', async () => {
         const prompt = promptReturning(null);
 

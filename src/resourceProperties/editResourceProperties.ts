@@ -12,8 +12,8 @@ import type { LinkContext, TextReplacement, TextReplacementGuard } from '../type
 import { showToast, ToastType } from '../utils/toastUtils';
 import { extractJoplinResourceId } from '../utils/urlUtils';
 import {
+    buildLinkLabelReplacement,
     buildRenamedResourceFields,
-    escapeLinkLabel,
     fetchReferencingNotes,
     fetchResourceProperties,
     getResourceDisplayName,
@@ -21,6 +21,16 @@ import {
     renameResource,
 } from './resourceData';
 import type { ResourcePropertiesPrompt } from './resourcePropertiesDialog';
+
+function getLinkReplacementGuard(context: LinkContext): TextReplacementGuard | undefined {
+    const range =
+        context.htmlImageRange ??
+        (context.markdownLinkFrom !== undefined && context.markdownLinkTo !== undefined
+            ? { from: context.markdownLinkFrom, to: context.markdownLinkTo }
+            : undefined);
+    if (!context.noteId || !range || context.expectedText === undefined) return undefined;
+    return { noteId: context.noteId, ...range, expectedText: context.expectedText };
+}
 
 export async function editResourceProperties(
     linkContext: LinkContext,
@@ -33,24 +43,17 @@ export async function editResourceProperties(
     ]);
 
     const linkLabel = linkContext.linkLabel;
-    const guard: TextReplacementGuard | undefined =
-        linkContext.noteId &&
-        linkContext.markdownLinkFrom !== undefined &&
-        linkContext.markdownLinkTo !== undefined &&
-        linkContext.expectedText !== undefined
-            ? {
-                  noteId: linkContext.noteId,
-                  from: linkContext.markdownLinkFrom,
-                  to: linkContext.markdownLinkTo,
-                  expectedText: linkContext.expectedText,
-              }
-            : undefined;
+    const guard = getLinkReplacementGuard(linkContext);
     const result = await prompt({
         resource,
         referencingNotes,
         canUpdateLinkLabel: linkLabel !== undefined && guard !== undefined,
         updateLinkLabelByDefault:
-            linkLabel !== undefined && guard !== undefined && isDefaultLinkLabel(linkLabel.text, resource),
+            linkLabel !== undefined &&
+            guard !== undefined &&
+            (linkLabel.format
+                ? [resource.title, resource.filename].filter(Boolean).includes(linkLabel.plainText ?? '')
+                : isDefaultLinkLabel(linkLabel.text, resource)),
     });
     if (!result) return;
 
@@ -65,8 +68,13 @@ export async function editResourceProperties(
         logger.debug('Renamed resource:', resourceId, result.name);
     }
 
-    const newLabel = escapeLinkLabel(result.name);
-    if (!result.updateLinkLabel || !linkLabel || !guard || linkLabel.text === newLabel) {
+    const newLabel = linkLabel ? buildLinkLabelReplacement(result.name, linkLabel) : '';
+    if (
+        !result.updateLinkLabel ||
+        !linkLabel ||
+        !guard ||
+        (linkLabel.format ? linkLabel.plainText === result.name : linkLabel.text === newLabel)
+    ) {
         if (renamed) await showToast('Resource renamed', ToastType.Success);
         return;
     }

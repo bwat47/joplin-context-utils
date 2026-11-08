@@ -54,7 +54,8 @@
         "vitest": "^5.1.0"
     },
     "dependencies": {
-        "@joplin/fork-uslug": "^2.0.6"
+        "@joplin/fork-uslug": "^2.0.6",
+        "entities": "^9.0.0"
     },
     "overrides": {
         "eslint-plugin-tsdoc": {

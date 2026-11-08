@@ -3,6 +3,7 @@ import type { EditorView } from '@codemirror/view';
 import type { SyntaxNode } from '@lezer/common';
 
 import { LinkType, type CodeContext, type LinkContext, type LinkLabel } from '../../types';
+import { findHtmlImage } from './htmlImage';
 
 /**
  * Result of URL extraction, including position information
@@ -101,21 +102,16 @@ export function extractLinkLabel(node: SyntaxNode, view: EditorView): LinkLabel 
  * Parses HTML img tag and extracts src attribute
  * Handles img elements with various attributes
  */
-export function parseImageTag(htmlText: string): LinkParseResult {
-    // Check if this is an img tag
-    if (!/<img\s/i.test(htmlText)) {
-        return null;
-    }
-
-    // Extract src attribute value
-    const srcMatch = /\ssrc=["']([^"']+)["']/i.exec(htmlText);
-    if (!srcMatch) {
-        return null;
-    }
-
-    // The src pattern requires this capture on every successful match.
-    const url = srcMatch[1]!;
-    return classifyUrl(url);
+export function parseImageTag(htmlText: string, position = 0): LinkParseResult {
+    const image = findHtmlImage(htmlText, position);
+    const classified = image ? classifyUrl(image.src) : null;
+    if (!image || !classified) return null;
+    return {
+        ...classified,
+        htmlImageRange: { from: image.from, to: image.to },
+        expectedText: htmlText.slice(image.from, image.to),
+        linkLabel: image.label,
+    };
 }
 
 /**

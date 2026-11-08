@@ -473,7 +473,7 @@ describe('contextDetection', () => {
             expect(getContext(contexts, 'link')?.linkLabel?.text).toBe(image);
         });
 
-        it('omits the label for HTML images and reference links', () => {
+        it('records HTML alt attributes but omits labels for reference links', () => {
             const htmlDoc = `<img src="${resourceUrl}" alt="photo">`;
             const htmlPos = htmlDoc.indexOf(resourceUrl);
             const refDoc = `[photo][ref]\n\n[ref]: ${resourceUrl}`;
@@ -485,9 +485,29 @@ describe('contextDetection', () => {
             const refContext = getContext(detectContextAtPosition(createViewWithCursor(refDoc, 2), 2), 'link');
 
             expect(htmlContext?.type).toBe('joplin-resource');
-            expect(htmlContext?.linkLabel).toBeUndefined();
+            expect(htmlContext?.linkLabel).toMatchObject({
+                text: 'alt="photo"',
+                format: 'htmlAttribute',
+                plainText: 'photo',
+            });
+            expect(htmlContext?.htmlImageRange).toEqual({ from: 0, to: htmlDoc.length });
+            expect(htmlContext?.expectedText).toBe(htmlDoc);
             expect(refContext?.isReferenceLink).toBe(true);
             expect(refContext?.linkLabel).toBeUndefined();
+        });
+
+        it('targets the clicked image in an HTML block with multiple images', () => {
+            const first = `<img src=":/${'b'.repeat(32)}" alt="First">`;
+            const second = `<img src="${resourceUrl}" width="250" alt='photo.png'>`;
+            const doc = `Text above\n\n<div>\n${first}\n${second}\n</div>`;
+            const pos = doc.indexOf(resourceUrl);
+            const context = getContext(detectContextAtPosition(createViewWithCursor(doc, pos), pos), 'link');
+            const from = doc.indexOf(second);
+            expect(context?.url).toBe(resourceUrl);
+            expect(context?.htmlImageRange).toEqual({ from, to: from + second.length });
+            expect(context?.expectedText).toBe(second);
+            const label = context!.linkLabel!;
+            expect(doc.slice(label.from, label.to)).toBe("alt='photo.png'");
         });
     });
 

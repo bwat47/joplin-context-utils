@@ -31,6 +31,8 @@ for (const script of extraScripts) {
             module,
             exports: module.exports,
             console,
+            // Editor content scripts run in a browser, including its base64 decoder.
+            atob,
             require: (name) => {
                 assert.ok(contentScriptExternals.includes(name), `Unexpected runtime dependency: ${name}`);
                 return require(name);

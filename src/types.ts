@@ -24,6 +24,9 @@ export interface LinkContext {
     markdownLinkFrom?: number;
     markdownLinkTo?: number;
 
+    /** Complete HTML image tag range for guarded alt attribute updates */
+    htmlImageRange?: EditorRange;
+
     /** True if this is a reference-style link [text][ref] */
     isReferenceLink?: boolean;
 
@@ -36,17 +39,21 @@ export interface LinkContext {
     /** True if this is an image embed (markdown or HTML img tag) */
     isImage?: boolean;
 
-    /** Label of a direct markdown link or image, e.g. `alt` in `![alt](:/id)` */
+    /** Label of a direct Markdown link/image, or an HTML image's alt attribute */
     linkLabel?: LinkLabel;
 }
 
 /**
- * Raw text and document range of a markdown link or image label
+ * Raw text and document range to replace when updating a link or image label
  */
 export interface LinkLabel {
     text: string;
     from: number;
     to: number;
+    /** HTML labels replace the whole alt attribute, or insert one when absent. */
+    format?: 'htmlAttribute' | 'htmlAttributeInsertion';
+    /** Decoded HTML alt text, used to recognize default labels */
+    plainText?: string;
 }
 
 /**

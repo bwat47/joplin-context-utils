@@ -2,7 +2,10 @@
  * Joplin data API access and pure helpers for the Resource Properties dialog.
  */
 
+import { escapeUTF8 } from 'entities';
+
 import joplin from 'api';
+import type { LinkLabel } from '../types';
 import { escapeMarkdownLinkText } from '../utils/linkTitleUtils';
 
 /** Properties shown in the Resource Properties dialog. */
@@ -175,6 +178,13 @@ export function escapeLinkLabel(name: string): string {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
     );
+}
+
+/** Formats only the label's replacement text; the surrounding image/link stays intact. */
+export function buildLinkLabelReplacement(name: string, label: LinkLabel): string {
+    if (!label.format) return escapeLinkLabel(name);
+    const prefix = label.format === 'htmlAttributeInsertion' ? ' ' : '';
+    return `${prefix}alt="${escapeUTF8(name)}"`;
 }
 
 /**

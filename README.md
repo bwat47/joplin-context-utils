@@ -39,6 +39,7 @@ Context Utils is a Joplin plugin that adds various options to the right-click co
 - **Resource Properties** - Right click a link to or embed of a Joplin resource (attachment) to view its name, filename, type, size, created/updated dates, ID, and the notes that reference it.
     - The name can be edited, which renames the resource's title and filename (the file extension is kept).
     - Optionally updates the link text / image alt text of the link you right clicked. This is enabled by default only when the link text still matches the resource's old name, so custom link text is kept. Links in other notes are not changed.
+    - HTML image embeds (including resized images) are supported: updates or adds the `alt` attribute while preserving the image URL, dimensions, and other attributes.
     - The referencing notes list comes from Joplin's resource index, so a link added moments ago may not be listed yet.
 
 - **Fetch Link Title(s)** - Fetches the title of a URL and updates markdown link to include the title (or converts to a markdown link if its a bare URL). Operates on the single link at the cursor, or every link in the selection.
