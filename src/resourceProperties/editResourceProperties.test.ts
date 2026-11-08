@@ -71,7 +71,9 @@ describe('editResourceProperties', () => {
         { alt: "alt='photo.png'", checked: true },
         { alt: 'alt="photo&#46;png"', checked: true },
         { alt: 'alt="Custom description"', checked: false },
-        { alt: '', checked: false },
+        { alt: 'alt=""', checked: true },
+        { alt: "alt=''", checked: true },
+        { alt: '', checked: true },
     ])('updates HTML $alt and preserves dimensions and other attributes', async ({ alt, checked }) => {
         const html = `<img src=":/${RESOURCE_ID}" ${alt} width="250" height="100" style="display: block;" />`;
         const context: LinkContext = {
@@ -140,6 +142,14 @@ describe('editResourceProperties', () => {
         await editResourceProperties(linkContext('My holiday'), prompt);
 
         expect(prompt.mock.calls[0]?.[0]).toMatchObject({ canUpdateLinkLabel: true, updateLinkLabelByDefault: false });
+    });
+
+    it('defaults the link text option on for empty Markdown alt text', async () => {
+        const prompt = promptReturning(null);
+
+        await editResourceProperties(linkContext(''), prompt);
+
+        expect(prompt.mock.calls[0]?.[0]).toMatchObject({ canUpdateLinkLabel: true, updateLinkLabelByDefault: true });
     });
 
     it('disables the link text option when the link has no label', async () => {

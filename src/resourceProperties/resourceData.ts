@@ -190,10 +190,11 @@ export function buildLinkLabelReplacement(name: string, label: LinkLabel): strin
 }
 
 /**
- * True when a link label still shows the resource's name, as Joplin writes it when
- * attaching a file. Custom labels return false, so renaming leaves them alone by default.
+ * True when a link label is empty or still shows the resource's name, as Joplin writes it
+ * when attaching a file. Custom labels return false, so renaming leaves them alone by default.
  */
 export function isDefaultLinkLabel(label: string, resource: ResourceProperties): boolean {
+    if (label === '') return true;
     return [resource.title, resource.filename]
         .filter((name) => name !== '')
         .some((name) => label === name || label === escapeLinkLabel(name));

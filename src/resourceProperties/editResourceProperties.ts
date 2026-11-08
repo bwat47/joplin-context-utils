@@ -52,7 +52,7 @@ export async function editResourceProperties(
             linkLabel !== undefined &&
             guard !== undefined &&
             (linkLabel.format
-                ? [resource.title, resource.filename].filter(Boolean).includes(linkLabel.plainText ?? '')
+                ? !linkLabel.plainText || [resource.title, resource.filename].includes(linkLabel.plainText)
                 : isDefaultLinkLabel(linkLabel.text, resource)),
     });
     if (!result) return;

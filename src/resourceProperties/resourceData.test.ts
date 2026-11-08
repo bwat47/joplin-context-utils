@@ -214,14 +214,14 @@ describe('link labels', () => {
         { label: 'scan \\[1\\].png', expected: true },
         { label: 'Original.png', expected: true },
         { label: 'My custom alt text', expected: false },
-        { label: '', expected: false },
+        { label: '', expected: true },
     ])('treats "$label" as default: $expected', ({ label, expected }) => {
         const named = resource({ title: 'scan [1].png', filename: 'Original.png' });
         expect(isDefaultLinkLabel(label, named)).toBe(expected);
     });
 
-    it('does not treat an empty label as default for an untitled resource', () => {
-        expect(isDefaultLinkLabel('', resource({ title: '', filename: '' }))).toBe(false);
+    it('treats an empty label as default for an untitled resource', () => {
+        expect(isDefaultLinkLabel('', resource({ title: '', filename: '' }))).toBe(true);
     });
 });
 
