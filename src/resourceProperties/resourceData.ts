@@ -54,8 +54,18 @@ const NOTES_PAGE_LIMIT = 100;
 // eslint-disable-next-line no-control-regex -- Control characters are intentionally matched.
 const INVALID_FILENAME_CHARS = /[\\/:*?"<>|\u0000-\u001f]/g;
 
-/** Markdown link label characters that must be escaped: `\`, `|` (tables), and brackets. */
-const LINK_LABEL_BRACKETS = /[[\]]/g;
+/**
+ * Brackets and backticks can hide or break the closing label bracket.
+ * Matches `[` and `]` in `photo [1].png`, and backticks that could start a code span.
+ */
+const LINK_LABEL_SPECIAL_CHARS = /[[\]`]/g;
+
+/**
+ * Ampersands starting CommonMark entity references, e.g. `&copy;`, `&#169;`, or `&#xA9;`.
+ * Numeric references allow at most seven decimal or six hexadecimal digits.
+ * Leaves ordinary ampersands, e.g. `Tom & Jerry` or `&amp Jerry`, untouched.
+ */
+const LINK_LABEL_ENTITY_AMPERSANDS = /&(?=(?:#\d{1,7}|#[xX][0-9a-fA-F]{1,6}|[a-zA-Z][a-zA-Z0-9]+);)/g;
 
 type RawResource = {
     id?: unknown;
@@ -151,9 +161,20 @@ export function buildRenamedResourceFields(name: string, fileExtension: string):
     };
 }
 
-/** Escapes a resource name for use as a markdown link or image label. */
+/**
+ * Escapes a resource name for use as a Markdown link or image label, including in tables.
+ * Protects label boundaries and literal entity references while leaving other inline markup alone.
+ */
 export function escapeLinkLabel(name: string): string {
-    return escapeMarkdownLinkText(name).replace(LINK_LABEL_BRACKETS, '\\$&');
+    return (
+        escapeMarkdownLinkText(name)
+            .replace(LINK_LABEL_SPECIAL_CHARS, '\\$&')
+            .replace(LINK_LABEL_ENTITY_AMPERSANDS, '&amp;')
+            // Joplin's native resource menu mistakes even backslash-escaped <a or <img in labels for HTML.
+            // Encode angles after protecting existing entities so these new entities are decoded only once.
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+    );
 }
 
 /**

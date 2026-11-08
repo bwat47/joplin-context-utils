@@ -1,3 +1,4 @@
+import { parser } from '@lezer/markdown';
 import { vi } from 'vitest';
 
 import {
@@ -121,6 +122,7 @@ describe('buildRenamedResourceFields', () => {
         { name: 'Holiday.png', extension: 'jpg', filename: 'Holiday.png.jpg' },
         { name: 'notes', extension: '', filename: 'notes' },
         { name: 'a/b:c?.pdf', extension: 'pdf', filename: 'a_b_c_.pdf' },
+        { name: '<attachment>', extension: 'png', filename: '_attachment_.png' },
     ])('builds "$filename" from "$name"', ({ name, extension, filename }) => {
         expect(buildRenamedResourceFields(name, extension)).toEqual({ title: name, filename });
     });
@@ -129,6 +131,59 @@ describe('buildRenamedResourceFields', () => {
 describe('link labels', () => {
     it('escapes characters that would break a link label', () => {
         expect(escapeLinkLabel('a [draft] | b\\c')).toBe('a \\[draft\\] \\| b\\\\c');
+    });
+
+    it.each([
+        { name: '`draft', escaped: '\\`draft' },
+        { name: '<span title="draft">photo</span>', escaped: '&lt;span title="draft"&gt;photo&lt;/span&gt;' },
+        { name: '<https://example.com>', escaped: '&lt;https://example.com&gt;' },
+        { name: '<!-- draft', escaped: '&lt;!-- draft' },
+        { name: '<?draft', escaped: '&lt;?draft' },
+        { name: '<attachment> <img> <>', escaped: '&lt;attachment&gt; &lt;img&gt; &lt;&gt;' },
+        { name: 'a > b', escaped: 'a &gt; b' },
+        { name: 'report &copy; &#169; &#xA9;.pdf', escaped: 'report &amp;copy; &amp;#169; &amp;#xA9;.pdf' },
+        { name: '&amp;lt;', escaped: '&amp;amp;lt;' },
+        { name: 'Tom & Jerry, a < b, my_image.png', escaped: 'Tom & Jerry, a &lt; b, my_image.png' },
+        { name: '&amp Jerry &#12345678; &#x1234567;', escaped: '&amp Jerry &#12345678; &#x1234567;' },
+    ])('escapes "$name" for a label', ({ name, escaped }) => {
+        expect(escapeLinkLabel(name)).toBe(escaped);
+    });
+
+    it.each(['link', 'image'])('preserves the resource %s and subsequent inline code', (kind) => {
+        const url = `:/${RESOURCE_ID}`;
+        const prefix = kind === 'image' ? '!' : '';
+        const label = escapeLinkLabel('`draft [1] <span title="');
+        const doc = `${prefix}[${label}](${url}) then \`code\` and ">`;
+        const tree = parser.parse(doc);
+        const paragraph = tree.topNode.firstChild!;
+        const link = paragraph.firstChild!;
+
+        expect(link.name).toBe(kind === 'image' ? 'Image' : 'Link');
+        expect(doc.slice(link.getChild('URL')!.from, link.getChild('URL')!.to)).toBe(url);
+        expect(link.nextSibling?.name).toBe('InlineCode');
+        expect(doc.slice(link.nextSibling!.from, link.nextSibling!.to)).toBe('`code`');
+    });
+
+    it('recognizes escaped resource names as default labels', () => {
+        const title = '`draft <photo> &copy;.png';
+        const label = '\\`draft &lt;photo&gt; &amp;copy;.png';
+
+        expect(isDefaultLinkLabel(label, resource({ title }))).toBe(true);
+    });
+
+    it('keeps literal entity names distinct from angle brackets', () => {
+        const title = '&lt;attachment&gt;';
+
+        expect(escapeLinkLabel(title)).toBe('&amp;lt;attachment&amp;gt;');
+        expect(isDefaultLinkLabel('&amp;lt;attachment&amp;gt;', resource({ title }))).toBe(true);
+    });
+
+    it.each(['<attachment> <img> <>', '&lt;attachment&gt;'])('preserves the displayed name "%s"', (title) => {
+        const label = document.createElement('span');
+        label.innerHTML = escapeLinkLabel(title);
+
+        expect(label.textContent).toBe(title);
+        expect(label.children).toHaveLength(0);
     });
 
     it.each([

@@ -331,6 +331,8 @@ The lookup only runs when a dependent setting (`showPinToTabs` or `showResourceP
 3. On save, if the name changed, writes `title` (as typed) and `filename` (invalid filename characters replaced with `_`, resource extension appended when missing) with `PUT resources/:id`.
 4. If "Update link text in this note" is checked, replaces the clicked link's `linkLabel` range via `BATCH_REPLACE_COMMAND`, using the old label as `expectedText`. The checkbox only appears when the link has a label, and defaults to checked only when the label still equals the resource's title or filename, so custom alt text is kept by default. Links in other notes are never changed.
 
+Generated labels escape Markdown delimiters and literal entity references. Angle brackets are encoded as `&lt;` / `&gt;` because Joplin's native resource context-menu detection can mistake even backslash-escaped `<a` or `<img` in a label for HTML markup. Resource titles retain the typed angle brackets; filenames replace them with underscores for filesystem compatibility.
+
 ### 5. Footnote Detection
 
 Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust detection:

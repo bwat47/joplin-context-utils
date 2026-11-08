@@ -110,6 +110,19 @@ describe('editResourceProperties', () => {
         expect(showToast).toHaveBeenCalledWith('Resource renamed', ToastType.Success);
     });
 
+    it('preserves angles in the title, sanitizes the filename, and entity-encodes the link label', async () => {
+        await editResourceProperties(linkContext(), promptReturning({ name: '<attachment>', updateLinkLabel: true }));
+
+        expect(apiMocks.dataPut).toHaveBeenCalledWith(['resources', RESOURCE_ID], null, {
+            title: '<attachment>',
+            filename: '_attachment_.png',
+        });
+        expect(apiMocks.execute).toHaveBeenCalledWith('editor.execCommand', {
+            name: BATCH_REPLACE_COMMAND,
+            args: [[{ from: 7, to: 16, text: '&lt;attachment&gt;', expectedText: 'photo.png' }]],
+        });
+    });
+
     it('updates only the link label when the name is unchanged', async () => {
         await editResourceProperties(
             linkContext('custom'),
