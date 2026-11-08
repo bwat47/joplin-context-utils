@@ -184,7 +184,9 @@ export function escapeLinkLabel(name: string): string {
 export function buildLinkLabelReplacement(name: string, label: LinkLabel): string {
     if (!label.format) return escapeLinkLabel(name);
     const prefix = label.format === 'htmlAttributeInsertion' ? ' ' : '';
-    return `${prefix}alt="${escapeUTF8(name)}"`;
+    // Markdown tables split on literal pipes even inside quoted HTML attributes.
+    const escapedName = escapeUTF8(name).replace(/\|/g, '&#124;');
+    return `${prefix}alt="${escapedName}"`;
 }
 
 /**

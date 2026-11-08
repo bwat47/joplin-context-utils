@@ -1,7 +1,9 @@
-import { parser } from '@lezer/markdown';
+import { parser, Table } from '@lezer/markdown';
 import { vi } from 'vitest';
 
+import { findHtmlImage } from '../contentScripts/editor/htmlImage';
 import {
+    buildLinkLabelReplacement,
     buildRenamedResourceFields,
     escapeLinkLabel,
     fetchReferencingNotes,
@@ -129,6 +131,27 @@ describe('buildRenamedResourceFields', () => {
 });
 
 describe('link labels', () => {
+    it.each(['alt="photo.png"', ''])('preserves table cells when updating HTML %s with pipes', (alt) => {
+        const html = `<img src=":/${RESOURCE_ID}" ${alt} width="200">`;
+        const label = findHtmlImage(html)!.label;
+        const name = 'left | right & &#124;';
+        const replacement = buildLinkLabelReplacement(name, label);
+        const updated = html.slice(0, label.from) + replacement + html.slice(label.to);
+        const doc = `| Image | Other |\n| --- | --- |\n| ${updated} | Text |`;
+        const tree = parser.configure([Table]).parse(doc);
+        const cells = tree.topNode.getChild('Table')!.getChild('TableRow')!.getChildren('TableCell');
+
+        expect(cells.map((cell) => doc.slice(cell.from, cell.to))).toEqual([updated, 'Text']);
+        expect(cells[0]!.getChild('HTMLTag')).not.toBeNull();
+
+        const container = document.createElement('div');
+        container.innerHTML = doc.slice(cells[0]!.from, cells[0]!.to);
+        const image = container.querySelector('img')!;
+        expect(image.alt).toBe(name);
+        expect(image.getAttribute('src')).toBe(`:/${RESOURCE_ID}`);
+        expect(image.getAttribute('width')).toBe('200');
+    });
+
     it('escapes characters that would break a link label', () => {
         expect(escapeLinkLabel('a [draft] | b\\c')).toBe('a \\[draft\\] \\| b\\\\c');
     });
