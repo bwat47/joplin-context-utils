@@ -3,6 +3,7 @@ dist/
 build/
 publish/
 coverage/
+.fallow/
 *.log
 .DS_Store
 .env
