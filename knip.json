@@ -5,10 +5,9 @@
         "src/contentScripts/editor/contentScript.ts",
         "src/contentScripts/viewer/viewerContentScript.ts",
         "src/contentScripts/viewer/viewerContextMenu.js",
-        "src/**/*.test.ts",
-        "test/*.test.mjs"
+        "src/**/*.test.ts"
     ],
-    "project": ["src/**/*.ts", "test/*.mjs"],
+    "project": ["src/**/*.ts"],
     "ignoreIssues": {
         "api/**": ["unlisted", "unresolved"]
     },
