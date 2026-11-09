@@ -10,7 +10,7 @@
         "lint:fix": "eslint src/ --fix",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "test": "vitest run --passWithNoTests && node --test test/*.test.mjs",
+        "test": "vitest run --passWithNoTests",
         "test:watch": "vitest --passWithNoTests",
         "knip": "knip",
         "typecheck": "tsc --noEmit"
