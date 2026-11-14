@@ -171,6 +171,7 @@ function detectPrimaryContext(view: EditorView, pos: number): LinkContext | Code
                 context = detectedContext;
                 return false;
             }
+            return true;
         },
     });
 
@@ -423,6 +424,7 @@ function detectTaskAtPosition(view: EditorView, pos: number): TaskInfo | null {
                 isInTaskList = true;
                 return false; // Stop iteration
             }
+            return true;
         },
     });
 
@@ -626,9 +628,10 @@ function collectLinksInRange(
                         appendUniqueLink(link, links, seenRanges);
                     }
                     // Continue traversal; nested autolink URL nodes are filtered by buildBareUrlLink.
-                    return;
+                    return true;
                 }
             }
+            return true;
         },
     });
 }

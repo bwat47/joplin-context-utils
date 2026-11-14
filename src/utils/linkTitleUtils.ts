@@ -215,7 +215,7 @@ export function applyLinkTitleRules(url: string, rules: CompiledLinkTitleRule[])
 
 function escapeTitleForDelimiter(value: string, delimiter: '"' | "'" | '('): string {
     if (!value) return '';
-    const escaped = String(value).replace(/\\/g, '\\\\');
+    const escaped = value.replace(/\\/g, '\\\\');
     if (delimiter === '"') {
         // Only escape quotes that would terminate the title string
         return escaped.replace(/"/g, '\\"');

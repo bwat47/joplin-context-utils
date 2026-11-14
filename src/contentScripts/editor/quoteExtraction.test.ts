@@ -5,25 +5,25 @@ import { GFM } from '@lezer/markdown';
 
 import { getQuoteAtPosition } from './quoteExtraction';
 
+const createView = (doc: string) => {
+    const state = EditorState.create({
+        doc,
+        extensions: [
+            markdown({
+                extensions: [GFM],
+            }),
+        ],
+    });
+    return { state } as EditorView;
+};
+
+const quoteAt = (doc: string, needle: string) => {
+    const view = createView(doc);
+    const pos = doc.indexOf(needle) + 1;
+    return getQuoteAtPosition(view, pos);
+};
+
 describe('quoteExtraction', () => {
-    const createView = (doc: string) => {
-        const state = EditorState.create({
-            doc,
-            extensions: [
-                markdown({
-                    extensions: [GFM],
-                }),
-            ],
-        });
-        return { state } as EditorView;
-    };
-
-    const quoteAt = (doc: string, needle: string) => {
-        const view = createView(doc);
-        const pos = doc.indexOf(needle) + 1;
-        return getQuoteAtPosition(view, pos);
-    };
-
     it('copies a single-line quote without the quote marker', () => {
         expect(quoteAt('> hello', 'hello')?.text).toBe('hello');
     });

@@ -8,7 +8,7 @@
 import joplin from 'api';
 import { BATCH_REPLACE_COMMAND } from '../contentScripts/editor/contentScript';
 import { logger } from '../logger';
-import type { LinkContext, TextReplacement, TextReplacementGuard } from '../types';
+import type { LinkContext, LinkLabel, TextReplacement, TextReplacementGuard } from '../types';
 import { showToast, ToastType } from '../utils/toastUtils';
 import { extractJoplinResourceId } from '../utils/urlUtils';
 import {
@@ -19,6 +19,7 @@ import {
     getResourceDisplayName,
     isDefaultLinkLabel,
     renameResource,
+    type ResourceProperties,
 } from './resourceData';
 import type { ResourcePropertiesPrompt } from './resourcePropertiesDialog';
 
@@ -30,6 +31,18 @@ function getLinkReplacementGuard(context: LinkContext): TextReplacementGuard | u
             : undefined);
     if (!context.noteId || !range || context.expectedText === undefined) return undefined;
     return { noteId: context.noteId, ...range, expectedText: context.expectedText };
+}
+
+/** True when the link label still shows the resource's own name, so a rename should update it too. */
+function isResourceNameLabel(linkLabel: LinkLabel, resource: ResourceProperties): boolean {
+    return linkLabel.format
+        ? !linkLabel.plainText || [resource.title, resource.filename].includes(linkLabel.plainText)
+        : isDefaultLinkLabel(linkLabel.text, resource);
+}
+
+/** True when the link label already shows `name`, so no replacement is needed. */
+function labelMatchesName(linkLabel: LinkLabel, name: string, newLabel: string): boolean {
+    return linkLabel.format ? linkLabel.plainText === name : linkLabel.text === newLabel;
 }
 
 export async function editResourceProperties(
@@ -49,11 +62,7 @@ export async function editResourceProperties(
         referencingNotes,
         canUpdateLinkLabel: linkLabel !== undefined && guard !== undefined,
         updateLinkLabelByDefault:
-            linkLabel !== undefined &&
-            guard !== undefined &&
-            (linkLabel.format
-                ? !linkLabel.plainText || [resource.title, resource.filename].includes(linkLabel.plainText)
-                : isDefaultLinkLabel(linkLabel.text, resource)),
+            linkLabel !== undefined && guard !== undefined && isResourceNameLabel(linkLabel, resource),
     });
     if (!result) return;
 
@@ -69,12 +78,7 @@ export async function editResourceProperties(
     }
 
     const newLabel = linkLabel ? buildLinkLabelReplacement(result.name, linkLabel) : '';
-    if (
-        !result.updateLinkLabel ||
-        !linkLabel ||
-        !guard ||
-        (linkLabel.format ? linkLabel.plainText === result.name : linkLabel.text === newLabel)
-    ) {
+    if (!result.updateLinkLabel || !linkLabel || !guard || labelMatchesName(linkLabel, result.name, newLabel)) {
         if (renamed) await showToast('Resource renamed', ToastType.Success);
         return;
     }

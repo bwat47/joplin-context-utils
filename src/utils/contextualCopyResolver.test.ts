@@ -1,37 +1,37 @@
 import { LinkType, type EditorContext } from '../types';
 import { resolveContextualCopyTarget } from './contextualCopyResolver';
 
+const code = (codeText = 'render'): EditorContext => ({
+    contextType: 'code',
+    code: codeText,
+    from: 5,
+    to: 13,
+});
+
+const heading = (): EditorContext => ({
+    contextType: 'heading',
+    headingText: 'Use render here',
+    headingAnchor: 'use-render-here',
+    from: 0,
+    to: 18,
+});
+
+const quote = (): EditorContext => ({
+    contextType: 'quote',
+    quoteText: 'Use `render` here',
+    from: 0,
+    to: 20,
+});
+
+const link = (type = LinkType.ExternalUrl): EditorContext => ({
+    contextType: 'link',
+    type,
+    url: type === LinkType.Email ? 'mailto:test@example.com' : 'https://joplinapp.org',
+    from: 8,
+    to: 28,
+});
+
 describe('resolveContextualCopyTarget', () => {
-    const code = (codeText = 'render'): EditorContext => ({
-        contextType: 'code',
-        code: codeText,
-        from: 5,
-        to: 13,
-    });
-
-    const heading = (): EditorContext => ({
-        contextType: 'heading',
-        headingText: 'Use render here',
-        headingAnchor: 'use-render-here',
-        from: 0,
-        to: 18,
-    });
-
-    const quote = (): EditorContext => ({
-        contextType: 'quote',
-        quoteText: 'Use `render` here',
-        from: 0,
-        to: 20,
-    });
-
-    const link = (type = LinkType.ExternalUrl): EditorContext => ({
-        contextType: 'link',
-        type,
-        url: type === LinkType.Email ? 'mailto:test@example.com' : 'https://joplinapp.org',
-        from: 8,
-        to: 28,
-    });
-
     it('chooses code inside a heading', () => {
         const target = resolveContextualCopyTarget([code(), heading()]);
 

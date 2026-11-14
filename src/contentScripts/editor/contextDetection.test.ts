@@ -6,54 +6,55 @@ import { GFM } from '@lezer/markdown';
 import type { EditorContext } from '../../types';
 import { detectContextAtPosition, resolveViewerTasks } from './contextDetection';
 
+const createViewWithSelection = (doc: string, from: number, to: number) => {
+    const state = EditorState.create({
+        doc,
+        selection: EditorSelection.single(from, to),
+        extensions: [
+            EditorState.allowMultipleSelections.of(true),
+            markdown({
+                extensions: [GFM],
+            }),
+        ],
+    });
+    return { state } as EditorView;
+};
+
+const createViewWithRanges = (doc: string, ranges: Array<[number, number]>, mainIndex = 0) => {
+    const state = EditorState.create({
+        doc,
+        selection: EditorSelection.create(
+            ranges.map(([anchor, head]) => EditorSelection.range(anchor, head)),
+            mainIndex
+        ),
+        extensions: [
+            EditorState.allowMultipleSelections.of(true),
+            markdown({
+                extensions: [GFM],
+            }),
+        ],
+    });
+    return { state } as EditorView;
+};
+
+const getLinkSelection = (contexts: ReturnType<typeof detectContextAtPosition>) => {
+    return contexts.find((context) => context.contextType === 'linkSelection');
+};
+
+const getContext = <T extends EditorContext['contextType']>(
+    contexts: ReturnType<typeof detectContextAtPosition>,
+    contextType: T
+) => {
+    return contexts.find((context) => context.contextType === contextType) as
+        | Extract<EditorContext, { contextType: T }>
+        | undefined;
+};
+
+const createViewWithCursor = (doc: string, pos: number) => {
+    return createViewWithSelection(doc, pos, pos);
+};
+
 describe('contextDetection', () => {
-    const createViewWithSelection = (doc: string, from: number, to: number) => {
-        const state = EditorState.create({
-            doc,
-            selection: EditorSelection.single(from, to),
-            extensions: [
-                EditorState.allowMultipleSelections.of(true),
-                markdown({
-                    extensions: [GFM],
-                }),
-            ],
-        });
-        return { state } as EditorView;
-    };
-
-    const createViewWithRanges = (doc: string, ranges: Array<[number, number]>, mainIndex = 0) => {
-        const state = EditorState.create({
-            doc,
-            selection: EditorSelection.create(
-                ranges.map(([anchor, head]) => EditorSelection.range(anchor, head)),
-                mainIndex
-            ),
-            extensions: [
-                EditorState.allowMultipleSelections.of(true),
-                markdown({
-                    extensions: [GFM],
-                }),
-            ],
-        });
-        return { state } as EditorView;
-    };
-
-    const createViewWithCursor = (doc: string, pos: number) => {
-        return createViewWithSelection(doc, pos, pos);
-    };
-
-    const getLinkSelection = (contexts: ReturnType<typeof detectContextAtPosition>) => {
-        return contexts.find((context) => context.contextType === 'linkSelection');
-    };
-
-    const getContext = <T extends EditorContext['contextType']>(
-        contexts: ReturnType<typeof detectContextAtPosition>,
-        contextType: T
-    ) => {
-        return contexts.find((context) => context.contextType === contextType) as
-            Extract<EditorContext, { contextType: T }> | undefined;
-    };
-
     it('deduplicates autolink URL nodes in selection', () => {
         const doc = '<https://joplinapp.org>';
         const view = createViewWithSelection(doc, 0, doc.length);

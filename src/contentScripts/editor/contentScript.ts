@@ -122,6 +122,7 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             const loadSettings = async (): Promise<void> => {
                 try {
                     const message: ContentScriptMessage = { type: GET_CONTENT_SCRIPT_SETTINGS_MESSAGE };
+                    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Joplin's content script API, not window.postMessage
                     const settings = (await context.postMessage(message)) as ContentScriptSettings | undefined;
                     cleanUpListPaste = settings?.cleanUpListPaste === true;
                 } catch (error) {
@@ -136,13 +137,13 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             // This is called on-demand when the context menu opens
             editorControl.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
                 const pos = view.state.selection.main.head;
-                const context = detectContextAtPosition(view, pos);
+                const contexts = detectContextAtPosition(view, pos);
                 const noteId = view.state.facet(noteIdFacet);
-                for (const item of context) {
+                for (const item of contexts) {
                     if (item.contextType === 'link') item.noteId = noteId;
                 }
-                logger.debug('Context detected at cursor:', context);
-                return context;
+                logger.debug('Context detected at cursor:', contexts);
+                return contexts;
             });
 
             editorControl.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {

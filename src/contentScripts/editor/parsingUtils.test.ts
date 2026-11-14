@@ -16,6 +16,33 @@ import {
     parseInlineCode,
 } from './parsingUtils';
 
+const createView = (doc: string) => {
+    const state = EditorState.create({
+        doc,
+        extensions: [markdown()],
+    });
+    // Mock EditorView since we only need state
+    return { state } as EditorView;
+};
+
+const extractFromFirstLink = <T>(doc: string, extractor: (node: SyntaxNode, view: EditorView) => T): T | null => {
+    const { state } = createView(doc);
+    const tree = syntaxTree(state);
+    let foundLink = false;
+    let extracted: T | null = null;
+
+    tree.iterate({
+        enter: (node) => {
+            if (!foundLink && node.name === 'Link') {
+                foundLink = true;
+                extracted = extractor(node.node, { state } as EditorView);
+            }
+        },
+    });
+
+    return extracted;
+};
+
 describe('parsingUtils', () => {
     describe('classifyUrl', () => {
         it('should identify external HTTP URLs', () => {
@@ -140,36 +167,6 @@ describe('parsingUtils', () => {
     });
 
     describe('Reference Links', () => {
-        const createView = (doc: string) => {
-            const state = EditorState.create({
-                doc,
-                extensions: [markdown()],
-            });
-            // Mock EditorView since we only need state
-            return { state } as EditorView;
-        };
-
-        const extractFromFirstLink = <T>(
-            doc: string,
-            extractor: (node: SyntaxNode, view: EditorView) => T
-        ): T | null => {
-            const { state } = createView(doc);
-            const tree = syntaxTree(state);
-            let foundLink = false;
-            let extracted: T | null = null;
-
-            tree.iterate({
-                enter: (node) => {
-                    if (!foundLink && node.name === 'Link') {
-                        foundLink = true;
-                        extracted = extractor(node.node, { state } as EditorView);
-                    }
-                },
-            });
-
-            return extracted;
-        };
-
         describe('extractUrl', () => {
             it.each([
                 {
@@ -358,7 +355,7 @@ describe('parsingUtils', () => {
             });
 
             it('should return null if only match is inside code block', () => {
-                const text = 'Reference[^1] here.\n\n' + '```\n' + '[^1]: This is inside a code block\n' + '```';
+                const text = 'Reference[^1] here.\n\n```\n[^1]: This is inside a code block\n```';
                 const { state } = createView(text);
                 const pos = findFootnoteDefinition({ state } as EditorView, '1');
                 expect(pos).toBeNull();

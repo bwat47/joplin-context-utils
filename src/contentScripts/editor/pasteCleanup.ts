@@ -153,6 +153,22 @@ function isContinuationOfItem(tree: Tree, doc: Text, pos: number, itemLineNumber
 }
 
 /**
+ * Returns a check for lazy continuation lines that parses the document only on first use.
+ * Without a parser, no line counts as a continuation.
+ */
+function createContinuationCheck(
+    doc: Text,
+    parser: Parser | undefined
+): (pos: number, itemLineNumber: number) => boolean {
+    let tree: Tree | undefined;
+    return (pos, itemLineNumber) => {
+        if (!parser) return false;
+        tree ??= parser.parse(doc.toString());
+        return isContinuationOfItem(tree, doc, pos, itemLineNumber);
+    };
+}
+
+/**
  * Computes changes that renumber the ordered list items following a list item line, continuing
  * from that item's number. Walks sibling items at the item's indentation, skipping blank lines and
  * more deeply indented lines (children, continuation lines). Before stopping at a non-matching line,
@@ -190,7 +206,7 @@ export function getListRenumberChanges(
     let nextNumber = parseInt(target.token, 10) + 1;
     let previousItemLineNumber = firstLineNumber;
     const changes: ChangeSpec[] = [];
-    let tree: Tree | undefined;
+    const isContinuation = createContinuationCheck(doc, parser);
 
     for (let lineNumber = firstLineNumber + 1; lineNumber <= doc.lines; lineNumber++) {
         const line = doc.line(lineNumber);
@@ -205,8 +221,7 @@ export function getListRenumberChanges(
         }
         const item = parseListItem(line.text);
         if (lineIndent < markerIndent || !item?.ordered || item.delimiter !== target.delimiter) {
-            tree ??= parser?.parse(doc.toString());
-            if (tree && isContinuationOfItem(tree, doc, line.from + leadingWhitespaceLength, previousItemLineNumber)) {
+            if (isContinuation(line.from + leadingWhitespaceLength, previousItemLineNumber)) {
                 continue;
             }
             break;
