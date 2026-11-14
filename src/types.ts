@@ -209,7 +209,13 @@ export enum LinkType {
 }
 
 export type EditorContext =
-    LinkContext | CodeContext | TaskContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext;
+    | LinkContext
+    | CodeContext
+    | TaskContext
+    | FootnoteContext
+    | LinkSelectionContext
+    | HeadingContext
+    | QuoteContext;
 
 /**
  * Command IDs - must be globally unique

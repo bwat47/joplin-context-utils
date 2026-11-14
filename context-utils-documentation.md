@@ -101,7 +101,13 @@ Tests live beside the modules they cover as `*.test.ts` files.
 
 ```typescript
 type EditorContext =
-    LinkContext | CodeContext | TaskContext | FootnoteContext | LinkSelectionContext | HeadingContext | QuoteContext;
+    | LinkContext
+    | CodeContext
+    | TaskContext
+    | FootnoteContext
+    | LinkSelectionContext
+    | HeadingContext
+    | QuoteContext;
 
 interface LinkContext {
     contextType: 'link'; // Discriminator
@@ -395,5 +401,13 @@ Footnotes in CodeMirror aren't parsed as distinct syntax nodes. To ensure robust
 ```
 
 Content scripts must be declared here so the shared `@bwat47/joplin-plugin-scripts` build bundles them
-with esbuild. `contentScripts/viewer/viewerContextMenu.js` is plain JavaScript and is copied as-is.
-See [docs/BUILDING.md](docs/BUILDING.md).
+with esbuild. `npm run dist` typechecks, then delegates bundling and packaging to that package, which
+produces `dist/` and the `.jpl` in `publish/`. Build behavior lives in the shared package rather than in
+local scripts.
+
+Content scripts are bundled as CommonJS for the browser and keep Joplin's CodeMirror and Lezer libraries
+external. The plugin's direct `@codemirror/*` and `@lezer/*` dependencies belong in `devDependencies` and
+are pinned to the versions in Joplin's `packages/editor/package.json`.
+
+`contentScripts/viewer/viewerContextMenu.js` and the `resourceProperties/webview/` script and stylesheet are
+plain assets, copied to `dist/` as-is.

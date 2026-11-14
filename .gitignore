@@ -14,9 +14,7 @@ coverage/
 .claude/
 .codex/
 .agents/
-.fallow/
 gemini/
 prompts/
 .claude/settings.local.json
 .api-staging-*/
-.fallowrc.json

@@ -23,7 +23,7 @@ type LinkParseResult = Omit<LinkContext, 'from' | 'to' | 'contextType'> | null;
  * Example: `bobo@nowhere.com` matches; `https://google.com` does not.
  */
 const EMAIL_AUTOLINK_PATTERN =
-    /^[a-z\d.!#$%&'*+/=?^_`{|}~-]+@[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/i;
+    /^[\w.!#$%&'*+/=?^`{|}~-]+@[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?(?:\.[a-z\d](?:[a-z\d-]{0,61}[a-z\d])?)*$/i;
 
 interface ReferenceDefinition {
     label?: string;
@@ -121,13 +121,13 @@ export function parseImageTag(htmlText: string, position = 0): LinkParseResult {
  */
 export function classifyUrl(url: string): LinkParseResult {
     // Determine link type
-    if (/^:\/[a-f0-9]{32}(#[^\s]*)?$/i.test(url)) {
+    if (/^:\/[a-f0-9]{32}(?:#\S*)?$/i.test(url)) {
         return { url, type: LinkType.JoplinResource };
     } else if (/^mailto:/i.test(url)) {
         return { url, type: LinkType.Email };
     } else if (/^https?:\/\//.test(url)) {
         return { url, type: LinkType.ExternalUrl };
-    } else if (/^#[^\s]+$/.test(url)) {
+    } else if (/^#\S+$/.test(url)) {
         // Internal anchor link (e.g., #heading-slug)
         return { url, type: LinkType.InternalAnchor };
     }
@@ -293,7 +293,7 @@ export function findFootnoteDefinition(view: EditorView, label: string): number 
 
     for (const line of view.state.doc.iterLines()) {
         // Track fenced code blocks (``` or ~~~)
-        if (/^(`{3,}|~{3,})/.test(line)) {
+        if (/^(?:`{3,}|~{3,})/.test(line)) {
             inFencedCode = !inFencedCode;
         }
 

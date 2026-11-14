@@ -106,19 +106,19 @@ describe('parseListItem', () => {
     });
 });
 
-describe('getListRenumberChanges', () => {
-    const renumber = (lines: string[], linePrefix: string, tabSize = 4) => {
-        const doc = Text.of(lines);
-        const changes = getListRenumberChanges(
-            doc,
-            1,
-            linePrefix,
-            tabSize,
-            markdown({ extensions: [GFM] }).language.parser
-        );
-        return ChangeSet.of(changes, doc.length).apply(doc).toString();
-    };
+const renumber = (lines: string[], linePrefix: string, tabSize = 4) => {
+    const doc = Text.of(lines);
+    const changes = getListRenumberChanges(
+        doc,
+        1,
+        linePrefix,
+        tabSize,
+        markdown({ extensions: [GFM] }).language.parser
+    );
+    return ChangeSet.of(changes, doc.length).apply(doc).toString();
+};
 
+describe('getListRenumberChanges', () => {
     it('continues numbering from the prefix number', () => {
         expect(renumber(['2. a', '1. b', '1. c'], '2. ')).toBe('2. a\n3. b\n4. c');
     });
@@ -146,32 +146,32 @@ describe('getListRenumberChanges', () => {
     });
 });
 
+const createState = (doc: string, ranges: Array<[number, number]>, enabled = true, extensions: Extension[] = []) =>
+    EditorState.create({
+        doc,
+        selection: EditorSelection.create(ranges.map(([anchor, head]) => EditorSelection.range(anchor, head))),
+        extensions: [
+            EditorState.allowMultipleSelections.of(true),
+            markdown({ extensions: [GFM] }),
+            createPasteCleanupExtension(() => enabled),
+            ...extensions,
+        ],
+    });
+
+/** Mirrors Joplin's `insertText(text, UserEventSource.Paste)` */
+const paste = (state: EditorState, text: string, userEvent = 'input.paste') =>
+    state.update(state.replaceSelection(text), { userEvent }).state;
+
+/** Pastes at the cursor (`|`) or over the selection (`|...|`) marked in `docWithCursor`. */
+const pasteAt = (docWithCursor: string, text: string, enabled = true, extensions: Extension[] = []) => {
+    const anchor = docWithCursor.indexOf('|');
+    const head = docWithCursor.indexOf('|', anchor + 1);
+    const doc = docWithCursor.replace(/\|/g, '');
+    const range: [number, number] = head === -1 ? [anchor, anchor] : [anchor, head - 1];
+    return paste(createState(doc, [range], enabled, extensions), text);
+};
+
 describe('createPasteCleanupExtension', () => {
-    const createState = (doc: string, ranges: Array<[number, number]>, enabled = true, extensions: Extension[] = []) =>
-        EditorState.create({
-            doc,
-            selection: EditorSelection.create(ranges.map(([anchor, head]) => EditorSelection.range(anchor, head))),
-            extensions: [
-                EditorState.allowMultipleSelections.of(true),
-                markdown({ extensions: [GFM] }),
-                createPasteCleanupExtension(() => enabled),
-                ...extensions,
-            ],
-        });
-
-    /** Mirrors Joplin's `insertText(text, UserEventSource.Paste)` */
-    const paste = (state: EditorState, text: string, userEvent = 'input.paste') =>
-        state.update(state.replaceSelection(text), { userEvent }).state;
-
-    /** Pastes at the cursor (`|`) or over the selection (`|...|`) marked in `docWithCursor`. */
-    const pasteAt = (docWithCursor: string, text: string, enabled = true, extensions: Extension[] = []) => {
-        const anchor = docWithCursor.indexOf('|');
-        const head = docWithCursor.indexOf('|', anchor + 1);
-        const doc = docWithCursor.replace(/\|/g, '');
-        const range: [number, number] = head === -1 ? [anchor, anchor] : [anchor, head - 1];
-        return paste(createState(doc, [range], enabled, extensions), text);
-    };
-
     it('strips the pasted marker on a list line', () => {
         const result = paste(createState('Intro\n\n- ', [[9, 9]]), '- foo');
         expect(result.doc.toString()).toBe('Intro\n\n- foo');
@@ -546,18 +546,18 @@ describe('createPasteCleanupExtension', () => {
     });
 });
 
-describe('getPastedLineChanges', () => {
-    const reindent = (doc: string, pasteFrom: number, pasted: string, linePrefix: string) =>
-        getPastedLineChanges(
-            Text.of(doc.split('\n')),
-            pasteFrom,
-            pasted,
-            linePrefix,
-            4,
-            (columns) => ' '.repeat(columns),
-            markdown({ extensions: [GFM] }).language.parser
-        );
+const reindent = (doc: string, pasteFrom: number, pasted: string, linePrefix: string) =>
+    getPastedLineChanges(
+        Text.of(doc.split('\n')),
+        pasteFrom,
+        pasted,
+        linePrefix,
+        4,
+        (columns) => ' '.repeat(columns),
+        markdown({ extensions: [GFM] }).language.parser
+    );
 
+describe('getPastedLineChanges', () => {
     it('returns no changes for a single-line paste', () => {
         expect(reindent('  - a', 4, '- a', '  - ')).toEqual([]);
     });

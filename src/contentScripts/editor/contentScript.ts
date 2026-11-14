@@ -122,6 +122,7 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             const loadSettings = async (): Promise<void> => {
                 try {
                     const message: ContentScriptMessage = { type: GET_CONTENT_SCRIPT_SETTINGS_MESSAGE };
+                    // oxlint-disable-next-line unicorn/require-post-message-target-origin -- Joplin's content script API, not window.postMessage
                     const settings = (await context.postMessage(message)) as ContentScriptSettings | undefined;
                     cleanUpListPaste = settings?.cleanUpListPaste === true;
                 } catch (error) {
@@ -136,13 +137,13 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
             // This is called on-demand when the context menu opens
             editorControl.registerCommand(GET_CONTEXT_AT_CURSOR_COMMAND, () => {
                 const pos = view.state.selection.main.head;
-                const context = detectContextAtPosition(view, pos);
+                const contexts = detectContextAtPosition(view, pos);
                 const noteId = view.state.facet(noteIdFacet);
-                for (const item of context) {
+                for (const item of contexts) {
                     if (item.contextType === 'link') item.noteId = noteId;
                 }
-                logger.debug('Context detected at cursor:', context);
-                return context;
+                logger.debug('Context detected at cursor:', contexts);
+                return contexts;
             });
 
             editorControl.registerCommand(IS_EDITOR_CONTEXT_MENU_ORIGIN_COMMAND, () => {
@@ -218,7 +219,7 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
                     // Remap the existing selection through the replacements so a
                     // partial selection / caret on a rewritten line is preserved
                     // instead of being collapsed to the line boundary.
-                    const sorted = [...replacements].sort((a, b) => a.from - b.from);
+                    const sorted = replacements.toSorted((a, b) => a.from - b.from);
                     const previousSelection = view.state.selection;
                     const mappedSelection = EditorSelection.create(
                         previousSelection.ranges.map((range) =>

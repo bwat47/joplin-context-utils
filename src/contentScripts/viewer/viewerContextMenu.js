@@ -18,6 +18,8 @@
 
     const CONTENT_SCRIPT_ID = 'contextUtilsViewerTasks';
 
+    /* oxlint-disable unicorn/consistent-function-scoping -- Plain script; the IIFE keeps helpers out of the viewer's global scope. */
+
     /**
      * True when the selection range covers some text of the element.
      * Touching the element's boundary (for example a triple-click selection
@@ -37,6 +39,40 @@
         return !overlap.collapsed && overlap.toString().length > 0;
     };
 
+    /**
+     * True when any range of the selection covers some text of the element.
+     * @param {Selection} selection
+     * @param {Node} element
+     */
+    const selectionCoversTextIn = (selection, element) => {
+        for (let i = 0; i < selection.rangeCount; i++) {
+            if (selectsTextIn(selection.getRangeAt(i), element)) return true;
+        }
+        return false;
+    };
+
+    /**
+     * The task for a checkbox list item when the selection covers the item's own text.
+     * @param {Element} item
+     * @param {Selection} selection
+     * @returns {import('../../viewerTasks').ViewerTask | null}
+     */
+    const getSelectedTask = (item, selection) => {
+        if (!(item instanceof HTMLElement)) return null;
+        const line = item.getAttribute('source-line');
+        // The item's own checkbox comes before any nested task list.
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        if (!(checkbox instanceof HTMLInputElement) || !checkbox.parentElement || line === null || !/^\d+$/.test(line))
+            return null;
+
+        // Test the checkbox's wrapper (checkbox + label), not the whole item:
+        // a parent item contains its nested list, which is selected on its own.
+        const ownContent = checkbox.parentElement === item ? checkbox : checkbox.parentElement;
+        return selectionCoversTextIn(selection, ownContent) ? { line: Number(line), checked: checkbox.checked } : null;
+    };
+
+    /* oxlint-enable unicorn/consistent-function-scoping */
+
     const findSelectedTasks = () => {
         const selection = window.getSelection();
         if (!selection || selection.isCollapsed) return null;
@@ -44,27 +80,8 @@
         /** @type {import('../../viewerTasks').ViewerTask[]} */
         const tasks = [];
         for (const item of document.querySelectorAll('li.md-checkbox[source-line]')) {
-            if (!(item instanceof HTMLElement)) continue;
-            const line = item.getAttribute('source-line');
-            // The item's own checkbox comes before any nested task list.
-            const checkbox = item.querySelector('input[type="checkbox"]');
-            if (
-                !(checkbox instanceof HTMLInputElement) ||
-                !checkbox.parentElement ||
-                line === null ||
-                !/^\d+$/.test(line)
-            )
-                continue;
-
-            // Test the checkbox's wrapper (checkbox + label), not the whole item:
-            // a parent item contains its nested list, which is selected on its own.
-            const ownContent = checkbox.parentElement === item ? checkbox : checkbox.parentElement;
-            for (let i = 0; i < selection.rangeCount; i++) {
-                if (selectsTextIn(selection.getRangeAt(i), ownContent)) {
-                    tasks.push({ line: Number(line), checked: checkbox.checked });
-                    break;
-                }
-            }
+            const task = getSelectedTask(item, selection);
+            if (task) tasks.push(task);
         }
         return tasks.length > 0 ? tasks : null;
     };

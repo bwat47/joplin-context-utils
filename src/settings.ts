@@ -208,10 +208,10 @@ export async function getSetting<K extends SettingKey>(key: K): Promise<Settings
     return (value === undefined ? SETTINGS_CONFIG[key].defaultValue : value) as Settings[K];
 }
 
-function setSettingValue<K extends SettingKey>(settings: Settings, key: K, value: unknown): void {
+function setSettingValue(settings: Settings, key: SettingKey, value: unknown): void {
     // Joplin omits unknown keys from values(); keep the registered default in that case.
     if (value === undefined) return;
-    settings[key] = value as Settings[K];
+    (settings as Record<SettingKey, unknown>)[key] = value;
 }
 
 export async function registerSettings(): Promise<void> {

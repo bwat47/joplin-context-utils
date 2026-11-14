@@ -62,15 +62,15 @@ function serializeForm(form: HTMLFormElement): Record<string, Record<string, For
     return { [form.getAttribute('name')!]: Object.fromEntries(new FormData(form)) };
 }
 
-function field<T extends Element>(form: HTMLFormElement, name: string): T {
-    return form.elements.namedItem(name) as T;
+function field(form: HTMLFormElement, name: string): HTMLInputElement {
+    return form.elements.namedItem(name) as HTMLInputElement;
 }
 
 describe('resource properties dialog form', () => {
     it('shows the resource properties and referencing notes', () => {
         const form = renderDialog(buildResourcePropertiesDialogHtml(input()));
 
-        expect(field<HTMLInputElement>(form, 'name').value).toBe('photo.png');
+        expect(field(form, 'name').value).toBe('photo.png');
         expect(form.querySelector('.resource-id')?.textContent).toBe('a'.repeat(32));
         expect(form.textContent).toContain('image/png');
         expect(form.textContent).toContain('2.0 KB (2,048 bytes)');
@@ -93,7 +93,7 @@ describe('resource properties dialog form', () => {
 
         expect(form.querySelector('img')).toBeNull();
         expect(form.querySelector('b')).toBeNull();
-        expect(field<HTMLInputElement>(form, 'name').value).toBe('"><img src=x onerror=alert(1)>');
+        expect(field(form, 'name').value).toBe('"><img src=x onerror=alert(1)>');
         expect([...form.querySelectorAll('.notes li')].map((item) => item.textContent)).toEqual([
             '<b>bold</b>',
             '(Untitled)',
@@ -103,7 +103,7 @@ describe('resource properties dialog form', () => {
     it('falls back to the filename for an untitled resource', () => {
         const form = renderDialog(buildResourcePropertiesDialogHtml(input({ resource: resource({ title: '' }) })));
 
-        expect(field<HTMLInputElement>(form, 'name').value).toBe('photo.png');
+        expect(field(form, 'name').value).toBe('photo.png');
     });
 
     it('says when no notes reference the resource', () => {
@@ -115,13 +115,13 @@ describe('resource properties dialog form', () => {
     it('omits the link text option when the link has no label', () => {
         const form = renderDialog(buildResourcePropertiesDialogHtml(input({ canUpdateLinkLabel: false })));
 
-        expect(field(form, 'updateLinkLabel')).toBeNull();
+        expect(form.elements.namedItem('updateLinkLabel')).toBeNull();
         expect(parseResourcePropertiesFormData(serializeForm(form))?.updateLinkLabel).toBe(false);
     });
 
     it.each([true, false])('round-trips the link text option when checked is %s', (checked) => {
         const form = renderDialog(buildResourcePropertiesDialogHtml(input({ updateLinkLabelByDefault: checked })));
-        field<HTMLInputElement>(form, 'name').value = '  Renamed.png  ';
+        field(form, 'name').value = '  Renamed.png  ';
 
         expect(parseResourcePropertiesFormData(serializeForm(form))).toEqual({
             name: 'Renamed.png',
@@ -134,16 +134,16 @@ describe('resource properties dialog form', () => {
     });
 });
 
-describe('resource properties webview script', () => {
-    const runScript = (): void => {
-        window.eval(webviewScript);
-    };
+const runScript = (): void => {
+    window.eval(webviewScript);
+};
 
+describe('resource properties webview script', () => {
     it('focuses the name without selecting any text', () => {
         const form = renderDialog(buildResourcePropertiesDialogHtml(input()));
         runScript();
 
-        const name = field<HTMLInputElement>(form, 'name');
+        const name = field(form, 'name');
         expect(document.activeElement).toBe(name);
         expect(name.selectionStart).toBe(name.selectionEnd);
     });

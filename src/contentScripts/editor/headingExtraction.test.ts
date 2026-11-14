@@ -58,26 +58,26 @@ const inlineMathConfig: MarkdownConfig = {
     ],
 };
 
+const createView = (doc: string) => {
+    const state = EditorState.create({
+        doc,
+        extensions: [
+            markdown({
+                extensions: [GFM, inlineMathConfig],
+            }),
+        ],
+    });
+    return { state } as EditorView;
+};
+
+// Returns the heading detected when the cursor sits inside the line containing `needle`
+const headingAt = (doc: string, needle: string) => {
+    const view = createView(doc);
+    const pos = doc.indexOf(needle) + 1;
+    return getHeadingAtPosition(view, pos);
+};
+
 describe('headingExtraction', () => {
-    const createView = (doc: string) => {
-        const state = EditorState.create({
-            doc,
-            extensions: [
-                markdown({
-                    extensions: [GFM, inlineMathConfig],
-                }),
-            ],
-        });
-        return { state } as EditorView;
-    };
-
-    // Returns the heading detected when the cursor sits inside the line containing `needle`
-    const headingAt = (doc: string, needle: string) => {
-        const view = createView(doc);
-        const pos = doc.indexOf(needle) + 1;
-        return getHeadingAtPosition(view, pos);
-    };
-
     it('detects a simple ATX heading and slugifies its text', () => {
         const result = headingAt('# Introduction', 'Introduction');
         expect(result).toEqual({ text: 'Introduction', anchor: 'introduction' });
