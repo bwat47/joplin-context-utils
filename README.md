@@ -101,3 +101,14 @@ It also adjusts the pasted list to the current list's indentation and style, and
 ## Misc Notes
 
 - Some of these context menu options overlap with the ones provided by the Rich Markdown plugin. Each option can be toggled on/off to avoid conflicts/duplicate menu items.
+
+## Building from source
+
+Requires Node 22 or later.
+
+```sh
+npm ci
+npm run dist
+```
+
+The build creates the installable plugin at `publish/com.bwat47.context-utils.jpl`.
