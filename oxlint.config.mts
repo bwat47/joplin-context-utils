@@ -32,8 +32,6 @@ export default defineConfig({
         'import/no-cycle': 'error',
         'import/no-self-import': 'error',
         'import/no-duplicates': ['error', { preferInline: true }],
-        // `Array#toSorted()` is ES2023; this plugin targets ES2021. Sorts operate on local copies.
-        'unicorn/no-array-sort': 'off',
         ...regexpRecommendedRules,
         // The `i` flag applies to the whole pattern; keep explicit case ranges in character classes.
         'regexp/use-ignore-case': 'off',

@@ -219,7 +219,7 @@ export default (context: ContentScriptContext): MarkdownEditorContentScriptModul
                     // Remap the existing selection through the replacements so a
                     // partial selection / caret on a rewritten line is preserved
                     // instead of being collapsed to the line boundary.
-                    const sorted = [...replacements].sort((a, b) => a.from - b.from);
+                    const sorted = replacements.toSorted((a, b) => a.from - b.from);
                     const previousSelection = view.state.selection;
                     const mappedSelection = EditorSelection.create(
                         previousSelection.ranges.map((range) =>

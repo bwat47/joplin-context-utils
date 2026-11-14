@@ -474,7 +474,7 @@ function detectTasksInSelectionRanges(view: EditorView): TaskContext | null {
         }
     }
 
-    const sortedTasks = [...tasks.values()].sort((a, b) => a.from - b.from);
+    const sortedTasks = [...tasks.values()].toSorted((a, b) => a.from - b.from);
     if (sortedTasks.length === 0) return null;
 
     return buildTaskContext(sortedTasks);
@@ -532,7 +532,9 @@ function collectTasksInRange(view: EditorView, from: number, to: number, tree = 
  */
 export function resolveViewerTasks(view: EditorView, viewerTasks: ViewerTask[]): TaskContext | null {
     const doc = view.state.doc;
-    const lines = [...new Map(viewerTasks.map((task) => [task.line, task])).values()].sort((a, b) => a.line - b.line);
+    const lines = [...new Map(viewerTasks.map((task) => [task.line, task])).values()].toSorted(
+        (a, b) => a.line - b.line
+    );
     const lastLine = lines[lines.length - 1];
     if (!lastLine || lastLine.line >= doc.lines) return null;
 
@@ -584,13 +586,13 @@ function detectLinksInSelection(view: EditorView): LinkSelectionContext | null {
     if (links.length === 0) return null;
 
     // Order links by document position (selection ranges may be out of order)
-    links.sort((a, b) => a.from - b.from);
+    const sortedLinks = links.toSorted((a, b) => a.from - b.from);
 
     return {
         contextType: 'linkSelection',
-        links,
-        from: links[0]!.from,
-        to: Math.max(...links.map((link) => link.to)),
+        links: sortedLinks,
+        from: sortedLinks[0]!.from,
+        to: Math.max(...sortedLinks.map((link) => link.to)),
     };
 }
 

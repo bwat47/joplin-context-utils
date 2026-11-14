@@ -1,4 +1,4 @@
 {
     "extraScripts": ["contentScripts/editor/contentScript.ts", "contentScripts/viewer/viewerContentScript.ts"],
-    "buildOptions": { "target": "es2021" }
+    "buildOptions": { "target": "es2023" }
 }
